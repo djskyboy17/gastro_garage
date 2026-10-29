@@ -23,3 +23,20 @@ export function validPortalSlot(date:string,time:string,now=new Date()){
   return date>=localDay && date<=max.toISOString().slice(0,10) && (date!==localDay||time>localTime);
 }
 export function portalItemName(item:{hu:string;ro:string},lang:Language){return item[lang];}
+/** Az ügyfélnek mutatott lépéssor; a konyhai állapotokból számolódik (v19). */
+export type ProgressStep={key:string;state:"done"|"current"|"todo"};
+export type OrderProgress={steps:ProgressStep[];failed:boolean;closed:"rejected"|"cancelled"|null};
+export function orderProgress(o:Pick<PortalOrder,"status"|"production"|"delivery"|"fulfillmentMode">):OrderProgress{
+  if(o.status==="rejected"||o.status==="cancelled")return {steps:[],failed:false,closed:o.status};
+  const pickup=o.fulfillmentMode==="pickup";
+  const keys=["progressReceived","progressConfirmed","progressCooking","progressReady",pickup?"progressPickupReady":"progressTransit",pickup?"progressPickedUp":"progressDelivered"];
+  // Az utolsó elért lépés indexe.
+  let reached=0;
+  if(o.status==="confirmed")reached=1;
+  if(reached>=1&&o.production==="cooking")reached=2;
+  if(reached>=1&&o.production==="ready")reached=pickup?4:3;
+  if(!pickup&&(o.delivery==="transit"||o.delivery==="failed"))reached=4;
+  if(o.delivery==="delivered")reached=5;
+  const failed=!pickup&&o.delivery==="failed";
+  return {failed,closed:null,steps:keys.map((key,i)=>({key,state:i<reached||(i===reached&&i===keys.length-1)?"done":i===reached?"current":"todo"}))};
+}

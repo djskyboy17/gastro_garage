@@ -24,3 +24,21 @@ test("Only requested status review/cancellation may precede normal operations",(
   for(const field of ["production","payment","delivery"])assert.throws(()=>nextState(base,field,"paid"),/ORDER_NOT_CONFIRMED/);
   assert.equal(nextState(base,"status","confirmed").status,"confirmed");assert.equal(nextState(base,"status","rejected").status,"rejected");assert.equal(nextState(base,"status","cancelled").status,"cancelled");assert.throws(()=>nextState({...base,status:"rejected"},"status","confirmed"),/REJECTED/);
 });
+test("Ügyfél-lépéssor: a konyhai állapotokból számol, kiszállításnál és átvételnél is", async () => {
+  const { orderProgress } = await import("../src/modules/portal/domain.ts");
+  const cur = (o: Parameters<typeof orderProgress>[0]) => orderProgress(o).steps.find((s) => s.state === "current")?.key;
+  const base = { status: "requested", production: "queued", delivery: "pending", fulfillmentMode: "delivery" };
+  assert.equal(cur(base), "progressReceived");
+  assert.equal(cur({ ...base, status: "confirmed" }), "progressConfirmed");
+  assert.equal(cur({ ...base, status: "confirmed", production: "cooking" }), "progressCooking");
+  assert.equal(cur({ ...base, status: "confirmed", production: "ready" }), "progressReady");
+  assert.equal(cur({ ...base, status: "confirmed", production: "ready", delivery: "transit" }), "progressTransit");
+  const done = orderProgress({ ...base, status: "confirmed", production: "ready", delivery: "delivered" });
+  assert.ok(done.steps.every((s) => s.state === "done"));
+  assert.equal(orderProgress({ ...base, status: "confirmed", production: "ready", delivery: "failed" }).failed, true);
+  const pickup = { ...base, fulfillmentMode: "pickup", status: "confirmed", production: "ready" };
+  assert.equal(cur(pickup), "progressPickupReady");
+  assert.deepEqual(orderProgress(pickup).steps.map((s) => s.key).slice(-2), ["progressPickupReady", "progressPickedUp"]);
+  assert.equal(orderProgress({ ...base, status: "rejected" }).closed, "rejected");
+  assert.deepEqual(orderProgress({ ...base, status: "cancelled" }).steps, []);
+});

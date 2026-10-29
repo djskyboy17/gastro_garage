@@ -159,3 +159,7 @@ Az időpontok beviteli mezői (rendelés időpontja, ismétlődő rendelés, por
 ## Szerkeszthető idősávok — v18
 
 A Rendelési szabályokban egy idősáv ideje, napjai és módja addig szabadon átírható, amíg nincs rá rendelés. Ha már van (bármilyen állapotú) rendelés, ezek az adatok rögzítettek – ilyenkor kapcsold ki vagy töröld az idősávot, és vegyél fel újat; a hely (kapacitás) továbbra is módosítható. A mentés a tranzakción belül is ellenőrzi, hogy közben nem érkezett-e foglalás az átírt idősávra. 0 hellyel az idősáv nem foglalható.
+
+## Élő rendelési állapot az ügyfélnek — v19
+
+Az ügyfélportál „Rendeléseim” listájában minden rendelésnél lépéssor mutatja, hol tart: Beérkezett → Visszaigazolva → Készül → Elkészült → Úton → Kézbesítve (átvételnél: … → Átvehető → Átvéve). A lépések a konyhai, csomagolási és kiszállítási állapotokból számolódnak (`orderProgress` a `src/modules/portal/domain.ts`-ben); elutasított vagy lemondott rendelésnél nincs lépéssor, sikertelen kézbesítésnél figyelmeztetés jelenik meg. A lista 30 másodpercenként, illetve a fülre visszatéréskor magától frissül, de csak amíg az oldal látható; a kosár és a megkezdett űrlap ilyenkor nem változik.
