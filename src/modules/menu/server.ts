@@ -5,6 +5,7 @@ import {eq} from 'drizzle-orm';
 import {z} from 'zod';
 import {today} from '../shared/domain';
 import {publicProduct} from '../portal/domain';
+import {publicDishInfos} from '../inventory/server';
 import {validDay,addDays,cutoffInstant,type MenuData} from './domain';
 export class MenuError extends Error{constructor(public code:string,public status=400){super(code);}}
 const usage=`SELECT COALESCE(SUM(i.quantity),0) FROM order_items i JOIN orders o ON o.id=i.order_id WHERE o.date=l.date AND i.product_id=l.product_id AND o.status IN ('requested','confirmed')`;
@@ -17,7 +18,9 @@ export async function publicMenu(date:string){
   const [days,catalog,lines]=await Promise.all([getDb().select().from(menuDays).where(eq(menuDays.date,date)),getDb().select().from(products),env.DB!.prepare(`SELECT l.product_id AS productId,l.capacity,(${usage}) AS reserved FROM menu_lines l WHERE l.date=?`).bind(date).all()]);
   const day=days[0];
   if(!day||!day.active)return {date,open:false,cutoffAt:null,items:[]};
-  return {date,open:Date.now()<Date.parse(day.cutoffAt),cutoffAt:day.cutoffAt,items:lines.results.flatMap(l=>{const p=catalog.find(p=>p.id===l.productId&&p.active===1&&p.portalVisible===1);return p?[{...publicProduct(p),remaining:Math.max(0,Number(l.capacity)-Number(l.reserved))}]:[];})};
+  const offered=catalog.filter(p=>p.active===1&&p.portalVisible===1&&lines.results.some(l=>l.productId===p.id));
+  const infos=await publicDishInfos(offered);
+  return {date,open:Date.now()<Date.parse(day.cutoffAt),cutoffAt:day.cutoffAt,items:lines.results.flatMap(l=>{const p=offered.find(p=>p.id===l.productId);return p?[{...publicProduct(p),info:infos.get(p.id)??null,remaining:Math.max(0,Number(l.capacity)-Number(l.reserved))}]:[];})};
 }
 const input=z.object({date:z.string().refine(validDay),revision:z.number().int().min(0).nullable(),cutoff:z.string(),active:z.number().int().min(0).max(1),items:z.array(z.object({productId:z.string().min(1).max(200),capacity:z.number().int().min(0).max(100000)}).strict()).min(1).max(100)}).strict();
 export async function saveMenu(body:unknown,actor:string){

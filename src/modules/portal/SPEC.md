@@ -23,3 +23,7 @@ The portal UI reads public GET /api/portal/menu?date=YYYY-MM-DD. The generic pub
 ## v11 fulfillment
 
 New portal requests require mode, slotId and postalCode (empty for pickup), with time equal to the chosen slot start. The fulfillment module enforces declared delivery zones, food subtotal minimum, shipping fee, weekly/date closures and independent order-count slot capacity. Preview/submit snapshot the policy and fee, and policy revision invalidates stale quotes. Public orders expose only their own saved fulfillment details. Pickup can use an empty private address; delivery still requires one. See ../fulfillment/SPEC.md.
+
+## v16 dish information before ordering
+
+The public menu (GET /api/portal/menu) and the public catalog also return `info` for each offered dish, calculated from its latest recipe (see ../inventory/SPEC.md): ingredient names (HU/RO) in descending weight with preparations as bracketed groups, frozen marks, allergens (ingredients through preparations plus the declared dish allergens), nutrition per 100 g of finished product, and a `complete` flag. It deliberately contains no quantities, grams, recipe or version IDs, costs, suppliers or stock data. Dishes without a recipe get `info: null` and the portal tells the customer to ask the kitchen. Incomplete nutrition shows "not yet given" instead of values. The portal shows this information on every dish card before it can be added to the cart (EU 1169/2011 art. 14, ANPC 201/2022). The information is calculated, not approved; additives are not yet recorded.

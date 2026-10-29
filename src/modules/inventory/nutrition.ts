@@ -152,8 +152,10 @@ export function recipeInfo(product: Product, recipe: Recipe, ops: OperationsData
   };
 }
 
+type NamedNode = { name: { hu: string; ro: string }; frozen: boolean; children?: NamedNode[] };
+
 /** Az összetevőlista szövegként: „Liszt, Mártás (Tejszín*, Vaj)”; `*` = fagyasztott. */
-export function ingredientText(nodes: InfoNode[], lang: "hu" | "ro"): string {
+export function ingredientText(nodes: NamedNode[], lang: "hu" | "ro"): string {
   return nodes
     .map((n) => {
       const label = n.name[lang] + (n.frozen ? "*" : "");
@@ -162,6 +164,31 @@ export function ingredientText(nodes: InfoNode[], lang: "hu" | "ro"): string {
     .join(", ");
 }
 
-export function hasFrozen(nodes: InfoNode[]): boolean {
+export function hasFrozen(nodes: NamedNode[]): boolean {
   return nodes.some((n) => n.frozen || hasFrozen(n.children ?? []));
+}
+
+/** A nyilvános portálra kerülő ételinformáció: mennyiség, recept és belső adat nélkül. */
+export type PublicInfoNode = { name: { hu: string; ro: string }; frozen: boolean; children?: PublicInfoNode[] };
+export type PublicDishInfo = {
+  ingredients: PublicInfoNode[];
+  allergens: string[];
+  nutritionPer100g: Nutrition | null;
+  /** Hamis, ha valamelyik alapanyag tápértéke vagy egy al-recept hiányzik. */
+  complete: boolean;
+};
+
+export function toPublicDishInfo(info: DishInfo): PublicDishInfo {
+  const strip = (nodes: InfoNode[]): PublicInfoNode[] =>
+    nodes.map((n) => ({
+      name: { hu: n.name.hu, ro: n.name.ro },
+      frozen: n.frozen,
+      ...(n.children?.length ? { children: strip(n.children) } : {}),
+    }));
+  return {
+    ingredients: strip(info.ingredients),
+    allergens: [...info.allergens],
+    nutritionPer100g: info.nutritionPer100g,
+    complete: info.missing.length === 0 && info.missingPreparations.length === 0,
+  };
 }

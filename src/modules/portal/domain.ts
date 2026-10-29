@@ -1,6 +1,6 @@
 import {orderFulfillment,type FulfillmentSnapshot} from "../fulfillment/domain.ts";
 import type {Product,Order,Language} from "../shared/domain";
-export type PublicProduct = Pick<Product,"id"|"hu"|"ro"|"descriptionHu"|"descriptionRo"|"category"|"price"|"portion"|"allergens">;
+export type PublicProduct = Pick<Product,"id"|"hu"|"ro"|"descriptionHu"|"descriptionRo"|"category"|"price"|"portion"|"allergens">&{info?:import("../inventory/nutrition").PublicDishInfo|null};
 export type PortalProfile={name:string;address:string;phone:string;revision:number};
 export type PortalOrder=Pick<Order,"id"|"customerName"|"address"|"phone"|"date"|"time"|"note"|"status"|"production"|"delivery"|"payment"|"revision"|"createdAt"|"reviewNote">&{fulfillmentMode:string;deliveryFee:number;fulfillment:FulfillmentSnapshot|null;items:Pick<Order["items"][number],"id"|"hu"|"ro"|"allergens"|"price"|"quantity">[]};
 export type PortalData={profile:PortalProfile|null;orders:PortalOrder[]};

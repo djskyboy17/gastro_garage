@@ -23,9 +23,18 @@ import {
   requirements,
   latestRecipe,
   latestPreparation,
+  emptyOperations,
   type OperationsData,
 } from "./domain";
-import { nutrientKeys, serializeNutrition, type Nutrition } from "./nutrition";
+import {
+  dishInfo,
+  nutrientKeys,
+  serializeNutrition,
+  toPublicDishInfo,
+  type Nutrition,
+  type PublicDishInfo,
+} from "./nutrition";
+import type { Product } from "../shared/domain";
 import { today, type Order } from "../shared/domain";
 import { sampleIngredients, sampleRecipes } from "./seed";
 const json = (v: unknown, status = 200) =>
@@ -93,6 +102,44 @@ export async function loadOperations(): Promise<OperationsData> {
       lines: prepLines.filter((line) => line.versionId === v.id),
     })),
   };
+}
+/** Csak a recept- és alapanyagadatok (készlet, mozgások nélkül) az ételinformációhoz. */
+async function loadRecipeData(): Promise<OperationsData> {
+  const db = getDb();
+  const [i, r, l, preps, versions, prepLines, recipePreps] = await Promise.all([
+    db.select().from(ingredients),
+    db.select().from(recipes),
+    db.select().from(recipeLines),
+    db.select().from(preparations),
+    db.select().from(preparationVersions),
+    db.select().from(preparationLines),
+    db.select().from(recipePreparationLines),
+  ]);
+  return {
+    ...emptyOperations,
+    ingredients: i,
+    recipes: r.map((recipe) => ({
+      ...recipe,
+      lines: l.filter((line) => line.recipeId === recipe.id),
+      preparations: recipePreps.filter((line) => line.recipeId === recipe.id),
+    })),
+    preparations: preps,
+    preparationVersions: versions.map((v) => ({ ...v, lines: prepLines.filter((line) => line.versionId === v.id) })),
+  };
+}
+/**
+ * Nyilvános ételinformáció a megadott ételekhez (ANPC 201/2022: rendelés előtt elérhető).
+ * Recept nélküli ételnél `null`.
+ */
+export async function publicDishInfos(productRows: Product[]): Promise<Map<string, PublicDishInfo | null>> {
+  if (productRows.length === 0) return new Map();
+  const ops = await loadRecipeData();
+  return new Map(
+    productRows.map((p) => {
+      const info = dishInfo(p, ops);
+      return [p.id, info ? toPublicDishInfo(info) : null];
+    }),
+  );
 }
 // Tápérték századokban (pl. 2,20 g → 220); a felület számol át.
 const nutritionInput = z

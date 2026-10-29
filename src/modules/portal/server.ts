@@ -11,11 +11,16 @@ import {products,customers,orders,orderItems,portalProfiles,portalSubmissions,re
 import {isAdmin,type Session} from "../access/domain";
 import type {Identity} from "../access/server";
 import {publicProduct,publicOrder,validPortalSlot,type PortalData,type PortalAccount,type PortalPreview} from "./domain";
+import {publicDishInfos} from "../inventory/server";
 export class PortalError extends Error {constructor(public code:string,public status=400){super(code);}}
 const json=(v:unknown,status=200)=>Response.json(v,{status,headers:{"Cache-Control":"no-store"}});
 const profileInput=z.object({revision:z.number().int().min(0).optional(),name:z.string().trim().min(1).max(200),address:z.string().trim().max(500).refine(v=>v.length===0||v.length>=5),phone:z.string().trim().regex(/^[+0-9 ()-]{6,40}$/)}).strict();
 const orderInput=z.object({mode:z.enum(["delivery","pickup"]),slotId:z.string().uuid(),postalCode:z.string().max(6),date:z.string(),time:z.string(),note:z.string().trim().max(1500),items:z.array(z.object({productId:z.string().min(1).max(200),quantity:z.number().int().min(1).max(100)}).strict()).min(1).max(10)}).strict();
-export async function loadPublicCatalog(){return (await getDb().select().from(products).where(and(eq(products.active,1),eq(products.portalVisible,1)))).map(publicProduct);}
+export async function loadPublicCatalog(){
+  const rows=await getDb().select().from(products).where(and(eq(products.active,1),eq(products.portalVisible,1)));
+  const infos=await publicDishInfos(rows);
+  return rows.map(p=>({...publicProduct(p),info:infos.get(p.id)??null}));
+}
 async function account(userId:string){
   const [row]=await getDb().select({userId:portalProfiles.userId,customerId:portalProfiles.customerId,active:portalProfiles.active,revision:portalProfiles.revision,createdAt:portalProfiles.createdAt,name:customers.name,address:customers.address,phone:customers.phone}).from(portalProfiles).innerJoin(customers,eq(customers.id,portalProfiles.customerId)).where(eq(portalProfiles.userId,userId));
   return row;

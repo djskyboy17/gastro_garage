@@ -240,3 +240,25 @@ test("A tápérték-szöveg csak érvényes, nem negatív egész számokat fogad
   assert.equal(parseNutrition(JSON.stringify({ energyKj: -1 })), null);
   assert.equal(parseNutrition(nutrition(100))?.energyKcal, 10000);
 });
+
+test("A portálra kerülő ételinformáció nem tartalmaz mennyiséget, receptet vagy belső adatot", async () => {
+  const { toPublicDishInfo } = await import("../src/modules/inventory/nutrition.ts");
+  const recipe: Recipe = {
+    ...soup,
+    id: "pub-r1",
+    productId: "pub",
+    yield: 1,
+    lines: [{ id: "l", recipeId: "pub-r1", ingredientId: "bones", quantity: 100, lossBps: 0 }],
+  };
+  const info = dishInfo(product("pub", 400, "celery"), ops({ recipes: [recipe] }));
+  assert.ok(info);
+  const pub = toPublicDishInfo(info);
+  const text = JSON.stringify(pub);
+  assert.ok(!text.includes("grams"));
+  assert.ok(!text.includes("pub-r1"));
+  assert.ok(!text.includes("stock-v1"));
+  assert.deepEqual(Object.keys(pub).sort(), ["allergens", "complete", "ingredients", "nutritionPer100g"]);
+  assert.equal(pub.complete, true);
+  assert.equal(ingredientText(pub.ingredients, "hu"), "Alaplé (bones-hu), bones-hu");
+  assert.equal(toPublicDishInfo({ ...info, missing: [{ hu: "x", ro: "x" }] }).complete, false);
+});

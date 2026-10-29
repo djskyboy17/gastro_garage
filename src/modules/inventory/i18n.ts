@@ -38,6 +38,9 @@ export const operationMessages = {
     frozenIngredient: "Fagyasztott alapanyag",
     gramsPerPiece: "Tömeg darabonként (g)",
     editDetails: "Tápérték és allergének",
+    portalDishInfoMissing:
+      "Ehhez az ételhez még nincs részletes ételinformáció. Kérdezd a konyhát az összetevőkről és az allergénekről.",
+    portalNutritionMissing: "A tápérték még nincs megadva.",
     allergenEditHint:
       "Új allergén az ezt használó ételekhez hozzáadódik. Eltávolítás az ételek allergénjeit nem módosítja.",
     recipes: "Receptúrák",
@@ -190,6 +193,9 @@ export const operationMessages = {
     frozenIngredient: "Materie primă congelată",
     gramsPerPiece: "Greutate pe bucată (g)",
     editDetails: "Valori nutritive și alergeni",
+    portalDishInfoMissing:
+      "Pentru acest preparat nu există încă informații detaliate. Întrebați bucătăria despre ingrediente și alergeni.",
+    portalNutritionMissing: "Valorile nutritive nu sunt încă completate.",
     allergenEditHint:
       "Un alergen nou se adaugă preparatelor care folosesc materia primă. Eliminarea nu modifică alergenii preparatelor.",
     recipes: "Rețete",

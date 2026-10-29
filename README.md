@@ -26,7 +26,7 @@ Futártörzs; rendeléshez mentett futárkijelölés; futár és állapot szerin
 
 ## Még tervezett
 
-adalékanyagok nyilvántartása és az ételinformáció jóváhagyása, portálon való megjelenítése; automatikus beszállítói továbbítás és NIR; teljes HACCP-terv és szenzorintegráció; számlázás/e-Factura; útvonaltervezés; online fizetés és ügyfélportál-bővítések; offline működés; korrekciós/visszafordító műveletek. A jelenlegi változat tesztelésre szolgál.
+adalékanyagok nyilvántartása és az ételinformáció jóváhagyása; automatikus beszállítói továbbítás és NIR; teljes HACCP-terv és szenzorintegráció; számlázás/e-Factura; útvonaltervezés; online fizetés és ügyfélportál-bővítések; offline működés; korrekciós/visszafordító műveletek. A jelenlegi változat tesztelésre szolgál.
 
 ## Technikai alap
 
@@ -138,6 +138,12 @@ Az anyagkiadás, a beszerzési terv és az önköltség az al-receptet alapanyag
 
 Az alapanyagoknál megadható a tápérték 100 g-ra (ml-ben mért alapanyagnál 100 ml-re), a fagyasztott jelölés és darabos alapanyagnál a darabtömeg; a „Tápérték és allergének” gombbal később is szerkeszthető. Új allergén az érintett ételekhez hozzáadódik, eltávolítás nem módosítja őket.
 
-Minden receptes étel alatt „Ételinformáció” jelenik meg a legfrissebb receptből: összetevők csökkenő tömeg szerint (al-recept zárójelben, fagyasztott `*`-gal), allergének és tápérték 100 g késztermékre. Kész tömeg = adagszám × az étel adagtömege; ml ≈ g. Ha egy alapanyag tápértéke hiányzik, az étel tápértéke nem jelenik meg, a hiányzók listázva. Ez számított adat, jóváhagyás és adalékanyag-nyilvántartás még nincs, és az ügyfélportálon még nem látszik.
+Minden receptes étel alatt „Ételinformáció” jelenik meg a legfrissebb receptből: összetevők csökkenő tömeg szerint (al-recept zárójelben, fagyasztott `*`-gal), allergének és tápérték 100 g késztermékre. Kész tömeg = adagszám × az étel adagtömege; ml ≈ g. Ha egy alapanyag tápértéke hiányzik, az étel tápértéke nem jelenik meg, a hiányzók listázva. Ez számított adat; jóváhagyás és adalékanyag-nyilvántartás még nincs.
 
 Ellenőrzés: 66 tartományteszt (9 új: al-recept felbontás, kerekítés, elavult előnézet, hiányzó változat, önköltség, allergén, tápérték, hiányzó adat, darabtömeg), TypeScript és publikálható build, böngészőben al-recept létrehozása, receptbe illesztése és az ételinformáció megjelenése. A 0013-as Drizzle-migráció csak bővít, meglévő adatot nem módosít.
+
+## Ételinformáció az ügyfélportálon — v16
+
+A portál napi étlapján minden ételkártyán lenyitható „Ételinformáció” rész jelenik meg, még a kosárba tétel előtt: összetevők (al-recept zárójelben, fagyasztott `*`-gal), allergének és tápérték 100 g késztermékre, magyarul és románul. A nyilvános adat nem tartalmaz mennyiséget, grammot, receptet, önköltséget, beszállítót vagy készletadatot. Recept nélküli ételnél a portál azt kéri, hogy az ügyfél a konyhától érdeklődjön; hiányzó tápértéknél „még nincs megadva” jelenik meg.
+
+Ellenőrzés: 67 tartományteszt (új: a nyilvános adat mezőlistája), TypeScript és publikálható build; böngészőben a portál magyar és román ételkártyája.

@@ -6,6 +6,7 @@ import {
   parseNutrition,
   type DishInfo,
   type Nutrition,
+  type PublicDishInfo,
 } from "@/src/modules/inventory/nutrition";
 import type { Language } from "@/src/modules/shared/domain";
 
@@ -58,6 +59,53 @@ export function DishInfoView({
       {hasFrozen(info.ingredients) && <p className="ops-note">{t("frozenNote")}</p>}
       <p className="ops-note">{t("dishInfoHint")}</p>
     </div>
+  );
+}
+
+/** Ételinformáció az ügyfélportálon, lenyitható részként (mennyiségek nélkül). */
+export function PublicDishInfoView({
+  info,
+  lang,
+  t,
+}: {
+  info: PublicDishInfo | null | undefined;
+  lang: Language;
+  t: (key: string) => string;
+}) {
+  return (
+    <details className="portal-dish-info">
+      <summary>{t("dishInfo")}</summary>
+      {!info ? (
+        <p>{t("portalDishInfoMissing")}</p>
+      ) : (
+        <>
+          <p>
+            <strong>{t("ingredientList")}: </strong>
+            {ingredientText(info.ingredients, lang) || "—"}
+          </p>
+          <p>
+            <strong>{t("allergens")}: </strong>
+            {info.allergens.length ? <b>{info.allergens.map(t).join(", ")}</b> : t("noAllergens")}
+          </p>
+          {info.nutritionPer100g ? (
+            <table className="nutrition-table">
+              <caption>{t("nutritionPer100g")}</caption>
+              <tbody>
+                {nutrientKeys.map((k) => (
+                  <tr key={k}>
+                    <td>{t("nutrient_" + k)}</td>
+                    <td>{hundredths(info.nutritionPer100g![k], lang, k.startsWith("energy") ? 0 : 1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p>{t("portalNutritionMissing")}</p>
+          )}
+          {hasFrozen(info.ingredients) && <p>{t("frozenNote")}</p>}
+        </>
+      )}
+    </details>
   );
 }
 
