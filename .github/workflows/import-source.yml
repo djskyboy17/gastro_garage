@@ -1,0 +1,32 @@
+name: Import catering source
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Import verified source history
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          gh repo clone "$GH_REPO" checkout -- --branch main --single-branch
+          cd checkout
+          if [ ! -f gastro-garage.bundle ]; then
+            echo "Source already imported."
+            exit 0
+          fi
+          git bundle verify gastro-garage.bundle
+          git fetch ./gastro-garage.bundle refs/heads/main:refs/heads/source-import
+          test "$(git rev-parse source-import)" = "617ee69bbfe014c0b5fad5b7fd1dfc5b9339e306"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git merge --allow-unrelated-histories --no-commit source-import
+          git rm gastro-garage.bundle
+          git commit -m "Import catering application source and history"
+          git push origin HEAD:main
