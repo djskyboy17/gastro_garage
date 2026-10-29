@@ -20,21 +20,23 @@ HU/RO felület és keresés; étel- és ügyfélfelvétel; rendelésfelvétel; n
 
 Alapanyagtörzs g/ml/db egységekkel, receptváltozatok és alapanyagköltség, áruátvétel tételszámmal és lejárattal, kézzel jóváhagyott gyártási kiadás és selejt, visszakereshető készletmozgások, napi beszerzési hiánylista és CSV. A rendelésfelvétel nem csökkenti a készletet. A Raktár oldalon külön gombbal tölthetők be a raktári mintaadatok; előbb az alap mintaadatokat kell betölteni.
 
+Beszállítótörzs; a hiánylistából készíthető belső beszerzési rendelések; szerkeszthető piszkozat, véglegesítés, részszállítások, hátralék lezárása. Az átvétel a beszerzéshez kapcsolt raktári tételt hoz létre. A terv külön számolja a várható szállításokat; ezek csak tényleges átvétel után használhatók fel. A beszerzési dokumentum nyomtatható, a továbbítás kézzel történik.
+
 ## Még tervezett
 
-Dolgozói jogosultságok; alreceptek és tápérték; beszállítói megrendelések és NIR; HACCP; számlázás/e-Factura; futárhozzárendelés; útvonaltervezés; ügyfélportál; offline működés; korrekciós/visszafordító műveletek. A jelenlegi változat tesztelésre szolgál.
+Dolgozói jogosultságok; alreceptek és tápérték; automatikus beszállítói továbbítás és NIR; HACCP; számlázás/e-Factura; futárhozzárendelés; útvonaltervezés; ügyfélportál; offline működés; korrekciós/visszafordító műveletek. A jelenlegi változat tesztelésre szolgál.
 
 ## Technikai alap
 
-TypeScript + React + Vinext; Drizzle; Sites D1/SQLite. Ez eltérés az eredeti PostgreSQL-javaslattól: a gyors, privát kipróbálást szolgálja. A PostgreSQL-váltás külön adaptert és üzemeltetési döntést igényel. A kód egy alkalmazásban marad. A szabályok: AGENTS.md; jelenlegi specifikáció: src/modules/shared/SPEC.md.
+TypeScript + React + Vinext; Drizzle; Sites D1/SQLite. Ez eltérés az eredeti PostgreSQL-javaslattól: a gyors kipróbálást szolgálja. A PostgreSQL-váltás külön adaptert és üzemeltetési döntést igényel. A kód egy alkalmazásban marad. A szabályok: AGENTS.md; jelenlegi specifikáció: src/modules/shared/SPEC.md.
 
 ## Fejlesztői ellenőrzések
 
 `node node_modules/typescript/bin/tsc --noEmit`
 
-`node --experimental-strip-types --test tests/domain.test.mts tests/inventory.test.mts`
+`node --experimental-strip-types --test tests/domain.test.mts tests/inventory.test.mts tests/purchasing.test.mts`
 
-Helyi szerverrel: `node tests/api-smoke.mjs` és `node tests/inventory-api.mjs`. Ezek kizárólag a helyi adatbázisba írnak tesztadatokat.
+Helyi szerverrel: `node tests/api-smoke.mjs`, `node tests/inventory-api.mjs` és `node tests/purchasing-api.mjs`. Ezek kizárólag a helyi adatbázisba írnak tesztadatokat.
 
 `npm run build`
 

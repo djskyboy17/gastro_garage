@@ -26,6 +26,7 @@ import {
   Layers,
 } from "lucide-react";
 import { messages } from "@/src/modules/shared/i18n";
+import { inboundSupply } from "@/src/modules/purchasing/domain";
 import {
   today,
   type AppData,
@@ -54,6 +55,9 @@ type Props = {
   error: string;
   onSave: (path: string, body: unknown) => Promise<boolean>;
   onOrder: (order: Order) => void;
+  onCreatePurchase?: (
+    lines: { ingredientId: string; quantity: number }[],
+  ) => void;
 };
 const allergens = [
   "gluten",
@@ -80,6 +84,7 @@ export default function OperationsWorkspace({
   error,
   onSave,
   onOrder,
+  onCreatePurchase,
 }: Props) {
   const ops = data.operations;
   const t = (k: string) => messages[lang][k] ?? k;
@@ -134,7 +139,13 @@ export default function OperationsWorkspace({
     ops.lots,
     today(),
   );
-  const plan = procurementPlan(data.orders, ops, day, minimum);
+  const plan = procurementPlan(
+    data.orders,
+    ops,
+    day,
+    minimum,
+    inboundSupply(data.purchasing, day),
+  );
   const shortage = plan.rows.filter((r) => r.shortage > 0);
   const soonDate = new Date(today() + "T12:00:00Z");
   soonDate.setUTCDate(soonDate.getUTCDate() + 3);
@@ -248,6 +259,7 @@ export default function OperationsWorkspace({
         t("baseUnit"),
         t("required"),
         t("availableStock"),
+        t("incomingSupply"),
         t("shortage"),
         t("estimatedCost"),
       ],
@@ -257,6 +269,7 @@ export default function OperationsWorkspace({
         t(r.ingredient.unit),
         String(r.required),
         String(r.available),
+        String(r.incoming),
         String(r.shortage),
         (r.estimatedCost / 100).toFixed(2),
       ]),
@@ -332,6 +345,27 @@ export default function OperationsWorkspace({
               <Download size={16} />
               {t("downloadPlan")}
             </OpButton>
+            {onCreatePurchase && (
+              <OpButton
+                busy={busy}
+                action={() =>
+                  onCreatePurchase(
+                    shortage.map((r) => ({
+                      ingredientId: r.ingredient.id,
+                      quantity: r.shortage,
+                    })),
+                  )
+                }
+                disabled={
+                  !shortage.length ||
+                  !data.purchasing.suppliers.length ||
+                  shortage.length > 25
+                }
+              >
+                <Plus size={15} />
+                {t("createFromPlan")}
+              </OpButton>
+            )}
           </>
         )}
       </div>
@@ -773,7 +807,8 @@ export default function OperationsWorkspace({
                     <th>{t("supplier")}</th>
                     <th>{t("required")}</th>
                     <th>{t("availableStock")}</th>
-                    <th>{t("shortage")}</th>
+                    <th>{t("incomingSupply")}</th>
+                    <th>{t("uncovered")}</th>
                     <th className="number">{t("estimatedCost")}</th>
                   </tr>
                 </thead>
@@ -786,6 +821,7 @@ export default function OperationsWorkspace({
                       <td>{r.ingredient.supplier || "—"}</td>
                       <td>{fmt(r.required, r.ingredient.unit)}</td>
                       <td>{fmt(r.available, r.ingredient.unit)}</td>
+                      <td>{fmt(r.incoming, r.ingredient.unit)}</td>
                       <td>
                         <strong className={r.shortage ? "shortage-value" : ""}>
                           {fmt(r.shortage, r.ingredient.unit)}
@@ -803,7 +839,11 @@ export default function OperationsWorkspace({
               !shortage.length && (
                 <p className="ops-success">
                   <CheckCircle2 size={17} />
-                  {t("noShortage")}
+                  {t(
+                    plan.rows.some((r) => r.incoming > 0)
+                      ? "coveredByIncoming"
+                      : "noShortage",
+                  )}
                 </p>
               )
             )}

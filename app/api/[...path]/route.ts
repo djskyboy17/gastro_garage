@@ -12,6 +12,11 @@ import {
   OperationError,
 } from "@/src/modules/inventory/server";
 import { latestRecipe } from "@/src/modules/inventory/domain";
+import {
+  loadPurchasing,
+  handlePurchasing,
+  PurchaseError,
+} from "@/src/modules/purchasing/server";
 export const dynamic = "force-dynamic";
 const json = (v: unknown, status = 200) =>
   Response.json(v, { status, headers: { "Cache-Control": "no-store" } });
@@ -37,15 +42,17 @@ async function handle(req: Request, write: boolean) {
     const db = getDb();
     const path = new URL(req.url).pathname;
     if (!write && path === "/api/data") {
-      const [p, c, o, i, a, operations] = await Promise.all([
+      const [p, c, o, i, a, operations, purchasing] = await Promise.all([
         db.select().from(products),
         db.select().from(customers),
         db.select().from(orders),
         db.select().from(orderItems),
         db.select().from(audit).orderBy(desc(audit.createdAt)).limit(60),
         loadOperations(),
+        loadPurchasing(),
       ]);
       return json({
+        purchasing,
         operations,
         products: p,
         customers: c,
@@ -61,6 +68,8 @@ async function handle(req: Request, write: boolean) {
     if (raw.length > 40000) return json({ error: "TOO_LARGE" }, 413);
     const body = JSON.parse(raw);
     const now = new Date().toISOString();
+    const purchaseResponse = await handlePurchasing(path, body, actor);
+    if (purchaseResponse) return purchaseResponse;
     const operationResponse = await handleOperations(path, body, actor);
     if (operationResponse) return operationResponse;
     const log = (action: string, entity: string, detail: string) => ({
@@ -332,6 +341,7 @@ async function handle(req: Request, write: boolean) {
     }
     return json({ error: "NOT_FOUND" }, 404);
   } catch (e) {
+    if (e instanceof PurchaseError) return json({ error: e.code }, e.status);
     if (e instanceof OperationError) return json({ error: e.code }, e.status);
     if (e instanceof z.ZodError || e instanceof SyntaxError)
       return json({ error: "VALIDATION" }, 400);

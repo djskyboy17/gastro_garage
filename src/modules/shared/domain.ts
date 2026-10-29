@@ -55,6 +55,7 @@ export type Audit = {
   createdAt: string;
 };
 export type AppData = {
+  purchasing: import("../purchasing/domain").PurchasingData;
   operations: import("../inventory/domain").OperationsData;
   products: Product[];
   customers: Customer[];

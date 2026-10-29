@@ -46,6 +46,8 @@ import {
 } from "lucide-react";
 import { messages } from "@/src/modules/shared/i18n";
 import OperationsWorkspace from "./operations-workspace";
+import PurchasingWorkspace from "./purchasing-workspace";
+import { emptyPurchasing } from "@/src/modules/purchasing/domain";
 import { emptyOperations } from "@/src/modules/inventory/domain";
 import {
   today,
@@ -63,6 +65,7 @@ const empty: AppData = {
   orders: [],
   audit: [],
   operations: emptyOperations,
+  purchasing: emptyPurchasing,
 };
 const nav = [
   ["overview", LayoutDashboard],
@@ -1151,7 +1154,7 @@ export default function KitchenApp() {
                     </div>
                   </section>
                 )}
-                {["recipes", "inventory", "procurement"].includes(tab) && (
+                {["recipes", "inventory"].includes(tab) && (
                   <OperationsWorkspace
                     tab={tab}
                     data={data}
@@ -1161,6 +1164,29 @@ export default function KitchenApp() {
                     error={error}
                     onSave={mutate}
                     onOrder={detail}
+                  />
+                )}
+                {tab === "procurement" && (
+                  <PurchasingWorkspace
+                    data={data}
+                    lang={lang}
+                    day={day}
+                    busy={busy}
+                    error={error}
+                    onSave={mutate}
+                    renderPlan={(create) => (
+                      <OperationsWorkspace
+                        tab="procurement"
+                        data={data}
+                        lang={lang}
+                        day={day}
+                        busy={busy}
+                        error={error}
+                        onSave={mutate}
+                        onOrder={detail}
+                        onCreatePurchase={create}
+                      />
+                    )}
                   />
                 )}
                 {tab === "roadmap" && (

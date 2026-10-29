@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import './operations.css';
+import "./operations.css";
+import "./purchasing.css";
 
 export const metadata: Metadata = {
   title: "Konyha · Catering műhely",

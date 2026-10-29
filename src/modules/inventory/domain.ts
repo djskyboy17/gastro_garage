@@ -27,6 +27,7 @@ export type Recipe = {
   lines: RecipeLine[];
 };
 export type StockLot = {
+  purchaseLineId?: string | null;
   id: string;
   ingredientId: string;
   batch: string;
@@ -193,6 +194,7 @@ export function procurementPlan(
   ops: OperationsData,
   date: string,
   minimum = false,
+  incoming: { ingredientId: string; quantity: number }[] = [],
 ) {
   const needed = new Map<string, number>();
   const missing: string[] = [];
@@ -221,12 +223,20 @@ export function procurementPlan(
           .reduce((s, l) => s + l.remaining, 0);
         const shortage = Math.max(
           0,
-          required + (minimum ? i.minStock : 0) - available,
+          required +
+            (minimum ? i.minStock : 0) -
+            available -
+            incoming
+              .filter((l) => l.ingredientId === i.id)
+              .reduce((s, l) => s + l.quantity, 0),
         );
         return {
           ingredient: i,
           required,
           available,
+          incoming: incoming
+            .filter((l) => l.ingredientId === i.id)
+            .reduce((s, l) => s + l.quantity, 0),
           shortage,
           estimatedCost: costFor(shortage, i.packPrice, i.packQuantity),
         };

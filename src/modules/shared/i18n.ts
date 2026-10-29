@@ -1,7 +1,9 @@
 import { operationMessages } from "../inventory/i18n";
+import { purchaseMessages } from "../purchasing/i18n";
 export const messages: Record<"hu" | "ro", Record<string, string>> = {
   hu: {
     ...operationMessages.hu,
+    ...purchaseMessages.hu,
     brand: "Catering műhely",
     previous: "Előző nap",
     next: "Következő nap",
@@ -164,6 +166,7 @@ export const messages: Record<"hu" | "ro", Record<string, string>> = {
   },
   ro: {
     ...operationMessages.ro,
+    ...purchaseMessages.ro,
     brand: "Atelier de catering",
     previous: "Ziua precedentă",
     next: "Ziua următoare",

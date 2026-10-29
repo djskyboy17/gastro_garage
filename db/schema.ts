@@ -110,6 +110,7 @@ export const recipeLines = sqliteTable(
 export const stockLots = sqliteTable(
   "stock_lots",
   {
+    purchaseLineId: text("purchase_line_id").references(() => purchaseLines.id),
     id: text("id").primaryKey(),
     ingredientId: text("ingredient_id")
       .notNull()
@@ -154,5 +155,64 @@ export const stockMoves = sqliteTable("stock_moves", {
   quantity: integer("quantity").notNull(),
   kind: text("kind").notNull(),
   note: text("note").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+export const suppliers = sqliteTable("suppliers", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  taxId: text("tax_id").notNull(),
+  address: text("address").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone").notNull(),
+  note: text("note").notNull(),
+});
+export const purchaseOrders = sqliteTable("purchase_orders", {
+  id: text("id").primaryKey(),
+  supplierId: text("supplier_id")
+    .notNull()
+    .references(() => suppliers.id),
+  supplierName: text("supplier_name").notNull(),
+  supplierTaxId: text("supplier_tax_id").notNull(),
+  supplierAddress: text("supplier_address").notNull(),
+  due: text("due").notNull(),
+  note: text("note").notNull(),
+  status: text("status").notNull().default("draft"),
+  revision: integer("revision").notNull().default(0),
+  createdAt: text("created_at").notNull(),
+});
+export const purchaseLines = sqliteTable(
+  "purchase_lines",
+  {
+    id: text("id").primaryKey(),
+    purchaseId: text("purchase_id")
+      .notNull()
+      .references(() => purchaseOrders.id),
+    ingredientId: text("ingredient_id")
+      .notNull()
+      .references(() => ingredients.id),
+    hu: text("hu").notNull(),
+    ro: text("ro").notNull(),
+    unit: text("unit").notNull(),
+    quantity: integer("quantity").notNull(),
+    received: integer("received").notNull().default(0),
+    packQuantity: integer("pack_quantity").notNull(),
+    packPrice: integer("pack_price").notNull(),
+  },
+  (t) => [
+    check(
+      "purchase_received_bounds",
+      sql`${t.received}>=0 AND ${t.received}<=${t.quantity}`,
+    ),
+    uniqueIndex("purchase_ingredient").on(t.purchaseId, t.ingredientId),
+  ],
+);
+export const purchaseEvents = sqliteTable("purchase_events", {
+  id: text("id").primaryKey(),
+  purchaseId: text("purchase_id")
+    .notNull()
+    .references(() => purchaseOrders.id),
+  kind: text("kind").notNull(),
+  detail: text("detail").notNull(),
+  actor: text("actor").notNull(),
   createdAt: text("created_at").notNull(),
 });

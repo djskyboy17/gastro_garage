@@ -12,7 +12,7 @@ Production issue is per order, explicit and at most once. User can specify actua
 
 Waste is a separate idempotent, reason-required negative movement, including disposal of expired lots. It uses the same nonnegative balance constraint and atomic audit. No delete or reversal feature yet.
 
-Procurement is a calculated, exportable daily proposal, not an external supplier order. Exclude cancelled orders and already-issued orders. Count lots valid on the selected day, exclude future receipts, report missing recipes explicitly. Optional minimum stock replenishment is added after demand. No cross-day reservation or incoming purchase-order supply is assumed. Cost is a reference ingredient estimate only; receipt values and recipe estimates are not tax/accounting calculations.
+Procurement is a calculated, exportable daily proposal. Exclude cancelled, prepared and already-issued orders. Count lots valid on the selected day, exclude future receipts, report missing recipes explicitly. Optional minimum stock replenishment is added after demand. Confirmed outstanding purchase quantities due by the planning day reduce the new purchase suggestion in a separate incoming column; they are not available stock. No cross-day reservation is assumed. The linked internal purchase/partial-receipt workflow is described in ../purchasing/SPEC.md. Cost is a reference ingredient estimate only; receipt values and recipe estimates are not tax/accounting calculations.
 
 ## Endpoints
 
