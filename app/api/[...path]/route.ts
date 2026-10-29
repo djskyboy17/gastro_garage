@@ -1,6 +1,16 @@
+import {handlePacking,PackingError} from "@/src/modules/packing/server";
+import {handleCourier,CourierError} from "@/src/modules/courier/server";
+import {fulfillmentOptions,loadPolicy,savePolicy,FulfillmentError} from '@/src/modules/fulfillment/server';
+import {loadStocktakes,handleStocktake,StocktakeError} from '@/src/modules/stocktake/server';
+import {loadMenu,publicMenu,saveMenu,MenuError} from '@/src/modules/menu/server';
 import { env } from "cloudflare:workers";
-import { headers } from "next/headers";
+import { getChatGPTUser } from "@/app/chatgpt-auth";
+import { sessionFor, handleAccess, loadMembers, AccessError } from "@/src/modules/access/server";
+import { isMember, canWrite, projectData } from "@/src/modules/access/domain";
 import { getDb } from "@/db";
+import { loadPublicCatalog, handlePortal, PortalError } from "@/src/modules/portal/server";
+import { loadRecurring, handleRecurring, RecurringError } from "@/src/modules/recurring/server";
+import { loadSafety, handleSafety, SafetyError } from "@/src/modules/safety/server";
 import { products, customers, orders, orderItems, audit } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -12,6 +22,7 @@ import {
   OperationError,
 } from "@/src/modules/inventory/server";
 import { latestRecipe } from "@/src/modules/inventory/domain";
+import { loadDelivery, handleDelivery, DeliveryError } from "@/src/modules/delivery/server";
 import {
   loadPurchasing,
   handlePurchasing,
@@ -30,9 +41,15 @@ const date = z
   });
 async function handle(req: Request, write: boolean) {
   try {
-    const h = await headers();
-    const actor = h.get("oai-authenticated-user-id");
-    if (!actor) return json({ error: "AUTH_REQUIRED" }, 401);
+    const path = new URL(req.url).pathname;
+    if (!write && path === "/api/portal/fulfillment") return json(await fulfillmentOptions(new URL(req.url).searchParams.get("date")??today()));
+    if (!write && path === "/api/portal/menu") return json(await publicMenu(new URL(req.url).searchParams.get("date")??today()));
+    if (!write && path === "/api/portal/catalog") return json(await loadPublicCatalog());
+    const user = await getChatGPTUser();
+    if (!user) return json({ error: "AUTH_REQUIRED" }, 401);
+    const actor = user.userId;
+    const identity = { userId:actor,email:user.email,name:user.displayName };
+    const session = await sessionFor(identity);
     if (write) {
       if (req.headers.get("origin") !== new URL(req.url).origin)
         return json({ error: "INVALID_ORIGIN" }, 403);
@@ -40,9 +57,41 @@ async function handle(req: Request, write: boolean) {
         return json({ error: "JSON_REQUIRED" }, 415);
     }
     const db = getDb();
-    const path = new URL(req.url).pathname;
+    if(path.startsWith('/api/courier/')){
+      let body:unknown;
+      if(write){const raw=await req.text();if(raw.length>40000)return json({error:'TOO_LARGE'},413);body=JSON.parse(raw);}
+      return await handleCourier(path,body,identity,session,write,new URL(req.url).searchParams.get('date')??today());
+    }
+    if (path.startsWith("/api/portal/")) {
+      let body:unknown;
+      if (write) {
+        const raw=await req.text();
+        if(raw.length>40000)return json({error:"TOO_LARGE"},413);
+        body=JSON.parse(raw);
+      }
+      return await handlePortal(path,body,identity,session,write);
+    }
+    if (!write && path === "/api/session") return json(session);
+    if (!write && path === "/api/access/members") return json(await loadMembers(session));
+    if (!isMember(session.role) && path !== "/api/access/request") return json({error:"ACCESS_PENDING"},403);
+    if(path==='/api/packing'||path.startsWith('/api/packing/')){
+      let body:unknown;if(write){const raw=await req.text();if(raw.length>40000)return json({error:'TOO_LARGE'},413);body=JSON.parse(raw);}
+      return await handlePacking(path,body,session,write,new URL(req.url).searchParams.get('date')??today());
+    }
+    if (!write && path === "/api/fulfillment") {
+      if (!["owner","admin","dispatcher"].includes(session.role)) return json({error:"FORBIDDEN"},403);
+      return json(await loadPolicy());
+    }
+    if (!write && path === "/api/stocktake") {
+      if (!["owner","admin","warehouse"].includes(session.role)) return json({error:"FORBIDDEN"},403);
+      return json(await loadStocktakes());
+    }
+    if (!write && path === "/api/menu") {
+      if (!["owner","admin","dispatcher"].includes(session.role)) return json({error:"FORBIDDEN"},403);
+      return json(await loadMenu());
+    }
     if (!write && path === "/api/data") {
-      const [p, c, o, i, a, operations, purchasing] = await Promise.all([
+      const [p, c, o, i, a, operations, purchasing, logistics, safety, recurring] = await Promise.all([
         db.select().from(products),
         db.select().from(customers),
         db.select().from(orders),
@@ -50,8 +99,14 @@ async function handle(req: Request, write: boolean) {
         db.select().from(audit).orderBy(desc(audit.createdAt)).limit(60),
         loadOperations(),
         loadPurchasing(),
+        loadDelivery(),
+        loadSafety(),
+        loadRecurring(),
       ]);
-      return json({
+      return json(projectData({
+        recurring,
+        safety,
+        logistics,
         purchasing,
         operations,
         products: p,
@@ -61,13 +116,26 @@ async function handle(req: Request, write: boolean) {
           items: i.filter((item) => item.orderId === row.id),
         })),
         audit: a,
-      });
+      }, session.role));
     }
     if (!write) return json({ error: "NOT_FOUND" }, 404);
     const raw = await req.text();
     if (raw.length > 40000) return json({ error: "TOO_LARGE" }, 413);
     const body = JSON.parse(raw);
     const now = new Date().toISOString();
+    const accessResponse = await handleAccess(path, body, identity, session);
+    if (accessResponse) return accessResponse;
+    if (!canWrite(session.role,path,body)) return json({error:"FORBIDDEN"},403);
+    if(path==="/api/fulfillment/save")return json(await savePolicy(body,actor));
+    const stocktakeResponse=await handleStocktake(path,body,actor);
+    if(stocktakeResponse)return stocktakeResponse;
+    if(path==="/api/menu/save") return json(await saveMenu(body,actor));
+    const recurringResponse = await handleRecurring(path,body,actor);
+    if (recurringResponse) return recurringResponse;
+    const safetyResponse = await handleSafety(path,body,actor,user.displayName);
+    if (safetyResponse) return safetyResponse;
+    const deliveryResponse = await handleDelivery(path, body, actor);
+    if (deliveryResponse) return deliveryResponse;
     const purchaseResponse = await handlePurchasing(path, body, actor);
     if (purchaseResponse) return purchaseResponse;
     const operationResponse = await handleOperations(path, body, actor);
@@ -305,11 +373,16 @@ async function handle(req: Request, write: boolean) {
           revision: z.number().int().min(0),
           field: z.enum(["production", "delivery", "payment", "status"]),
           value: text(30),
+          note: z.string().trim().max(500).default(""),
         })
         .parse(body);
       const [row] = await db.select().from(orders).where(eq(orders.id, d.id));
       if (!row) return json({ error: "NOT_FOUND" }, 404);
       if (row.revision !== d.revision) return json({ error: "CONFLICT" }, 409);
+      if (row.status === "requested" && d.field === "status" && d.value === "rejected" && !d.note)
+        return json({error:"REVIEW_NOTE_REQUIRED"},400);
+      if (d.field === "delivery" && d.value === "failed" && !d.note)
+        return json({error:"DELIVERY_REASON_REQUIRED"},400);
       const updated = nextState(
         { ...row, items: [] } as Order,
         d.field,
@@ -325,22 +398,35 @@ async function handle(req: Request, write: boolean) {
             actor,
             "state_changed",
             d.id,
-            JSON.stringify({ field: d.field, from: row[d.field], to: d.value }),
+            JSON.stringify({ field: d.field, from: row[d.field], to: d.value, note:d.note, courier:row.courierName }),
             now,
             d.id,
             d.revision,
           ),
+        ...(d.field === "delivery" ? [env.DB!.prepare("INSERT INTO delivery_events (id,order_id,kind,detail,actor,created_at) SELECT ?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM orders WHERE id=? AND revision=?)").bind(crypto.randomUUID(),d.id,d.value,JSON.stringify({note:d.note,courier:row.courierName}),actor,now,d.id,d.revision)] : []),
         env
           .DB!.prepare(
-            `UPDATE orders SET ${d.field}=?,revision=? WHERE id=? AND revision=?`,
+            `UPDATE orders SET ${d.field}=?,revision=?,review_note=CASE WHEN ?='status' AND status='requested' AND ? IN ('confirmed','rejected') THEN ? ELSE review_note END WHERE id=? AND revision=?`,
           )
-          .bind(d.value, updated.revision, d.id, d.revision),
+          .bind(d.value, updated.revision, d.field, d.value, d.note, d.id, d.revision),
       ]);
-      if (result[1].meta.changes !== 1) return json({ error: "CONFLICT" }, 409);
+      if (result[result.length - 1].meta.changes !== 1) return json({ error: "CONFLICT" }, 409);
       return json({ ok: true });
     }
     return json({ error: "NOT_FOUND" }, 404);
   } catch (e) {
+    if (e instanceof PackingError) return json({error:e.message},e.status);
+    if (e instanceof CourierError) return json({error:e.code},e.status);
+    if (e instanceof FulfillmentError) return json({error:e.code},e.status);
+    if (/FULFILLMENT_CAPACITY/.test(String(e)))return json({error:"FULFILLMENT_CAPACITY"},409);
+    if (e instanceof StocktakeError) return json({error:e.code},e.status);
+    if (e instanceof MenuError) return json({error:e.code},e.status);
+    if (/MENU_CAPACITY/.test(String(e))) return json({error:"MENU_CAPACITY"},409);
+    if (e instanceof PortalError) return json({error:e.code},e.status);
+    if (e instanceof RecurringError) return json({error:e.code},e.status);
+    if (e instanceof SafetyError) return json({error:e.code},e.status);
+    if (e instanceof AccessError) return json({error:e.code},e.status);
+    if (e instanceof DeliveryError) return json({ error: e.code }, e.status);
     if (e instanceof PurchaseError) return json({ error: e.code }, e.status);
     if (e instanceof OperationError) return json({ error: e.code }, e.status);
     if (e instanceof z.ZodError || e instanceof SyntaxError)
@@ -349,10 +435,17 @@ async function handle(req: Request, write: boolean) {
     if (
       [
         "CANCELLED",
+        "REJECTED",
+        "ORDER_NOT_CONFIRMED",
         "INVALID_TRANSITION",
         "NOT_READY",
+        "PACKING_REQUIRED",
+        "PACKING_ITEMS",
+        "COURIER_REQUIRED",
         "ALREADY_STARTED",
         "INVALID_ITEM",
+        "INVALID_SAFETY_RESULT",
+        "RECURRING_RANGE",
       ].includes(code)
     )
       return json({ error: code }, 400);

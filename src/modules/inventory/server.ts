@@ -403,7 +403,7 @@ export async function handleOperations(
     if (!row) throw new OperationError("NOT_FOUND", 404);
     if (row.revision !== d.revision) throw new OperationError("CONFLICT", 409);
     if (
-      row.status === "cancelled" ||
+      row.status !== "confirmed" ||
       !["queued", "cooking"].includes(row.production) ||
       row.delivery !== "pending"
     )

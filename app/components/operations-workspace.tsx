@@ -121,7 +121,7 @@ export default function OperationsWorkspace({
   const issueOrders = data.orders.filter(
     (o) =>
       o.date === day &&
-      o.status !== "cancelled" &&
+      o.status === "confirmed" &&
       ["queued", "cooking"].includes(o.production) &&
       o.delivery === "pending" &&
       !ops.issues.some((i) => i.orderId === o.id),
@@ -560,7 +560,8 @@ export default function OperationsWorkspace({
                               <strong>
                                 {fmt(l.remaining, i?.unit ?? "g")}
                               </strong>
-                              <small>/ {fmt(l.quantity, i?.unit ?? "g")}</small>
+                              <small>{t("receivedQuantity")}: {fmt(l.quantity, i?.unit ?? "g")}</small>
+                              {!!l.adjustmentTotal&&<small>{t("countAdjustments")}: {l.adjustmentTotal>0?"+":"−"}{fmt(Math.abs(l.adjustmentTotal),i?.unit??"g")}</small>}
                             </td>
                             <td>
                               <span
@@ -695,7 +696,7 @@ export default function OperationsWorkspace({
                               }
                             >
                               {t(
-                                m.kind === "received"
+                                m.kind === "count_adjustment" ? "countAdjustmentKind" : m.kind === "count_reversal" ? "countReversalKind" : m.kind === "received"
                                   ? "receivedKind"
                                   : m.kind === "waste"
                                     ? "wasteKind"
@@ -739,7 +740,7 @@ export default function OperationsWorkspace({
               <ChefHat size={19} />
             </div>
             {data.orders
-              .filter((o) => o.date === day && o.status !== "cancelled")
+              .filter((o) => o.date === day && o.status === "confirmed")
               .map((o) => (
                 <div className="issue-order-row" key={o.id}>
                   <button className="text-button" onClick={() => onOrder(o)}>

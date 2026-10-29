@@ -27,6 +27,8 @@ export type Recipe = {
   lines: RecipeLine[];
 };
 export type StockLot = {
+  revision?:number;
+  adjustmentTotal?:number;
   purchaseLineId?: string | null;
   id: string;
   ingredientId: string;
@@ -202,7 +204,7 @@ export function procurementPlan(
   for (const o of orders.filter(
     (o) =>
       o.date === date &&
-      o.status !== "cancelled" &&
+      o.status === "confirmed" &&
       o.production !== "ready" &&
       o.delivery === "pending" &&
       !issued.has(o.id),

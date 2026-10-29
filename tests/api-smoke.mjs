@@ -96,10 +96,13 @@ const race = await Promise.all([
   }),
 ]);
 assert.deepEqual(race.map((r) => r.status).sort(), [200, 409]);
+const courierId = randomUUID();
+assert.equal((await call("delivery/couriers",{id:courierId,name:"LOCAL SMOKE COURIER",phone:"",vehicle:"",note:""})).status,201);
+assert.equal((await call("delivery/assign",{id,revision:1,courierId,note:""})).status,200);
 for (const [revision, field, value] of [
-  [1, "production", "ready"],
-  [2, "delivery", "transit"],
-  [3, "delivery", "delivered"],
+  [2, "production", "ready"],
+  [3, "delivery", "transit"],
+  [4, "delivery", "delivered"],
 ])
   assert.equal(
     (await call("orders/state", { id, revision, field, value })).status,
@@ -109,7 +112,7 @@ state = (await call("data")).data;
 const after = state.orders.find((o) => o.id === id);
 assert.equal(after.delivery, "delivered");
 assert.equal(after.payment, "unpaid");
-assert.equal(after.revision, 4);
+assert.equal(after.revision, 5);
 const logs = state.audit.filter((a) => a.entity === id);
 assert.equal(logs.filter((a) => a.action === "state_changed").length, 4);
 console.log(

@@ -1,0 +1,51 @@
+import {ensureFulfillment} from "./fulfillment-fixture.mjs";
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
+const origin='http://127.0.0.1:5173',python=process.env.KITCHEN_TEST_PYTHON;assert.ok(python);
+const cookie=(await fetch(origin+'/signin-with-chatgpt?return_to=/',{redirect:'manual'})).headers.get('set-cookie')?.split(';')[0];assert.ok(cookie);
+async function call(path,body,status=200,anonymous=false){const r=await fetch(origin+'/api/'+path,{method:body?'POST':'GET',headers:{...(!anonymous?{Cookie:cookie}:{}),Origin:origin,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});const d=await r.json();assert.equal(r.status,status,JSON.stringify(d));return d;}
+const fixture=role=>execFileSync(python,['tests/access-fixture.py',role],{stdio:'pipe'});
+execFileSync(python,['tests/portal-fixture.py'],{stdio:'pipe'});
+const nowDay=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Bucharest'}).format(new Date());
+const d=new Date(nowDay+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+2);const date=d.toISOString().slice(0,10);
+const product=await call('products',{hu:'LOCAL MENU RACE '+randomUUID().slice(0,6),ro:'LOCAL MENU RACE',descriptionHu:'Próba',descriptionRo:'Test',category:'main',price:1000,portion:250,allergens:''},201);
+await call('portal/catalog-setting',{productId:product.id,revision:0,visible:1});
+const existing=(await call('menu')).days.find(d=>d.date===date);
+let revision=existing?.revision??null;
+// Preserve other offers to permit repeatable local runs with historical reservations.
+let preserved=(await call('menu')).lines.filter(l=>l.date===date).map(l=>({productId:l.productId,capacity:l.capacity}));
+let menu={date,revision,cutoff:date+'T09:00',active:1,items:[...preserved,{productId:product.id,capacity:1}]};
+await call('menu/save',menu);revision=revision===null?0:revision+1;
+await call('menu/save',menu,409);
+assert.equal((await call('portal/menu?date='+date,undefined,200,true)).items.find(p=>p.id===product.id).remaining,1);
+let me=await call('portal/me');if(!me.profile)await call('portal/profile',{name:'LOCAL MENU CUSTOMER',address:'Fictional local address',phone:'0000000000'},201);
+const fulfillment=await ensureFulfillment(call);
+const input={...fulfillment,date,time:'12:00',note:'LOCAL MENU RACE',items:[{productId:product.id,quantity:1}]};
+const quote=(await call('portal/preview',input)).quote;
+const races=await Promise.all([1,2].map(async()=>{const r=await fetch(origin+'/api/portal/orders',{method:'POST',headers:{Cookie:cookie,Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({...input,id:randomUUID(),quote})});return {status:r.status,data:await r.json()};}));
+assert.deepEqual(races.map(r=>r.status).sort(),[201,409],JSON.stringify(races));
+const orderId=races.find(r=>r.status===201).data.orderId;
+assert.equal((await call('portal/menu?date='+date,undefined,200,true)).items.find(p=>p.id===product.id).remaining,0);
+const staffData=await call('data'),staffOrderId=randomUUID();
+await call('orders',{id:staffOrderId,customerId:staffData.customers[0].id,date,time:'12:00',note:'LOCAL CAPACITY GUARD',items:[{productId:product.id,quantity:1}]},409);
+assert.ok(!(await call('data')).orders.some(o=>o.id===staffOrderId));
+await call('menu/save',{...menu,revision,items:[...preserved,{productId:product.id,capacity:0}]},409);
+if(preserved.length)await call('menu/save',{...menu,revision,items:preserved},409);
+assert.equal((await call('menu')).days.find(d=>d.date===date).revision,revision);
+await call('portal/cancel',{id:orderId,revision:0});
+assert.equal((await call('portal/menu?date='+date,undefined,200,true)).items.find(p=>p.id===product.id).remaining,1);
+const beforeEdit=(await call('portal/preview',input)).quote;
+await call('menu/save',{...menu,revision});revision++;
+await call('portal/orders',{...input,id:randomUUID(),quote:beforeEdit},409);
+await call('menu/save',{...menu,revision,active:0});revision++;
+assert.equal((await call('portal/menu?date='+date,undefined,200,true)).open,false);
+await call('portal/preview',input,400);
+await call('menu/save',{...menu,revision,cutoff:nowDay+'T00:00'});revision++;
+await call('portal/preview',input,400);
+await call('menu/save',{...menu,revision});revision++;
+for(const role of ['kitchen','warehouse','pending']){try{fixture(role);await call('menu',undefined,403);await call('menu/save',{...menu,revision},403);}finally{fixture('restore');}}
+try{fixture('dispatcher');await call('menu/save',{...menu,revision});}finally{fixture('restore');}
+await call('portal/menu?date=2026-02-30',undefined,400,true);
+const publicData=await call('portal/menu?date='+date,undefined,200,true);assert.ok(!JSON.stringify(publicData).includes('customerId'));
+console.log('PASS dated menu: last-portion race, cancellation release, revision rollback, stale quote, closed day, cutoff, public isolation, roles, persistence');

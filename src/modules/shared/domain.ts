@@ -1,5 +1,13 @@
 export type Language = "hu" | "ro";
+export function nextStocktakeState(status:string,action:'post'|'cancel'|'reverse'){
+  if(status==='draft'&&action==='post')return 'posted';
+  if(status==='draft'&&action==='cancel')return 'cancelled';
+  if(status==='posted'&&action==='reverse')return 'reversed';
+  throw Error('STOCKTAKE_STATE');
+}
 export type Product = {
+  portalVisible?:number;
+  portalRevision?:number;
   id: string;
   hu: string;
   ro: string;
@@ -30,6 +38,19 @@ export type Item = {
   price: number;
 };
 export type Order = {
+  packingItems?:string;
+  packingReady?:number;
+  packingCheckedAt?:string;
+  fulfillmentMode?:string;
+  fulfillmentSlotId?:string|null;
+  fulfillmentPostalCode?:string;
+  fulfillmentSnapshot?:string;
+  deliveryFee?:number;
+  portalUserId?:string|null;
+  reviewNote?:string;
+  courierId?: string | null;
+  courierName?: string;
+  courierPhone?: string;
   id: string;
   customerId: string;
   customerName: string;
@@ -55,6 +76,9 @@ export type Audit = {
   createdAt: string;
 };
 export type AppData = {
+  recurring: import("../recurring/domain").RecurringData;
+  safety: import("../safety/domain").SafetyData;
+  logistics: import("../delivery/domain").DeliveryData;
   purchasing: import("../purchasing/domain").PurchasingData;
   operations: import("../inventory/domain").OperationsData;
   products: Product[];
@@ -67,11 +91,15 @@ export function today() {
     timeZone: "Europe/Bucharest",
   }).format(new Date());
 }
-export function total(order: Pick<Order, "items">) {
-  return order.items.reduce((s, i) => s + i.price * i.quantity, 0);
+export function total(order: Pick<Order, "items"|"deliveryFee">) {
+  return order.items.reduce((s, i) => s + i.price * i.quantity, 0)+(order.deliveryFee??0);
 }
-export function portions(order: Pick<Order, "items">) {
+export function portions(order: Pick<Order, "items"|"deliveryFee">) {
   return order.items.reduce((s, i) => s + i.quantity, 0);
+}
+export function orderCode(id:string) {
+  const match=/^recurring:([0-9a-f-]{36}):(\d{4}-\d{2}-\d{2})$/i.exec(id);
+  return match?`R-${match[1].slice(0,6)}-${match[2].replaceAll("-","").slice(2)}`.toUpperCase():id.slice(-6).toUpperCase();
 }
 export function kitchenSummary(orders: Order[]) {
   const result = new Map<
@@ -85,7 +113,7 @@ export function kitchenSummary(orders: Order[]) {
       ready: number;
     }
   >();
-  for (const o of orders.filter((o) => o.status !== "cancelled"))
+  for (const o of orders.filter((o) => o.status === "confirmed"))
     for (const i of o.items) {
       const key = JSON.stringify([i.productId, i.hu, i.ro, i.allergens]);
       const row = result.get(key) ?? {
@@ -102,8 +130,11 @@ export function kitchenSummary(orders: Order[]) {
     }
   return [...result.values()].sort((a, b) => b.quantity - a.quantity);
 }
+export function canCheckPacking(order:Pick<Order,'status'|'production'|'delivery'>){return order.status==='confirmed'&&order.production==='ready'&&['pending','failed'].includes(order.delivery);}
 export function nextState(order: Order, field: string, value: string) {
   if (order.status === "cancelled") throw new Error("CANCELLED");
+  if (order.status === "rejected") throw new Error("REJECTED");
+  if (order.status !== "confirmed" && field !== "status") throw new Error("ORDER_NOT_CONFIRMED");
   const allowed: Record<string, Record<string, string[]>> = {
     production: { queued: ["cooking"], cooking: ["ready"], ready: [] },
     delivery: {
@@ -113,8 +144,12 @@ export function nextState(order: Order, field: string, value: string) {
       delivered: [],
     },
     payment: { unpaid: ["paid"], paid: [] },
-    status: { confirmed: ["cancelled"] },
+    status: { requested:["confirmed","rejected","cancelled"], confirmed: ["cancelled"] },
   };
+  if(order.fulfillmentMode==="pickup") {
+    allowed.delivery={pending:["delivered"],delivered:[]};
+    if(field==="delivery"&&value==="delivered"&&order.production!=="ready")throw new Error("NOT_READY");
+  }
   if (!allowed[field]?.[order[field as keyof Order] as string]?.includes(value))
     throw new Error("INVALID_TRANSITION");
   if (
@@ -123,6 +158,9 @@ export function nextState(order: Order, field: string, value: string) {
     order.production !== "ready"
   )
     throw new Error("NOT_READY");
+  if (field === "delivery" && value === "transit" && !order.courierId)
+    throw new Error("COURIER_REQUIRED");
+  if(field==='delivery'&&(value==='transit'||(order.fulfillmentMode==='pickup'&&value==='delivered'))&&order.packingReady!==1)throw Error('PACKING_REQUIRED');
   if (
     field === "status" &&
     value === "cancelled" &&

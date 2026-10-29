@@ -8,7 +8,7 @@ import {
   normalizeSearch,
   type Order,
 } from "../src/modules/shared/domain.ts";
-const base: Order = {
+const base: Order = {packingReady:1,
   id: "o1",
   customerId: "c1",
   customerName: "Example",
@@ -62,7 +62,7 @@ test("Unprepared food cannot be dispatched", () => {
   assert.throws(() => nextState(base, "delivery", "transit"), /NOT_READY/);
 });
 test("Prepared food goes through dispatch and delivery without changing payment", () => {
-  let o = nextState(base, "production", "cooking");
+  let o = nextState({ ...base, courierId: "courier-test" }, "production", "cooking");
   o = nextState(o, "production", "ready");
   o = nextState(o, "delivery", "transit");
   o = nextState(o, "delivery", "delivered");

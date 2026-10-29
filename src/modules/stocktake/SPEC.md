@@ -1,0 +1,17 @@
+# Physical stocktaking and compensating corrections — v10
+
+Scope: count a selected set of existing physical lots (1–30), save a draft, approve discrepancies, cancel unused drafts and reverse an entire posted count. This is a partial stocktake, not a declaration that all warehouse inventory was counted. Unknown physical lots require the existing receipt flow with provenance; no invented stock lots or expiry dates.
+
+Roles: owner/admin and warehouse can create, read, save, refresh and cancel drafts. Only owner/admin can post or reverse corrections. Dispatcher, kitchen, pending, disabled and public customers cannot read the count API or submit count actions. Configurable per-person privileges are deferred.
+
+Creation captures authoritative per-lot remaining quantity, balance revision, original receipt quantity/cost and bilingual ingredient/batch/expiry/unit snapshot. Counted values start blank; zero is an explicit count. Counts use existing integer g/ml/pcs base units. Draft edits require header revision; every selected line must be present. Difference reasons are mandatory on posting. No stock changes before approval. Refreshing one stale baseline clears its counted value and reason; every affected lot must physically be recounted.
+
+Every stock-lot balance update increments its revision through a database trigger, including waste and production issue. Posting checks all captured revisions and remaining amounts again inside the database batch. A stale line rejects the whole posting. This prevents losing movements, including an intervening quantity change that returns to the same amount. Posting uses actual server time, commits stock balances, signed stock moves, immutable line counts and audit atomically. Replays and concurrent clicks do not duplicate movements. Original receipt quantity, supplier document, cost, expiry and purchase received quantities remain unchanged. Net count corrections live in adjustment_total; remaining cannot be negative or exceed original receipt quantity plus net corrections. Stock value remains an estimate at original receipt unit cost.
+
+Posted and reversed documents retain original quantities and actor timestamps. Reversal needs a reason and admin approval; it writes opposite movements and restores adjustment totals. It requires every changed lot to have exactly its post-approval revision and balance. If consumption, waste or another correction has occurred since posting, reversal is refused; use a new count instead. No silent historical rewrites or negative balances. Cancelling a draft does not move stock. There is no automatic recreation or deletion.
+
+Acceptance: blank count cannot post; zero count can; positive surplus above original receipt quantity is traceable; shortage reduces usable stock; idempotent post and reverse; concurrent or ABA movement invalidates a count; one stale line rolls back all changes; non-admin warehouse cannot post; expiry remains enforced by FEFO; print uses saved snapshots.
+
+Migration rebuilds stock_lots with preserved IDs, original receipt data and references, using deferred foreign-key checks in a transaction; verify row counts, moves and PRAGMA foreign_key_check against a populated database. D1 migration reference: https://developers.cloudflare.com/d1/reference/migrations/.
+
+Deferred: annual legal inventory forms/valuations, blind counts, barcode scanning, multiple warehouses, arbitrary receipt/issue reversal and supplier returns. A stocktake does not cancel purchase receipts or production use.

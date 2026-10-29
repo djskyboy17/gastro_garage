@@ -1,0 +1,26 @@
+export const deliveryMessages = {
+  hu: {
+    courier: "Futár", couriers: "Futártörzs", newCourier: "Új futár", courierName: "Futár neve", vehicle: "Jármű / rendszám",
+    unassigned: "Nincs kijelölt futár", courierFilter: "Futár szűrése", deliveryFilter: "Kézbesítési állapot", openDeliveries: "Nyitott kiszállítások",
+    manifest: "Napi futárlista", manifestHint: "Időrendi lista · a kiválasztott futár és állapot szerint. Nem optimalizált útvonal.",
+    manifestPrint: "Futárlista nyomtatása", assignment: "Futár kijelölése", assignmentNote: "Kijelölés megjegyzése", deliveryNote: "Átadás megjegyzése / sikertelenség indoka",
+    deliveryHistory: "Kiszállítási események", noCouriers: "Még nincs futár. Vegyél fel egyet a futártörzsben.",
+    courierHint: "A futártörzs nem hoz létre bejelentkezési fiókot. Teszteléshez használj kitalált adatokat.",
+    assigned: "Futár módosítva", courier_created: "Futár felvéve", courier_assigned: "Futár kijelölve", assignmentLocked: "Úton lévő vagy kézbesített rendelés futára nem módosítható.",
+    COURIER_REQUIRED: "Indulás előtt jelölj ki egy futárt a rendeléshez.", COURIER_MISSING: "A kiválasztott futár nem található.",
+    ASSIGNMENT_LOCKED: "Ehhez az állapothoz már nem módosítható a futár.", DELIVERY_REASON_REQUIRED: "Írd be a sikertelen kézbesítés okát.",
+    stopCount: "Cím", toCollect: "Fizetésre váró összeg", recordedResult: "A kézbesítést a kezelő rögzíti; ez nem aláírt átvételi igazolás.",
+  },
+  ro: {
+    courier: "Curier", couriers: "Registru curieri", newCourier: "Curier nou", courierName: "Nume curier", vehicle: "Vehicul / număr de înmatriculare",
+    unassigned: "Fără curier alocat", courierFilter: "Filtrează după curier", deliveryFilter: "Stare livrare", openDeliveries: "Livrări deschise",
+    manifest: "Lista zilnică a curierului", manifestHint: "Listă cronologică · conform curierului și stării selectate. Traseul nu este optimizat.",
+    manifestPrint: "Tipărește lista curierului", assignment: "Alocare curier", assignmentNote: "Observații alocare", deliveryNote: "Observații predare / motivul livrării nereușite",
+    deliveryHistory: "Evenimente de livrare", noCouriers: "Nu există curieri. Adaugă unul în registru.",
+    courierHint: "Registrul nu creează conturi de autentificare. Folosește date fictive pentru testare.",
+    assigned: "Curier modificat", courier_created: "Curier adăugat", courier_assigned: "Curier alocat", assignmentLocked: "Curierul unei comenzi în livrare sau livrate nu poate fi modificat.",
+    COURIER_REQUIRED: "Alocă un curier comenzii înainte de plecare.", COURIER_MISSING: "Curierul selectat nu a fost găsit.",
+    ASSIGNMENT_LOCKED: "Curierul nu poate fi modificat în această stare.", DELIVERY_REASON_REQUIRED: "Completează motivul livrării nereușite.",
+    stopCount: "Adrese", toCollect: "Sumă neachitată", recordedResult: "Livrarea este înregistrată de operator; aceasta nu reprezintă o dovadă semnată de primire.",
+  },
+};

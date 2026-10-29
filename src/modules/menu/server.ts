@@ -1,0 +1,43 @@
+import {env} from 'cloudflare:workers';
+import {getDb} from '@/db';
+import {menuDays,products} from '@/db/schema';
+import {eq} from 'drizzle-orm';
+import {z} from 'zod';
+import {today} from '../shared/domain';
+import {publicProduct} from '../portal/domain';
+import {validDay,addDays,cutoffInstant,type MenuData} from './domain';
+export class MenuError extends Error{constructor(public code:string,public status=400){super(code);}}
+const usage=`SELECT COALESCE(SUM(i.quantity),0) FROM order_items i JOIN orders o ON o.id=i.order_id WHERE o.date=l.date AND i.product_id=l.product_id AND o.status IN ('requested','confirmed')`;
+export async function loadMenu():Promise<MenuData>{
+  const [days,lines]=await Promise.all([getDb().select().from(menuDays),env.DB!.prepare(`SELECT l.date,l.product_id AS productId,l.capacity,(${usage}) AS reserved FROM menu_lines l`).all()]);
+  return {days,lines:lines.results as MenuData['lines']};
+}
+export async function publicMenu(date:string){
+  if(!validDay(date)||date<today()||date>addDays(today(),30))throw new MenuError('MENU_DATE');
+  const [days,catalog,lines]=await Promise.all([getDb().select().from(menuDays).where(eq(menuDays.date,date)),getDb().select().from(products),env.DB!.prepare(`SELECT l.product_id AS productId,l.capacity,(${usage}) AS reserved FROM menu_lines l WHERE l.date=?`).bind(date).all()]);
+  const day=days[0];
+  if(!day||!day.active)return {date,open:false,cutoffAt:null,items:[]};
+  return {date,open:Date.now()<Date.parse(day.cutoffAt),cutoffAt:day.cutoffAt,items:lines.results.flatMap(l=>{const p=catalog.find(p=>p.id===l.productId&&p.active===1&&p.portalVisible===1);return p?[{...publicProduct(p),remaining:Math.max(0,Number(l.capacity)-Number(l.reserved))}]:[];})};
+}
+const input=z.object({date:z.string().refine(validDay),revision:z.number().int().min(0).nullable(),cutoff:z.string(),active:z.number().int().min(0).max(1),items:z.array(z.object({productId:z.string().min(1).max(200),capacity:z.number().int().min(0).max(100000)}).strict()).min(1).max(100)}).strict();
+export async function saveMenu(body:unknown,actor:string){
+  const d=input.parse(body),cutoffAt=cutoffInstant(d.cutoff);
+  if(d.date<today()||d.date>addDays(today(),90)||!cutoffAt||d.cutoff.slice(0,10)>d.date)throw new MenuError('MENU_DATE');
+  if(new Set(d.items.map(i=>i.productId)).size!==d.items.length)throw new MenuError('VALIDATION');
+  const db=getDb(),[current]=await db.select().from(menuDays).where(eq(menuDays.date,d.date));
+  if((current?.revision??null)!==d.revision)throw new MenuError('CONFLICT',409);
+  const catalog=await db.select().from(products);
+  if(d.items.some(i=>!catalog.some(p=>p.id===i.productId&&p.active)))throw new MenuError('MENU_PRODUCT');
+  const now=new Date().toISOString();
+  try{
+    await env.DB!.batch([
+      env.DB!.prepare(`INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN ${current?'EXISTS (SELECT 1 FROM menu_days WHERE date=? AND revision=?)':'NOT EXISTS (SELECT 1 FROM menu_days WHERE date=?)'} THEN ? ELSE NULL END,'menu_updated',?,?,?)`).bind(crypto.randomUUID(),d.date,...(current?[d.revision]:[]),actor,d.date,JSON.stringify(d),now),
+      ...(current?[env.DB!.prepare('UPDATE menu_days SET cutoff_at=?,active=?,revision=revision+1 WHERE date=? AND revision=?').bind(cutoffAt,d.active,d.date,d.revision)]:[env.DB!.prepare('INSERT INTO menu_days (date,cutoff_at,active,revision) VALUES (?,?,?,0)').bind(d.date,cutoffAt,d.active)]),
+      // Capacity checks run inside the same transaction as replacement, after other writers.
+      env.DB!.prepare(`INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN NOT EXISTS (SELECT 1 FROM order_items i JOIN orders o ON o.id=i.order_id WHERE o.date=? AND o.status IN ('requested','confirmed') AND i.product_id IN (SELECT product_id FROM menu_lines WHERE date=?) AND i.product_id NOT IN (SELECT json_extract(value,'$.productId') FROM json_each(?))) THEN ? ELSE NULL END,'menu_capacity_checked',?,'',?)`).bind(crypto.randomUUID(),d.date,d.date,JSON.stringify(d.items),actor,d.date,now),
+      env.DB!.prepare('DELETE FROM menu_lines WHERE date=?').bind(d.date),
+      env.DB!.prepare("INSERT INTO menu_lines (date,product_id,capacity) SELECT ?,json_extract(value,'$.productId'),json_extract(value,'$.capacity') FROM json_each(?)").bind(d.date,JSON.stringify(d.items)),
+    ]);
+  }catch(e){if(/MENU_CAPACITY/.test(String(e)))throw new MenuError('MENU_CAPACITY',409);if(/NOT NULL|UNIQUE/.test(String(e)))throw new MenuError('MENU_CONFLICT',409);throw e;}
+  return {ok:true};
+}

@@ -4,9 +4,9 @@
 
 - Catalog: bilingual names/descriptions, category, gross integer-bani price, gram portion, explicit 14-allergen selection.
 - Customers: name, address, phone and operational note. No CUI lookup or contracts yet.
-- Orders: date/time, customer snapshot, item snapshots; confirmed/cancelled, independent production/delivery/payment states.
+- Orders: date/time, customer snapshot, item snapshots; requested/confirmed/rejected/cancelled with independent production/delivery/payment states. Only confirmed orders enter operations. Portal ownership and review are described in ../portal/SPEC.md.
 - Production: read-only daily item aggregation from active orders, with ready quantities. Not a recipe or manufacturing execution system.
-- Delivery: chronological stops, dispatch only after ready, delivered/failed states. No courier assignment or route optimizer yet.
+- Delivery: chronological stops, dispatch only after ready, delivered/failed states. Courier master data, assignment and filtered manifests are described in ../delivery/SPEC.md. No route optimizer yet.
 - Audit: atomic writes with identity, time, action, entity and transition detail.
 
 ## API
@@ -15,7 +15,7 @@ GET /api/data returns the owner's workspace data. POST /api/products and /api/cu
 
 ## Access and persistence
 
-The user made Sites public for testing. API actions require the platform-injected ChatGPT identity header; authenticated testers use the shared test dataset. Employee roles are not yet implemented. Local preview auth is the starter's loopback-only simulation; production never uses the simulation. Records persist in D1, language preference only in localStorage.
+The user made Sites public for testing. API actions require the platform-injected ChatGPT identity header; authenticated testers use the shared test dataset. Staff membership, server authorization and role-based data projections are described in ../access/SPEC.md. Local preview auth is the starter's loopback-only simulation; production never uses the simulation. Records persist in D1, language preference only in localStorage.
 
 ## Acceptance examples
 
@@ -27,4 +27,4 @@ The user made Sites public for testing. API actions require the platform-injecte
 
 ## Deferred requirements
 
-Employee roles, tax classifications, invoices/e-Factura, complete consumer ingredient/nutrition disclosure, subrecipes, NIR, HACCP, notifications, capacity limits, offline writes, customer portal, recurring orders, deletion/correction workflows and accounting export. Recipe versions, lots, expiry and procurement proposals are now described in ../inventory/SPEC.md. Do not use this prototype to issue tax documents or certify food safety.
+Tax classifications, invoices/e-Factura, complete consumer ingredient/nutrition disclosure, subrecipes, NIR, HACCP, notifications, capacity limits, offline writes, customer portal, recurring orders, deletion/correction workflows and accounting export. Recipe versions, lots, expiry and procurement proposals are now described in ../inventory/SPEC.md. Do not use this prototype to issue tax documents or certify food safety.

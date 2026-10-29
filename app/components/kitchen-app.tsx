@@ -1,4 +1,6 @@
 "use client";
+import PackingWorkspace from "./packing-workspace";
+import {orderFulfillment} from "@/src/modules/fulfillment/domain";
 import {
   useCallback,
   useEffect,
@@ -16,6 +18,7 @@ import {
 import {
   LayoutDashboard,
   ClipboardList,
+  Repeat2,
   ChefHat,
   Truck,
   UtensilsCrossed,
@@ -47,12 +50,25 @@ import {
 import { messages } from "@/src/modules/shared/i18n";
 import OperationsWorkspace from "./operations-workspace";
 import PurchasingWorkspace from "./purchasing-workspace";
+import FulfillmentWorkspace from "./fulfillment-workspace";
+import StocktakeWorkspace from "./stocktake-workspace";
+import MenuWorkspace from "./menu-workspace";
+import PortalManagement, { OrderRequestReview } from "./portal-management";
+import RecurringWorkspace from "./recurring-workspace";
+import { emptyRecurring } from "@/src/modules/recurring/domain";
+import SafetyWorkspace from "./safety-workspace";
+import { emptySafety } from "@/src/modules/safety/domain";
+import AccessWorkspace from "./access-workspace";
+import { tabsFor, isMember, canWrite, type Session } from "@/src/modules/access/domain";
+import DeliveryWorkspace, { OrderDeliveryEditor } from "./delivery-workspace";
+import { emptyDelivery } from "@/src/modules/delivery/domain";
 import { emptyPurchasing } from "@/src/modules/purchasing/domain";
 import { emptyOperations } from "@/src/modules/inventory/domain";
 import {
   today,
   total,
   portions,
+  orderCode,
   kitchenSummary,
   normalizeSearch,
   type Language,
@@ -60,6 +76,9 @@ import {
   type Order,
 } from "@/src/modules/shared/domain";
 const empty: AppData = {
+  recurring: emptyRecurring,
+  safety: emptySafety,
+  logistics: emptyDelivery,
   products: [],
   customers: [],
   orders: [],
@@ -70,15 +89,23 @@ const empty: AppData = {
 const nav = [
   ["overview", LayoutDashboard],
   ["orders", ClipboardList],
+  ["recurring", Repeat2],
   ["kitchen", ChefHat],
+  ["packing", Package],
   ["delivery", Truck],
   ["catalog", UtensilsCrossed],
   ["customers", Users],
+  ["menu", UtensilsCrossed],
+  ["fulfillment", ClipboardList],
+  ["portal", Users],
   ["recipes", ChefHat],
   ["inventory", Package],
+  ["stocktake", ClipboardList],
   ["procurement", ClipboardList],
+  ["safety", CheckCircle2],
   ["roadmap", Blocks],
   ["audit", History],
+  ["access", Users],
 ] as const;
 const allergenKeys = [
   "gluten",
@@ -97,12 +124,12 @@ const allergenKeys = [
   "molluscs",
 ];
 const UiContext = createContext({ lang: "hu" as Language, busy: false });
-function Badge({ state }: { state: string }) {
+function Badge({ state,label }: { state: string;label?:string }) {
   const { lang } = useContext(UiContext);
   return (
     <span className={"badge " + state}>
       <i />
-      {messages[lang][state] ?? state}
+      {messages[lang][label??state] ?? state}
     </span>
   );
 }
@@ -130,8 +157,10 @@ function Button({
   );
 }
 export default function KitchenApp() {
+  const [session, setSession] = useState<Session | null>(null);
   const [lang, setLang] = useState<Language>("hu");
   const [tab, setTab] = useState("overview");
+  const [packingTarget,setPackingTarget]=useState<{id:string;date:string}|null>(null);
   const [data, setData] = useState<AppData>(empty);
   const [day, setDay] = useState(today);
   const [query, setQuery] = useState("");
@@ -147,9 +176,11 @@ export default function KitchenApp() {
   const [orderId, setOrderId] = useState("");
   const [newDate, setNewDate] = useState(today);
   const [newTime, setNewTime] = useState("12:00");
+  const [deliveryNote, setDeliveryNote] = useState("");
   const t = (key: string) => messages[lang][key] ?? key;
+  const can = (path:string, body:unknown = {}) => session ? canWrite(session.role,"/api/"+path,body) : false;
   const money = (n: number) =>
-    new Intl.NumberFormat(lang === "hu" ? "hu-HU" : "ro-RO", {
+    !session || !["owner","admin","dispatcher"].includes(session.role) ? "—" : new Intl.NumberFormat(lang === "hu" ? "hu-HU" : "ro-RO", {
       style: "currency",
       currency: "RON",
       minimumFractionDigits: 2,
@@ -166,12 +197,21 @@ export default function KitchenApp() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      const sr = await fetch("/api/session", { cache: "no-store" });
+      const current = await sr.json() as Session & {error?:string};
+      if (!sr.ok) { setSession(null); setData(empty); throw new Error(current.error || "loadError"); }
+      setSession(current);
+      if(current.role==='courier'){setData(empty);setModal(null);setError('');window.location.replace('/courier');return;}
+      const allowed = tabsFor(current.role);
+      setTab(prev => allowed.includes(prev) ? prev : allowed[0] ?? "overview");
+      if (!isMember(current.role)) { setData(empty); setModal(null); setError(""); return; }
       const r = await fetch("/api/data", { cache: "no-store" });
       const d = (await r.json()) as AppData & { error?: string };
       if (!r.ok) throw new Error(d.error || "loadError");
       setData(d);
       setError("");
     } catch (e) {
+      setData(empty);
       setError(e instanceof Error ? e.message : "loadError");
     } finally {
       setLoading(false);
@@ -207,6 +247,8 @@ export default function KitchenApp() {
     }
   }
   function navigate(next: string) {
+    if (!session || !tabsFor(session.role).includes(next)) return;
+    if(next!=="packing")setPackingTarget(null);
     setTab(next);
     setQuery("");
     setFilter("all");
@@ -223,16 +265,19 @@ export default function KitchenApp() {
     }
   }
   function detail(o: Order) {
+    setDeliveryNote("");
     setSelected(o.id);
     open("detail");
   }
   async function change(o: Order, field: string, value: string) {
-    await mutate("orders/state", {
+    const saved = await mutate("orders/state", {
       id: o.id,
       revision: o.revision,
       field,
       value,
+      note: field === "delivery" ? deliveryNote : "",
     });
+    if (saved) setDeliveryNote("");
   }
   function changeDay(offset: number) {
     const d = new Date(day + "T12:00:00Z");
@@ -240,7 +285,7 @@ export default function KitchenApp() {
     setDay(d.toISOString().slice(0, 10));
   }
   const active = data.orders.filter(
-    (o) => o.date === day && o.status !== "cancelled",
+    (o) => o.date === day && o.status === "confirmed",
   );
   const daily = data.orders
     .filter((o) => o.date === day)
@@ -321,7 +366,7 @@ export default function KitchenApp() {
                         {o.customerName.replace(" · Minta / Exemplu", "")}
                       </strong>
                       <small>
-                        #{o.id.slice(-6).toUpperCase()}
+                        #{orderCode(o.id)}
                         {o.id.startsWith("demo") ? " · " + t("sample") : ""}
                       </small>
                     </span>
@@ -344,7 +389,7 @@ export default function KitchenApp() {
                 <td>
                   <Badge
                     state={
-                      o.status === "cancelled" ? "cancelled" : o.production
+                      o.status !== "confirmed" ? o.status : o.production
                     }
                   />
                 </td>
@@ -382,9 +427,13 @@ export default function KitchenApp() {
         t("production"),
         t("delivery"),
         t("payment"),
+        "#",
+        t("fulfillMode"),
+        t("fulfillShipping"),
+        t("fulfillGrandTotal"),
       ],
       ...matching.flatMap((o) =>
-        o.items.map((i) => [
+        o.items.map((i,index) => [
           o.date,
           o.customerName,
           o.time,
@@ -394,6 +443,10 @@ export default function KitchenApp() {
           t(o.production),
           t(o.delivery),
           t(o.payment),
+          orderCode(o.id),
+          t(o.fulfillmentMode==="pickup"?"fulfillPickup":"fulfillDelivery"),
+          index===0?((o.deliveryFee??0)/100).toFixed(2):"",
+          index===0?(total(o)/100).toFixed(2):"",
         ]),
       ),
     ];
@@ -459,6 +512,20 @@ export default function KitchenApp() {
   }
   const noData =
     !data.products.length && !data.customers.length && !data.orders.length;
+  if(session?.role==='courier')return <main className="panel access-gate"><h1>{t('courierMobile')}</h1><a className="button" href="/courier">{t('courierOpen')}</a></main>;
+  if (!session || !isMember(session.role)) return <main className="panel access-gate">
+    <div className="language-switch">{(["hu","ro"] as const).map(l=><button key={l} className={lang===l?"selected":""} onClick={()=>setLang(l)}>{l.toUpperCase()}</button>)}</div>
+    <h1>{t("access")}</h1><p>{t("accessIntro")}</p>
+    {error && <p role="alert">{t(error)}</p>}
+    {loading ? <p>{t("loading")}</p> : session ? <>
+      <strong>{session.name} · {t("role_"+session.role)}</strong>
+      <p>{t(session.role==="disabled"?"accessBlocked":"accessWaiting")}</p>
+      {session.role!=="disabled" && <button className="button" disabled={busy} onClick={()=>void mutate("access/request",{})}>{t(session.canBootstrap?"ownerStart":"accessRequest")}</button>}
+      <button className="button secondary" disabled={busy} onClick={()=>void load()}>{t("accessRefresh")}</button>
+      <a href="/signout-with-chatgpt?return_to=/" target="_top">{t("signOut")}</a>
+    </> : <a className="button" href="/signin-with-chatgpt?return_to=/" target="_top">{t("signIn")}</a>}
+    <a className="button secondary" href="/portal">{t("portalOpen")}</a>
+  </main>;
   return (
     <UiContext.Provider value={{ lang, busy }}>
       <div className="app-shell">
@@ -485,13 +552,13 @@ export default function KitchenApp() {
             </span>
             <span>
               <strong>Konyha Studio</strong>
-              <small>{t("owner")}</small>
+              <small>{t("role_"+session.role)}</small>
             </span>
             <ChevronRight size={14} />
           </div>
           <p className="nav-label">{t("workspace")}</p>
           <nav aria-label={t("workspace")}>
-            {nav.map(([key, Icon], i) => (
+            {nav.filter(([key]) => session && tabsFor(session.role).includes(key)).map(([key, Icon], i) => (
               <button
                 key={key}
                 className={tab === key ? "active" : ""}
@@ -499,7 +566,7 @@ export default function KitchenApp() {
               >
                 <Icon size={19} />
                 <span>{t(key)}</span>
-                {key === "orders" && active.length > 0 ? (
+                {key === "portal" && data.orders.some(o=>o.status==="requested") ? <span className="nav-count">{data.orders.filter(o=>o.status==="requested").length}</span> : key === "orders" && active.length > 0 ? (
                   <span className="nav-count">{active.length}</span>
                 ) : key === "roadmap" ? (
                   <span className="tiny-dot" />
@@ -518,9 +585,9 @@ export default function KitchenApp() {
               target="_top"
               className="profile"
             >
-              <span className="avatar owner-avatar">ZS</span>
+              <span className="avatar owner-avatar">{session.name.slice(0,2).toUpperCase()}</span>
               <span>
-                <strong>Konyha Studio</strong>
+                <strong>{session.name}</strong>
                 <small>{t("signOut")}</small>
               </span>
               <LogOut size={17} />
@@ -593,6 +660,10 @@ export default function KitchenApp() {
                         ? "productionSubtitle"
                         : tab === "delivery"
                           ? "deliverySubtitle"
+                          : tab === "recurring"
+                            ? "recurringHint"
+                          : tab === "safety"
+                            ? "safetyHint"
                           : tab === "catalog"
                             ? "catalogHint"
                             : tab === "customers"
@@ -645,7 +716,7 @@ export default function KitchenApp() {
               </div>
             ) : (
               <>
-                {noData && !error ? (
+                {noData && !error && can("demo") && tab === "overview" ? (
                   <section className="welcome">
                     <span className="welcome-icon">
                       <Leaf size={32} />
@@ -676,6 +747,7 @@ export default function KitchenApp() {
                   "delivery",
                   "inventory",
                   "procurement",
+                  "safety",
                 ].includes(tab) && (
                   <div className="date-toolbar">
                     <div className="date-control">
@@ -774,7 +846,7 @@ export default function KitchenApp() {
                                 <>
                                   {i === 0
                                     ? active.filter(
-                                        (o) => o.delivery === "pending",
+                                        (o) => o.fulfillmentMode!=="pickup" && o.delivery === "pending",
                                       ).length
                                     : summary.length}{" "}
                                   {t(
@@ -863,8 +935,8 @@ export default function KitchenApp() {
                             {
                               active.filter(
                                 (o) =>
-                                  o.delivery === "pending" ||
-                                  o.delivery === "transit",
+                                  o.fulfillmentMode!=="pickup" && (o.delivery === "pending" ||
+                                  o.delivery === "transit"),
                               ).length
                             }{" "}
                             {t("ordersCount").toLowerCase()}
@@ -904,6 +976,9 @@ export default function KitchenApp() {
                       >
                         {[
                           "all",
+                          "requested",
+                          "confirmed",
+                          "rejected",
                           "queued",
                           "cooking",
                           "ready",
@@ -989,60 +1064,12 @@ export default function KitchenApp() {
                       <div className="panel-heading">
                         <h2>{t("orders")}</h2>
                       </div>
-                      {orderTable(daily)}
+                      {orderTable(daily.filter(o=>o.status==="confirmed"))}
                     </section>
                   </>
                 )}
                 {tab === "delivery" && (
-                  <div className="delivery-grid">
-                    {active.filter((o) => o.delivery !== "delivered").length ? (
-                      active
-                        .filter((o) => o.delivery !== "delivered")
-                        .sort((a, b) => a.time.localeCompare(b.time))
-                        .map((o, i) => (
-                          <article className="panel delivery-card" key={o.id}>
-                            <div className="delivery-card-top">
-                              <span className="stop-number">
-                                {String(i + 1).padStart(2, "0")}
-                              </span>
-                              <span className="time">
-                                <Clock size={15} />
-                                {o.time}
-                              </span>
-                              <Badge state={o.delivery} />
-                            </div>
-                            <h2>{o.customerName}</h2>
-                            <p>{o.address}</p>
-                            {o.phone && (
-                              <a href={"tel:" + o.phone}>{o.phone}</a>
-                            )}
-                            <div className="delivery-items">
-                              {o.items.map((item) => (
-                                <div key={item.id}>
-                                  <span>{title(item)}</span>
-                                  <strong>×{item.quantity}</strong>
-                                </div>
-                              ))}
-                            </div>
-                            <div className="delivery-card-bottom">
-                              <span>
-                                {money(total(o))}
-                                <small>{t(o.payment)}</small>
-                              </span>
-                              <Button secondary onClick={() => detail(o)}>
-                                {t("open")}
-                                <ArrowUpRight size={16} />
-                              </Button>
-                            </div>
-                          </article>
-                        ))
-                    ) : (
-                      <div className="panel empty">
-                        <Truck size={30} />
-                        <h3>{t("noDelivery")}</h3>
-                      </div>
-                    )}
-                  </div>
+                  <DeliveryWorkspace data={data} lang={lang} busy={busy} mutate={mutate} day={day} onOrder={detail}/>
                 )}
                 {tab === "catalog" && (
                   <>
@@ -1196,9 +1223,7 @@ export default function KitchenApp() {
                         ([key]) =>
                           !["overview", "roadmap", "audit"].includes(key),
                       ),
-                      ["safety", CheckCircle2],
                       ["billing", Wallet],
-                      ["portal", Users],
                     ].map(([key, Icon], i) => {
                       const I = Icon as typeof Blocks;
                       const available = nav.some(
@@ -1232,6 +1257,14 @@ export default function KitchenApp() {
                     })}
                   </div>
                 )}
+                {tab === "packing" && <PackingWorkspace lang={lang} refresh={load} initialDate={packingTarget?.date??day} initialOrderId={packingTarget?.id??""}/>}
+                {tab === "fulfillment" && <FulfillmentWorkspace lang={lang} role={session.role}/>}
+                {tab === "stocktake" && <StocktakeWorkspace ops={data.operations} lang={lang} role={session.role} refresh={load}/>}
+                {tab === "menu" && <MenuWorkspace products={data.products} lang={lang}/>}
+                {tab === "portal" && <PortalManagement data={data} lang={lang} role={session.role} busy={busy} mutate={mutate} refresh={load} onOrder={detail}/>}
+                {tab === "recurring" && <RecurringWorkspace data={data} lang={lang} busy={busy} mutate={mutate} refresh={load} onOrder={detail}/>}
+                {tab === "safety" && <SafetyWorkspace data={data.safety} lang={lang} day={day} role={session.role} busy={busy} mutate={mutate}/>}
+                {tab === "access" && <AccessWorkspace lang={lang} session={session} busy={busy} mutate={mutate}/>}
                 {tab === "audit" && (
                   <section className="panel">
                     <div className="panel-heading">
@@ -1247,7 +1280,7 @@ export default function KitchenApp() {
                               {t(a.action === "demo" ? "demoAction" : a.action)}
                             </strong>
                             <p>
-                              {a.action === "state_changed"
+                              {a.action === "menu_updated" ? a.entity : a.action === "state_changed"
                                 ? (() => {
                                     try {
                                       const d = JSON.parse(a.detail);
@@ -1327,10 +1360,11 @@ export default function KitchenApp() {
               <>
                 <div className="detail-top">
                   <span className="eyebrow">
-                    #{selectedOrder.id.slice(-6).toUpperCase()}
+                    #{orderCode(selectedOrder.id)}
                   </span>
                   <Badge state={selectedOrder.status} />
                 </div>
+                {data.recurring.occurrences.some(o=>o.orderId===selectedOrder.id) && <p className="detail-note">{t("recurringSource")} · {data.recurring.templates.find(template=>template.id===data.recurring.occurrences.find(o=>o.orderId===selectedOrder.id)?.templateId)?.name}</p>}
                 <h3 className="detail-customer">
                   {selectedOrder.customerName}
                 </h3>
@@ -1357,6 +1391,7 @@ export default function KitchenApp() {
                     </div>
                   ))}
                 </div>
+                {orderFulfillment(selectedOrder)&&<div className="fulfill-summary"><p>{t(selectedOrder.fulfillmentMode==='pickup'?'fulfillPickup':'fulfillDelivery')} · {orderFulfillment(selectedOrder)!.start}–{orderFulfillment(selectedOrder)!.end}</p><p>{t('fulfillShipping')}: {money(selectedOrder.deliveryFee??0)}</p></div>}
                 <div className="detail-total">
                   <span>{t("amount")}</span>
                   <strong>{money(total(selectedOrder))}</strong>
@@ -1364,6 +1399,11 @@ export default function KitchenApp() {
                 {selectedOrder.note && (
                   <p className="detail-note">{selectedOrder.note}</p>
                 )}
+                {selectedOrder.fulfillmentMode!=="pickup" && can("delivery/assign") && selectedOrder.status === "confirmed" && <OrderDeliveryEditor key={selectedOrder.id+":"+selectedOrder.revision} data={data} lang={lang} busy={busy} mutate={mutate} order={selectedOrder}/>}
+                {can("orders/state",{field:"delivery"}) && selectedOrder.status === "confirmed" && selectedOrder.delivery !== "delivered" && <div className="detail-delivery-note"><Field label={t("deliveryNote")}><textarea maxLength={500} value={deliveryNote} onChange={e=>setDeliveryNote(e.target.value)}/></Field><small>{t("recordedResult")}</small></div>}
+                {selectedOrder.status==="requested" && can("orders/state",{field:"status"}) && <OrderRequestReview key={selectedOrder.id+":"+selectedOrder.revision} order={selectedOrder} lang={lang} busy={busy} mutate={mutate}/>}
+                {selectedOrder.reviewNote && <p className="portal-review-note">{selectedOrder.reviewNote}</p>}
+                {selectedOrder.status==='confirmed'&&selectedOrder.production==='ready'&&['pending','failed'].includes(selectedOrder.delivery)&&<div className="packing-dispatch-hint"><p>{t(selectedOrder.packingReady===1?'packingComplete':'PACKING_REQUIRED')}</p><button className="text-button" onClick={()=>{setPackingTarget({id:selectedOrder.id,date:selectedOrder.date});setModal(null);navigate('packing');}}>{t('packingOrders')}</button></div>}
                 <div className="state-grid">
                   {[
                     ["production", selectedOrder.production],
@@ -1371,14 +1411,15 @@ export default function KitchenApp() {
                     ["payment", selectedOrder.payment],
                   ].map(([label, state]) => (
                     <div key={label}>
-                      <small>{t(label)}</small>
-                      <Badge state={state} />
+                      <small>{t(label==="delivery"&&selectedOrder.fulfillmentMode==="pickup"?"fulfillPickupStatus":label)}</small>
+                      <Badge state={state} label={label==="delivery"&&selectedOrder.fulfillmentMode==="pickup"&&state==="delivered"?"fulfillPickedUp":undefined} />
                     </div>
                   ))}
                 </div>
-                {selectedOrder.status !== "cancelled" && (
+                {selectedOrder.status === "confirmed" && (
                   <div className="detail-actions">
-                    {selectedOrder.production === "queued" && (
+                    {selectedOrder.fulfillmentMode==='pickup'&&can('orders/state',{field:'delivery'})&&selectedOrder.production==='ready'&&selectedOrder.delivery==='pending'&&selectedOrder.packingReady===1&&<Button onClick={()=>void change(selectedOrder,'delivery','delivered')}>{t('fulfillCollected')}</Button>}
+                    {can("orders/state",{field:"production"}) && selectedOrder.production === "queued" && (
                       <Button
                         onClick={() =>
                           void change(selectedOrder, "production", "cooking")
@@ -1388,7 +1429,7 @@ export default function KitchenApp() {
                         {t("startCooking")}
                       </Button>
                     )}
-                    {selectedOrder.production === "cooking" && (
+                    {can("orders/state",{field:"production"}) && selectedOrder.production === "cooking" && (
                       <Button
                         onClick={() =>
                           void change(selectedOrder, "production", "ready")
@@ -1398,7 +1439,7 @@ export default function KitchenApp() {
                         {t("markReady")}
                       </Button>
                     )}
-                    {selectedOrder.production === "ready" &&
+                    {selectedOrder.fulfillmentMode!=="pickup" && can("orders/state",{field:"delivery"}) && selectedOrder.production === "ready" && selectedOrder.packingReady===1 && !!selectedOrder.courierId &&
                       ["pending", "failed"].includes(
                         selectedOrder.delivery,
                       ) && (
@@ -1411,7 +1452,7 @@ export default function KitchenApp() {
                           {t("dispatch")}
                         </Button>
                       )}
-                    {selectedOrder.delivery === "transit" && (
+                    {can("orders/state",{field:"delivery"}) && selectedOrder.delivery === "transit" && (
                       <>
                         <Button
                           onClick={() =>
@@ -1431,7 +1472,7 @@ export default function KitchenApp() {
                         </Button>
                       </>
                     )}
-                    {selectedOrder.payment === "unpaid" && (
+                    {can("orders/state",{field:"payment"}) && selectedOrder.payment === "unpaid" && (
                       <Button
                         secondary
                         onClick={() =>
@@ -1442,7 +1483,7 @@ export default function KitchenApp() {
                         {t("markPaid")}
                       </Button>
                     )}
-                    {selectedOrder.production === "queued" &&
+                    {can("orders/state",{field:"status"}) && selectedOrder.production === "queued" &&
                       selectedOrder.delivery === "pending" && (
                         <button
                           disabled={busy}
@@ -1655,7 +1696,8 @@ export default function KitchenApp() {
                       <Plus size={15} />
                       {t("addLine")}
                     </Button>
-                    <div className="detail-total">
+                    
+                <div className="detail-total">
                       <span>{t("amount")}</span>
                       <strong>
                         {money(

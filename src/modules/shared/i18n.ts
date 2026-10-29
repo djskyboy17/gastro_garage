@@ -1,9 +1,29 @@
+import {packingMessages} from "../packing/i18n";
+import {courierMessages} from "../courier/i18n";
+import {fulfillmentMessages} from "../fulfillment/i18n";
+import {stocktakeMessages} from "../stocktake/i18n";
+import { menuMessages } from "../menu/i18n";
 import { operationMessages } from "../inventory/i18n";
 import { purchaseMessages } from "../purchasing/i18n";
+import { deliveryMessages } from "../delivery/i18n";
+import { accessMessages } from "../access/i18n";
+import { safetyMessages } from "../safety/i18n";
+import { recurringMessages } from "../recurring/i18n";
+import { portalMessages } from "../portal/i18n";
 export const messages: Record<"hu" | "ro", Record<string, string>> = {
   hu: {
     ...operationMessages.hu,
     ...purchaseMessages.hu,
+    ...deliveryMessages.hu,
+    ...accessMessages.hu,
+    ...safetyMessages.hu,
+    ...recurringMessages.hu,
+    ...portalMessages.hu,
+    ...menuMessages.hu,
+    ...stocktakeMessages.hu,
+    ...fulfillmentMessages.hu,
+    ...courierMessages.hu,
+    ...packingMessages.hu,
     brand: "Catering műhely",
     previous: "Előző nap",
     next: "Következő nap",
@@ -167,6 +187,16 @@ export const messages: Record<"hu" | "ro", Record<string, string>> = {
   ro: {
     ...operationMessages.ro,
     ...purchaseMessages.ro,
+    ...deliveryMessages.ro,
+    ...accessMessages.ro,
+    ...safetyMessages.ro,
+    ...recurringMessages.ro,
+    ...portalMessages.ro,
+    ...menuMessages.ro,
+    ...stocktakeMessages.ro,
+    ...fulfillmentMessages.ro,
+    ...courierMessages.ro,
+    ...packingMessages.ro,
     brand: "Atelier de catering",
     previous: "Ziua precedentă",
     next: "Ziua următoare",

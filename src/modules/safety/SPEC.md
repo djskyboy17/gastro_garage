@@ -1,0 +1,17 @@
+# Safety monitoring records, v6
+
+Boundaries: configurable monitoring points, temperature/checklist observations, open deviations and supervisor closure with a corrective action and linked successful recheck. This is a recordkeeping aid, not a complete HACCP plan, food-safety certification or legal validation. No default regulatory thresholds, sensor integration, alerts, product hold/release, lot quarantine or formal electronic signatures.
+
+Reference consulted: Regulation (EC) 852/2004, Article 5 (monitoring, corrective action, verification and records), https://eur-lex.europa.eu/eli/reg/2004/852. This feature implements only selected recording workflows. A responsible food-safety professional must set and validate the kitchen's actual points, limits and procedures before operational use.
+
+Admin/owner maintain bilingual points: area, temperature or checklist, work instructions and active status. Temperature points require explicit inclusive lower and upper limits. Limits and observations are integer tenths of a degree Celsius; technical input range -100 to 300 °C is not a recommended operating range. Point kind is immutable; create a new point to change kind. Editing/archiving uses revisions and does not recalculate historical records.
+
+Kitchen and warehouse may read and record checks; dispatcher receives no safety data and cannot write it. Only admin/owner maintain points or resolve deviations. Each observation records server timestamp, Bucharest calendar day, actor identity/name and a snapshot of the point and limits. No backdating, overwrite or deletion. An observation is at recording time; recording older measurements is deferred. UUID retries match the original request; changed payloads conflict. Point revision and activity are checked atomically with observation/audit creation.
+
+Out-of-range temperature or failed checklist produces an open deviation and requires a note. A later passing result does not auto-close older deviations. Supervisor closure requires a corrective-action description and a later passing record for the same point that also satisfies the original incident limits. Relaxing limits cannot erase or resolve an older excursion. All open deviations remain listed across dates, including archived points. Result, snapshots and notes remain unchanged on closure; closure fields/revision/audit are atomic.
+
+Daily view shows active points and latest observation on the selected day; missing observations are explicitly unrecorded, not passing. This daily list does not implement configured frequency, shifts or historical schedule versions. Historical observation table includes archived points, original limits, identities and resolution. The selected day's records can be printed; no automatic claim of regulatory compliance.
+
+API: POST /api/safety/points (create/update), /records (append observation), /resolve (supervisor closure). Read via role-projected GET /api/data. No request-time schema changes. No sample food-safety thresholds are seeded.
+
+Acceptance: signed temperatures and decimal commas store exactly; thresholds inclusive; no client-provided outcome; failures require note; old revision/inactive point reject; retries no duplicate audit; original snapshots survive template changes; unrelated/older/failed/relaxed-limit rechecks reject; successful recheck does not auto-close; closure conflicts preserve audit; role restrictions enforced server-side; HU/RO labels, reload and daily printing retain dates, outcomes and reasons.
