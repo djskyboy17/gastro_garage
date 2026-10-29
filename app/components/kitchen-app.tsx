@@ -1254,7 +1254,7 @@ export default function KitchenApp() {
                         <h2 className="settings-section-title">{t("settingsModules")}</h2>
                         <div className="settings-grid settings-module-grid">
                           {[
-                            ...nav.filter(([key]) => !["overview", "settings"].includes(key)),
+                            ...nav.filter(([key]) => !["overview", "settings"].includes(key) && !isSettingsTab(String(key))),
                             ["billing", Wallet],
                           ].map(([key, Icon]) => {
                             const I = Icon as typeof Blocks;

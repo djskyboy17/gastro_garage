@@ -5,13 +5,13 @@ import {ImageError,validateImage,base64ToBytes} from './domain.ts';
 export {ImageError};
 const json=(v:unknown,status=200)=>Response.json(v,{status,headers:{'Cache-Control':'no-store'}});
 /**
- * Ételkép kiszolgálása. Az ügyfélportálon látható, aktív étel képe bárkinek elérhető (hosszú gyorsítótárral,
+ * Ételkép kiszolgálása. Aktív étel képe bárkinek elérhető (az étlapon szereplő ételek a portálon látszanak) (hosszú gyorsítótárral,
  * mert az URL verziózott); a többi csak bejelentkezett dolgozónak (`staff` = true).
  */
 export async function serveProductImage(req:Request,staff:()=>Promise<boolean>){
  const url=new URL(req.url);const id=url.searchParams.get('id')??'';
  if(!id||id.length>200)return json({error:'NOT_FOUND'},404);
- const row=await env.DB!.prepare("SELECT i.mime,i.data,p.image_revision AS rev,p.active AND p.portal_visible AS public FROM product_images i JOIN products p ON p.id=i.product_id WHERE i.product_id=?").bind(id).first<{mime:string;data:string;rev:number;public:number}>();
+ const row=await env.DB!.prepare("SELECT i.mime,i.data,p.image_revision AS rev,p.active AS public FROM product_images i JOIN products p ON p.id=i.product_id WHERE i.product_id=?").bind(id).first<{mime:string;data:string;rev:number;public:number}>();
  if(!row)return json({error:'NOT_FOUND'},404);
  const isPublic=row.public===1;
  if(!isPublic&&!(await staff()))return json({error:'NOT_FOUND'},404);

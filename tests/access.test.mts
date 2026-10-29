@@ -37,9 +37,9 @@ test("Beállítások: a ritkán használt nézetek a Beállítások alá kerüln
     assert.ok(!tabs.includes("roadmap"), role);
   }
   assert.deepEqual(settingsTabs.filter((t) => tabsFor("kitchen").includes(t)), ["safety"]);
-  assert.deepEqual(settingsTabs.filter((t) => tabsFor("warehouse").includes(t)), ["safety"]);
+  assert.deepEqual(settingsTabs.filter((t) => tabsFor("warehouse").includes(t)), ["safety", "stocktake"]);
   assert.deepEqual(settingsTabs.filter((t) => tabsFor("dispatcher").includes(t)), ["fulfillment"]);
-  assert.deepEqual(settingsTabs.filter((t) => tabsFor("owner").includes(t)), ["safety", "fulfillment", "access", "audit"]);
+  assert.deepEqual(settingsTabs.filter((t) => tabsFor("owner").includes(t)), ["safety", "fulfillment", "stocktake", "access", "audit"]);
   assert.ok(isSettingsTab("audit") && !isSettingsTab("orders"));
 });
 test("Only the kitchen and administrators can mark dishes ready", () => {

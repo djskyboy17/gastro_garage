@@ -21,7 +21,6 @@ async function setup(){
  const ingredient=await call('operations/ingredients',{hu:'Próbaliszt '+key,ro:'Făină de test '+key,unit:'g',packQuantity:1000,packPrice:500,minStock:0,supplier:'LOCAL TEST',allergens:'gluten'},201);
  const product=await call('products',{hu:'Próbaebéd '+key,ro:'Prânz de test '+key,descriptionHu:'Kitalált teljesfolyamat-próba',descriptionRo:'Test fictiv al fluxului complet',category:'main',price:2500,portion:300,allergens:''},201);
  const recipe=await call('operations/recipes',{productId:product.id,yield:10,note:'Local workflow v1',lines:[{ingredientId:ingredient.id,quantity:1000,lossBps:0}]},201);
- await call('portal/catalog-setting',{productId:product.id,revision:0,visible:1});
  const fulfillment=await ensureFulfillment(call),menus=await call('menu'),existing=menus.days.find(d=>d.date===date);
  await call('menu/save',{date,revision:existing?.revision??null,active:1,cutoff:date+'T09:00',items:[...menus.lines.filter(l=>l.date===date).map(l=>({productId:l.productId,capacity:l.capacity})),{productId:product.id,capacity:10}]});
  const me=await call('portal/me');await call('portal/profile',{name:'Teljes folyamat próba '+key,address:'Kitalált teszt utca 12',phone:'0000000000',...(me.profile?{revision:me.profile.revision}:{})},me.profile?200:201);

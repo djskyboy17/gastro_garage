@@ -12,12 +12,16 @@ import {isAdmin,type Session} from "../access/domain";
 import type {Identity} from "../access/server";
 import {publicProduct,publicOrder,validPortalSlot,type PortalData,type PortalAccount,type PortalPreview} from "./domain";
 import {publicDishInfos} from "../inventory/server";
+import {today} from "../shared/domain";
 export class PortalError extends Error {constructor(public code:string,public status=400){super(code);}}
 const json=(v:unknown,status=200)=>Response.json(v,{status,headers:{"Cache-Control":"no-store"}});
 const profileInput=z.object({revision:z.number().int().min(0).optional(),name:z.string().trim().min(1).max(200),address:z.string().trim().max(500).refine(v=>v.length===0||v.length>=5),phone:z.string().trim().regex(/^[+0-9 ()-]{6,40}$/)}).strict();
 const orderInput=z.object({mode:z.enum(["delivery","pickup"]),slotId:z.string().uuid(),postalCode:z.string().max(6),date:z.string(),time:z.string(),note:z.string().trim().max(1500),items:z.array(z.object({productId:z.string().min(1).max(200),quantity:z.number().int().min(1).max(100)}).strict()).min(1).max(10)}).strict();
+/** Az ügyfélnek látható kínálat: az aktív ételek, amelyek rajta vannak egy mai vagy későbbi, nyitott étlapon (v27). */
 export async function loadPublicCatalog(){
-  const rows=await getDb().select().from(products).where(and(eq(products.active,1),eq(products.portalVisible,1)));
+  const onMenu=await env.DB!.prepare("SELECT DISTINCT l.product_id AS id FROM menu_lines l JOIN menu_days d ON d.date=l.date WHERE d.active=1 AND l.date>=?").bind(today()).all<{id:string}>();
+  const ids=new Set(onMenu.results.map(r=>r.id));
+  const rows=(await getDb().select().from(products).where(eq(products.active,1))).filter(p=>ids.has(p.id));
   const infos=await publicDishInfos(rows);
   return rows.map(p=>({...publicProduct(p),info:infos.get(p.id)??null}));
 }
@@ -31,7 +35,7 @@ async function quote(input:z.infer<typeof orderInput>,userId:string){
   if(!validPortalSlot(input.date,input.time))throw new PortalError("PORTAL_SLOT");
   if(new Set(input.items.map(i=>i.productId)).size!==input.items.length)throw new PortalError("VALIDATION");
   const p=await requireAccount(userId),db=getDb();
-  const [catalog,recipeList]=await Promise.all([db.select().from(products).where(and(eq(products.active,1),eq(products.portalVisible,1))),db.select().from(recipes)]);
+  const [catalog,recipeList]=await Promise.all([db.select().from(products).where(eq(products.active,1)),db.select().from(recipes)]);
   const lines=input.items.map(i=>{const product=catalog.find(p=>p.id===i.productId);if(!product)throw new PortalError("PORTAL_PRODUCT_UNAVAILABLE");const recipe=recipeList.filter(r=>r.productId===i.productId).sort((a,b)=>b.version-a.version)[0];return {productId:product.id,hu:product.hu,ro:product.ro,allergens:product.allergens,quantity:i.quantity,price:product.price,recipeId:recipe?.id??null,portalRevision:product.portalRevision};});
   const [day]=await db.select().from(menuDays).where(eq(menuDays.date,input.date));
   const menu=await publicMenu(input.date);
@@ -64,14 +68,6 @@ export async function handlePortal(path:string,body:unknown|undefined,user:Ident
     const rows=await db.select({userId:portalProfiles.userId,customerId:portalProfiles.customerId,active:portalProfiles.active,revision:portalProfiles.revision,createdAt:portalProfiles.createdAt,name:customers.name,address:customers.address,phone:customers.phone}).from(portalProfiles).innerJoin(customers,eq(customers.id,portalProfiles.customerId));return json(rows);
   }
   if(!write) return json({error:"NOT_FOUND"},404);
-  if(path==="/api/portal/catalog-setting"){
-    if(!manager)throw new PortalError("FORBIDDEN",403);
-    const d=z.object({productId:z.string().min(1).max(200),revision:z.number().int().min(0),visible:z.number().int().min(0).max(1)}).strict().parse(body);
-    const result=await env.DB!.batch([
-      env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) SELECT ?,?,'portal_catalog_updated',?,?,? WHERE EXISTS (SELECT 1 FROM products WHERE id=? AND portal_revision=?)").bind(crypto.randomUUID(),user.userId,d.productId,String(d.visible),now,d.productId,d.revision),
-      env.DB!.prepare("UPDATE products SET portal_visible=?,portal_revision=portal_revision+1 WHERE id=? AND portal_revision=?").bind(d.visible,d.productId,d.revision),
-    ]);if(result[1].meta.changes!==1)throw new PortalError("CONFLICT",409);return json({ok:true});
-  }
   if(path==="/api/portal/accounts/state"){
     if(!admin)throw new PortalError("FORBIDDEN",403);
     const d=z.object({userId:z.string().min(1).max(200),revision:z.number().int().min(0),active:z.number().int().min(0).max(1)}).strict().parse(body);

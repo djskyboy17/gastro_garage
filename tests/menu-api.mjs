@@ -10,7 +10,6 @@ execFileSync(python,['tests/portal-fixture.py'],{stdio:'pipe'});
 const nowDay=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Bucharest'}).format(new Date());
 const d=new Date(nowDay+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+2);const date=d.toISOString().slice(0,10);
 const product=await call('products',{hu:'LOCAL MENU RACE '+randomUUID().slice(0,6),ro:'LOCAL MENU RACE',descriptionHu:'Próba',descriptionRo:'Test',category:'main',price:1000,portion:250,allergens:''},201);
-await call('portal/catalog-setting',{productId:product.id,revision:0,visible:1});
 const existing=(await call('menu')).days.find(d=>d.date===date);
 let revision=existing?.revision??null;
 // Preserve other offers to permit repeatable local runs with historical reservations.

@@ -9,7 +9,7 @@ async function call(path,body,status=200,anon=false){const r=await raw(path,body
 const fixture=role=>execFileSync(python,['tests/access-fixture.py',role],{stdio:'pipe'});fixture('restore');execFileSync(python,['tests/portal-fixture.py'],{stdio:'pipe'});
 const fulfill=await ensureFulfillment(call),base=await call('fulfillment');
 const future=new Date(new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Bucharest'}).format(new Date())+'T12:00:00Z');future.setUTCDate(future.getUTCDate()+3);const date=future.toISOString().slice(0,10);
-const product=await call('products',{hu:'LOCAL DELIVERY '+randomUUID().slice(0,6),ro:'LOCAL DELIVERY',descriptionHu:'Próba',descriptionRo:'Test',category:'main',price:1000,portion:200,allergens:''},201);await call('portal/catalog-setting',{productId:product.id,revision:0,visible:1});
+const product=await call('products',{hu:'LOCAL DELIVERY '+randomUUID().slice(0,6),ro:'LOCAL DELIVERY',descriptionHu:'Próba',descriptionRo:'Test',category:'main',price:1000,portion:200,allergens:''},201);
 const menus=await call('menu'),day=menus.days.find(d=>d.date===date);await call('menu/save',{date,revision:day?.revision??null,cutoff:date+'T09:00',active:1,items:[...menus.lines.filter(l=>l.date===date).map(l=>({productId:l.productId,capacity:l.capacity})),{productId:product.id,capacity:1000}]});
 let me=await call('portal/me');if(!me.profile)await call('portal/profile',{name:'LOCAL DELIVERY CUSTOMER',address:'LOCAL fictional address',phone:'0000000000'},201);
 const slot={id:randomUUID(),mode:'delivery',weekdays:[1,2,3,4,5,6,7],start:'14:00',end:'15:00',capacity:1,active:true};

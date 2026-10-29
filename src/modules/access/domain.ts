@@ -7,7 +7,7 @@ export type Session = {userId:string;name:string;role:Role;canBootstrap:boolean}
 export const isAdmin = (role:Role) => role === "owner" || role === "admin";
 export const isMember = (role:Role) => ["owner","admin","dispatcher","kitchen","warehouse"].includes(role);
 /** Ritkán használt, beállítás jellegű nézetek: a főmenü helyett a Beállítások oldalról nyílnak. */
-export const settingsTabs = ["safety","fulfillment","access","audit"] as const;
+export const settingsTabs = ["safety","fulfillment","stocktake","access","audit"] as const;
 export const isSettingsTab = (tab:string) => (settingsTabs as readonly string[]).includes(tab);
 export function tabsFor(role:Role): string[] {
   if (isAdmin(role)) return ["overview","orders","recurring","kitchen","packing","delivery","catalog","customers","menu","fulfillment","portal","recipes","inventory","stocktake","procurement","safety","audit","access","settings"];

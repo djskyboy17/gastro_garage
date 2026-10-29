@@ -10,7 +10,7 @@ Az ételkatalógusban minden ételhez egy kép tölthető fel; a kép a katalóg
 - A kép a D1 adatbázisban van (`product_images`, base64), külön tárhely (R2) nélkül. Ha sok vagy nagy kép lesz, R2-re érdemes átköltöztetni.
 - `products.image_revision` minden feltöltésnél és törlésnél nő, soha nem csökken; ez a kép URL-jének verziója (`?v=`), így új kép sosem jön régi gyorsítótárból. `products.has_image` mutatja, van-e kép.
 - Revízióellenőrzés: elavult revízióval érkező kérés `CONFLICT`. Kép, termék és napló (`product_image_saved` / `product_image_removed`) egy tranzakcióban.
-- Kiszolgálás (`GET /api/products/image?id=&v=`): az ügyfélportálon látható, aktív étel képe bejelentkezés nélkül is elérhető, egy évig gyorsítótárazható; a többi csak dolgozónak, rövid privát gyorsítótárral. `nosniff` és `default-src 'none'` fejléc.
+- Kiszolgálás (`GET /api/products/image?id=&v=`): aktív étel képe bejelentkezés nélkül is elérhető (v27 óta a portálon minden étlapra tett aktív étel látszik), egy évig gyorsítótárazható; a többi csak dolgozónak, rövid privát gyorsítótárral. `nosniff` és `default-src 'none'` fejléc.
 - A rendelésekben nincs kép-pillanatkép: a kép csak a katalógus és az étlap része.
 
 ## Ellenőrző példák
