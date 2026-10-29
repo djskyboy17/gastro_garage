@@ -42,10 +42,13 @@ import {
   procurementPlan,
   usableLots,
   costFor,
+  latestPreparation,
   type Recipe,
   type Ingredient,
   type OperationsData,
 } from "@/src/modules/inventory/domain";
+import { dishInfo } from "@/src/modules/inventory/nutrition";
+import { DishInfoView, NutritionFields, readNutrition } from "./dish-info";
 type Props = {
   tab: string;
   data: AppData;
@@ -113,6 +116,17 @@ export default function OperationsWorkspace({
   const [recipeRows, setRecipeRows] = useState([
     { ingredientId: "", quantity: 100, lossBps: 0 },
   ]);
+  const [recipePreps, setRecipePreps] = useState<
+    { preparationId: string; quantity: number; lossBps: number }[]
+  >([]);
+  const [detailsId, setDetailsId] = useState("");
+  const [prepId, setPrepId] = useState("");
+  const [prepUnit, setPrepUnit] = useState("g");
+  const [prepOutput, setPrepOutput] = useState(1000);
+  const [prepNote, setPrepNote] = useState("");
+  const [prepRows, setPrepRows] = useState([
+    { ingredientId: "", quantity: 100, lossBps: 0 },
+  ]);
   const [selectedIngredient, setSelectedIngredient] = useState("");
   const [selectedLot, setSelectedLot] = useState("");
   const [requestId, setRequestId] = useState("");
@@ -128,7 +142,7 @@ export default function OperationsWorkspace({
   );
   const order = issueOrders.find((o) => o.id === selectedOrder);
   const req = order
-    ? requirements(order, ops.recipes)
+    ? requirements(order, ops.recipes, ops.preparationVersions)
     : {
         needs: new Map<string, number>(),
         missing: [] as string[],
@@ -153,7 +167,13 @@ export default function OperationsWorkspace({
   function chooseOrder(id: string) {
     setSelectedOrder(id);
     const o = issueOrders.find((o) => o.id === id);
-    setActual(o ? Object.fromEntries(requirements(o, ops.recipes).needs) : {});
+    setActual(
+      o
+        ? Object.fromEntries(
+            requirements(o, ops.recipes, ops.preparationVersions).needs,
+          )
+        : {},
+    );
   }
   function open(type: string, id?: string) {
     setRequestId(crypto.randomUUID());
@@ -163,10 +183,31 @@ export default function OperationsWorkspace({
       setSelectedIngredient(id ?? ops.ingredients[0]?.id ?? "");
     if (type === "waste") setSelectedLot(id ?? "");
     if (type === "issue") chooseOrder(issueOrders[0]?.id ?? "");
+    if (type === "ingredientDetails") setDetailsId(id ?? "");
+    if (type === "preparation") {
+      const prep = ops.preparations.find((p) => p.id === id);
+      const v = prep ? latestPreparation(prep.id, ops.preparationVersions) : undefined;
+      setPrepId(prep?.id ?? "");
+      setPrepUnit(prep?.unit ?? "g");
+      setPrepOutput(v?.output ?? 1000);
+      setPrepNote(v?.note ?? "");
+      setPrepRows(
+        v
+          ? v.lines.map((l) => ({ ingredientId: l.ingredientId, quantity: l.quantity, lossBps: l.lossBps }))
+          : [{ ingredientId: ops.ingredients[0]?.id ?? "", quantity: 100, lossBps: 0 }],
+      );
+    }
     if (type === "recipe") {
       const p = id ?? data.products[0]?.id ?? "";
       setRecipeProduct(p);
       const r = latestRecipe(p, ops.recipes);
+      setRecipePreps(
+        (r?.preparations ?? []).map((l) => ({
+          preparationId: l.preparationId,
+          quantity: l.quantity,
+          lossBps: l.lossBps,
+        })),
+      );
       setYield(r?.yield ?? 10);
       setRecipeNote(r?.note ?? "");
       setRecipeRows(
@@ -202,6 +243,31 @@ export default function OperationsWorkspace({
         minStock: Number(f.get("minStock")),
         supplier: f.get("supplier"),
         allergens: f.getAll("allergens").join(","),
+        nutrition: readNutrition(f),
+        frozen: f.get("frozen") === "on",
+        gramsPerPiece: unit === "pcs" && f.get("gramsPerPiece") ? Number(f.get("gramsPerPiece")) : null,
+      };
+    }
+    if (modal === "ingredientDetails") {
+      const i = ingredient(detailsId);
+      path = "ingredient-details";
+      body = {
+        id: detailsId,
+        allergens: f.getAll("allergens").join(","),
+        nutrition: readNutrition(f),
+        frozen: f.get("frozen") === "on",
+        gramsPerPiece: i?.unit === "pcs" && f.get("gramsPerPiece") ? Number(f.get("gramsPerPiece")) : null,
+      };
+    }
+    if (modal === "preparation") {
+      path = "preparations";
+      body = {
+        ...(prepId
+          ? { preparationId: prepId }
+          : { hu: f.get("hu"), ro: f.get("ro"), unit: prepUnit }),
+        output: prepOutput,
+        note: prepNote,
+        lines: prepRows,
       };
     }
     if (modal === "recipe") {
@@ -210,7 +276,8 @@ export default function OperationsWorkspace({
         productId: recipeProduct,
         yield: yieldPortions,
         note: recipeNote,
-        lines: recipeRows,
+        lines: recipeRows.filter((r) => r.ingredientId),
+        preparations: recipePreps.filter((r) => r.preparationId),
       };
     }
     if (modal === "receipt") {
@@ -400,6 +467,74 @@ export default function OperationsWorkspace({
       {tab === "recipes" && (
         <>
           <p className="ops-note">{t("recipeHint")}</p>
+          <section className="panel preparation-panel">
+            <div className="panel-heading">
+              <h2>{t("preparations")}</h2>
+              <OpButton
+                busy={busy}
+                secondary
+                action={() => open("preparation")}
+                disabled={!ops.ingredients.length}
+              >
+                <Plus size={14} />
+                {t("newPreparation")}
+              </OpButton>
+            </div>
+            <p className="ops-note">{t("preparationHint")}</p>
+            {ops.preparations.length === 0 ? (
+              <p className="quiet-empty">{t("noPreparations")}</p>
+            ) : (
+              <div className="recipe-list">
+                {ops.preparations.map((p) => {
+                  const v = latestPreparation(p.id, ops.preparationVersions);
+                  return (
+                    <article className="recipe-panel" key={p.id}>
+                      <div className="recipe-title">
+                        <span className="food-icon">
+                          <Layers size={20} />
+                        </span>
+                        <div>
+                          <h2>{name(p)}</h2>
+                          <small>
+                            {v
+                              ? "v" + v.version + " · " + fmt(v.output, p.unit)
+                              : t("missingRecipe")}
+                          </small>
+                        </div>
+                        <button
+                          className="button secondary"
+                          disabled={busy}
+                          onClick={() => open("preparation", p.id)}
+                        >
+                          <Plus size={14} />
+                          {t("newVersion")}
+                        </button>
+                      </div>
+                      {v && (
+                        <div className="recipe-ingredients">
+                          {v.lines.map((l) => {
+                            const i = ingredient(l.ingredientId);
+                            return i ? (
+                              <div key={l.id}>
+                                <span>{name(i)}</span>
+                                <strong>{fmt(l.quantity, i.unit)}</strong>
+                                {l.lossBps > 0 && (
+                                  <small>
+                                    {number(l.lossBps / 100)}%{" "}
+                                    {t("loss").replace(" (%)", "").toLowerCase()}
+                                  </small>
+                                )}
+                              </div>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
           <div className="recipe-list">
             {data.products.map((p) => {
               const r = latestRecipe(p.id, ops.recipes);
@@ -454,14 +589,37 @@ export default function OperationsWorkspace({
                             </div>
                           ) : null;
                         })}
+                        {(r.preparations ?? []).map((l) => {
+                          const prep = ops.preparations.find((p) => p.id === l.preparationId);
+                          return prep ? (
+                            <div key={l.id}>
+                              <span>
+                                <Layers size={13} /> {name(prep)}
+                              </span>
+                              <strong>{fmt(l.quantity, prep.unit)}</strong>
+                              {l.lossBps > 0 && (
+                                <small>
+                                  {number(l.lossBps / 100)}%{" "}
+                                  {t("loss").replace(" (%)", "").toLowerCase()}
+                                </small>
+                              )}
+                            </div>
+                          ) : null;
+                        })}
                       </div>
                       <div className="recipe-cost">
                         <span>
                           {t("ingredientCost")}
                           <small>{t("costHint")}</small>
                         </span>
-                        <strong>{money(recipeCost(r, ops.ingredients))}</strong>
+                        <strong>
+                          {money(recipeCost(r, ops.ingredients, ops.preparationVersions))}
+                        </strong>
                       </div>
+                      {(() => {
+                        const info = dishInfo(p, ops);
+                        return info ? <DishInfoView info={info} lang={lang} t={t} /> : null;
+                      })()}
                     </>
                   ) : (
                     <p className="quiet-empty">{t("noRecipes")}</p>
@@ -609,6 +767,7 @@ export default function OperationsWorkspace({
                       <th>{t("packPrice")}</th>
                       <th>{t("minimum")}</th>
                       <th>{t("allergens")}</th>
+                      <th>{t("nutritionShort")}</th>
                       <th />
                     </tr>
                   </thead>
@@ -631,6 +790,12 @@ export default function OperationsWorkspace({
                             : "—"}
                         </td>
                         <td>
+                          <span className={"badge " + (i.nutrition ? "ready" : "pending")}>
+                            {t(i.nutrition ? "nutritionGiven" : "nutritionNone")}
+                          </span>
+                          {!!i.frozen && <small>{t("frozen")}</small>}
+                        </td>
+                        <td>
                           <button
                             className="text-button"
                             disabled={busy}
@@ -638,6 +803,13 @@ export default function OperationsWorkspace({
                           >
                             <Plus size={14} />
                             {t("receive")}
+                          </button>
+                          <button
+                            className="text-button"
+                            disabled={busy}
+                            onClick={() => open("ingredientDetails", i.id)}
+                          >
+                            {t("editDetails")}
                           </button>
                         </td>
                       </tr>
@@ -856,7 +1028,13 @@ export default function OperationsWorkspace({
           title={t(
             modal === "ingredient"
               ? "newIngredient"
-              : modal === "recipe"
+              : modal === "ingredientDetails"
+                ? "editDetails"
+                : modal === "preparation"
+                  ? prepId
+                    ? "newVersion"
+                    : "newPreparation"
+                  : modal === "recipe"
                 ? "newVersion"
                 : modal === "receipt"
                   ? "receive"
@@ -939,6 +1117,177 @@ export default function OperationsWorkspace({
                     </label>
                   ))}
                 </fieldset>
+                <label className="checkbox-label">
+                  <input type="checkbox" name="frozen" />
+                  {t("frozenIngredient")}
+                </label>
+                {unit === "pcs" && (
+                  <OpField label={t("gramsPerPiece")}>
+                    <input name="gramsPerPiece" type="number" min="1" max="100000" step="1" />
+                  </OpField>
+                )}
+                <NutritionFields t={t} />
+              </>
+            )}
+            {modal === "ingredientDetails" &&
+              (() => {
+                const i = ingredient(detailsId);
+                if (!i) return null;
+                const current = i.allergens.split(",").filter(Boolean);
+                return (
+                  <>
+                    <p className="ops-note">
+                      <strong>{name(i)}</strong> · {t(i.unit)}
+                    </p>
+                    <fieldset className="allergen-picker">
+                      <legend>{t("allergens")}</legend>
+                      {allergens.map((a) => (
+                        <label key={a}>
+                          <input type="checkbox" name="allergens" value={a} defaultChecked={current.includes(a)} />
+                          {t(a)}
+                        </label>
+                      ))}
+                    </fieldset>
+                    <p className="ops-note">{t("allergenEditHint")}</p>
+                    <label className="checkbox-label">
+                      <input type="checkbox" name="frozen" defaultChecked={!!i.frozen} />
+                      {t("frozenIngredient")}
+                    </label>
+                    {i.unit === "pcs" && (
+                      <OpField label={t("gramsPerPiece")}>
+                        <input
+                          name="gramsPerPiece"
+                          type="number"
+                          min="1"
+                          max="100000"
+                          step="1"
+                          defaultValue={i.gramsPerPiece ?? ""}
+                        />
+                      </OpField>
+                    )}
+                    <NutritionFields t={t} initial={i.nutrition} />
+                  </>
+                );
+              })()}
+            {modal === "preparation" && (
+              <>
+                {prepId ? (
+                  <p className="ops-note">
+                    <strong>{name(ops.preparations.find((p) => p.id === prepId) ?? { hu: "", ro: "" })}</strong>
+                  </p>
+                ) : (
+                  <div className="form-grid">
+                    <OpField label={t("huName")}>
+                      <input name="hu" required maxLength={200} />
+                    </OpField>
+                    <OpField label={t("roName")}>
+                      <input name="ro" required maxLength={200} />
+                    </OpField>
+                    <OpField label={t("preparationUnit")}>
+                      <select value={prepUnit} onChange={(e) => setPrepUnit(e.target.value)}>
+                        {["g", "ml"].map((u) => (
+                          <option key={u} value={u}>
+                            {t(u)}
+                          </option>
+                        ))}
+                      </select>
+                    </OpField>
+                  </div>
+                )}
+                <OpField label={t("preparationOutput") + " (" + t(prepUnit) + ")"}>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10000000"
+                    step="1"
+                    required
+                    value={prepOutput || ""}
+                    onChange={(e) => setPrepOutput(Number(e.target.value))}
+                  />
+                </OpField>
+                {prepRows.map((row, idx) => (
+                  <div className="recipe-editor-line" key={idx}>
+                    <OpField label={t("ingredients")}>
+                      <select
+                        value={row.ingredientId}
+                        required
+                        onChange={(e) =>
+                          setPrepRows((prev) => prev.map((r, j) => (j === idx ? { ...r, ingredientId: e.target.value } : r)))
+                        }
+                      >
+                        <option value="" disabled>
+                          {t("selectIngredient")}
+                        </option>
+                        {ops.ingredients
+                          .filter((i) => i.id === row.ingredientId || !prepRows.some((r) => r.ingredientId === i.id))
+                          .map((i) => (
+                            <option key={i.id} value={i.id}>
+                              {name(i)} · {t(i.unit)}
+                            </option>
+                          ))}
+                      </select>
+                    </OpField>
+                    <OpField label={t("netQuantity") + " (" + t(ingredient(row.ingredientId)?.unit ?? "g") + ")"}>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10000000"
+                        step="1"
+                        required
+                        value={row.quantity || ""}
+                        onChange={(e) =>
+                          setPrepRows((prev) => prev.map((r, j) => (j === idx ? { ...r, quantity: Number(e.target.value) } : r)))
+                        }
+                      />
+                    </OpField>
+                    <OpField label={t("loss")}>
+                      <input
+                        type="number"
+                        min="0"
+                        max="90"
+                        step="0.01"
+                        required
+                        value={row.lossBps / 100}
+                        onChange={(e) =>
+                          setPrepRows((prev) =>
+                            prev.map((r, j) => (j === idx ? { ...r, lossBps: Math.round(Number(e.target.value) * 100) } : r)),
+                          )
+                        }
+                      />
+                    </OpField>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={t("remove")}
+                      disabled={prepRows.length === 1}
+                      onClick={() => setPrepRows((prev) => prev.filter((_, j) => j !== idx))}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+                <OpButton
+                  busy={busy}
+                  secondary
+                  disabled={prepRows.length >= ops.ingredients.length || prepRows.length >= 25}
+                  action={() =>
+                    setPrepRows((prev) => [
+                      ...prev,
+                      {
+                        ingredientId: ops.ingredients.find((i) => !prev.some((r) => r.ingredientId === i.id))?.id ?? "",
+                        quantity: 100,
+                        lossBps: 0,
+                      },
+                    ])
+                  }
+                >
+                  <Plus size={15} />
+                  {t("addIngredient")}
+                </OpButton>
+                <OpField label={t("note")}>
+                  <textarea value={prepNote} onChange={(e) => setPrepNote(e.target.value)} maxLength={1000} />
+                </OpField>
+                <p className="ops-note">{t("preparationSaveHint")}</p>
               </>
             )}
             {modal === "recipe" && (
@@ -952,6 +1301,13 @@ export default function OperationsWorkspace({
                         const p = e.target.value;
                         const r = latestRecipe(p, ops.recipes);
                         setRecipeProduct(p);
+                        setRecipePreps(
+                          (r?.preparations ?? []).map((l) => ({
+                            preparationId: l.preparationId,
+                            quantity: l.quantity,
+                            lossBps: l.lossBps,
+                          })),
+                        );
                         setYield(r?.yield ?? 10);
                         setRecipeNote(r?.note ?? "");
                         setRecipeRows(
@@ -1077,7 +1433,7 @@ export default function OperationsWorkspace({
                       type="button"
                       className="icon-button"
                       aria-label={t("remove")}
-                      disabled={recipeRows.length === 1}
+                      disabled={recipeRows.length + recipePreps.length === 1}
                       onClick={() =>
                         setRecipeRows((prev) =>
                           prev.filter((_, j) => j !== idx),
@@ -1112,6 +1468,101 @@ export default function OperationsWorkspace({
                   <Plus size={15} />
                   {t("addIngredient")}
                 </OpButton>
+                {recipePreps.map((row, idx) => {
+                  const prep = ops.preparations.find((p) => p.id === row.preparationId);
+                  return (
+                    <div className="recipe-editor-line" key={"prep-" + idx}>
+                      <OpField label={t("preparation")}>
+                        <select
+                          value={row.preparationId}
+                          required
+                          onChange={(e) =>
+                            setRecipePreps((prev) =>
+                              prev.map((r, j) => (j === idx ? { ...r, preparationId: e.target.value } : r)),
+                            )
+                          }
+                        >
+                          <option value="" disabled>
+                            {t("selectPreparation")}
+                          </option>
+                          {ops.preparations
+                            .filter(
+                              (p) =>
+                                p.id === row.preparationId ||
+                                !recipePreps.some((r) => r.preparationId === p.id),
+                            )
+                            .map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {name(p)} · {t(p.unit)}
+                              </option>
+                            ))}
+                        </select>
+                      </OpField>
+                      <OpField label={t("netQuantity") + " (" + t(prep?.unit ?? "g") + ")"}>
+                        <input
+                          type="number"
+                          min="1"
+                          max="10000000"
+                          step="1"
+                          required
+                          value={row.quantity || ""}
+                          onChange={(e) =>
+                            setRecipePreps((prev) =>
+                              prev.map((r, j) => (j === idx ? { ...r, quantity: Number(e.target.value) } : r)),
+                            )
+                          }
+                        />
+                      </OpField>
+                      <OpField label={t("loss")}>
+                        <input
+                          type="number"
+                          min="0"
+                          max="90"
+                          step="0.01"
+                          required
+                          value={row.lossBps / 100}
+                          onChange={(e) =>
+                            setRecipePreps((prev) =>
+                              prev.map((r, j) =>
+                                j === idx ? { ...r, lossBps: Math.round(Number(e.target.value) * 100) } : r,
+                              ),
+                            )
+                          }
+                        />
+                      </OpField>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        aria-label={t("remove")}
+                        disabled={recipeRows.length + recipePreps.length === 1}
+                        onClick={() => setRecipePreps((prev) => prev.filter((_, j) => j !== idx))}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  );
+                })}
+                {ops.preparations.length > 0 && (
+                  <OpButton
+                    busy={busy}
+                    secondary
+                    disabled={recipePreps.length >= ops.preparations.length || recipePreps.length >= 25}
+                    action={() =>
+                      setRecipePreps((prev) => [
+                        ...prev,
+                        {
+                          preparationId:
+                            ops.preparations.find((p) => !prev.some((r) => r.preparationId === p.id))?.id ?? "",
+                          quantity: 100,
+                          lossBps: 0,
+                        },
+                      ])
+                    }
+                  >
+                    <Layers size={15} />
+                    {t("addPreparation")}
+                  </OpButton>
+                )}
                 <OpField label={t("note")}>
                   <textarea
                     value={recipeNote}

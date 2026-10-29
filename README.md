@@ -26,7 +26,7 @@ Futártörzs; rendeléshez mentett futárkijelölés; futár és állapot szerin
 
 ## Még tervezett
 
-alreceptek és tápérték; automatikus beszállítói továbbítás és NIR; teljes HACCP-terv és szenzorintegráció; számlázás/e-Factura; útvonaltervezés; online fizetés és ügyfélportál-bővítések; offline működés; korrekciós/visszafordító műveletek. A jelenlegi változat tesztelésre szolgál.
+adalékanyagok nyilvántartása és az ételinformáció jóváhagyása, portálon való megjelenítése; automatikus beszállítói továbbítás és NIR; teljes HACCP-terv és szenzorintegráció; számlázás/e-Factura; útvonaltervezés; online fizetés és ügyfélportál-bővítések; offline működés; korrekciós/visszafordító műveletek. A jelenlegi változat tesztelésre szolgál.
 
 ## Technikai alap
 
@@ -129,3 +129,15 @@ A Címkék nézet rendelésre szűrhető, magyarul és románul nyomtatható. T�
 A 0012-es additív Drizzle-migráció a korábbi rendelések ellenőrzését nem tölti ki automatikusan. A még indulás/átadás előtt álló korábbi rendelések csomagolását is ellenőrizni kell; a már úton lévők lezárhatók. Az előzmények és rendelési pillanatképek változatlanok maradnak.
 
 Ellenőrzés: 57 tartományteszt, csomagolási API (részleges/teljes ellenőrzés, újranyitás, párhuzamos/stale mentés, jogosultság, származás/JSON, indulási tilalom, zárolás, változatlan készlet/fizetés), diszpécseri/futár/személyes-átvételi és teljesfolyamat-regresszió, adatokkal ellenőrzött migráció. Böngészőből román részleges, magyar teljes mentés és újratöltés, közvetlen SQL-ellenőrzés sikeres. A címkenézetet ellenőriztük; a tényleges nyomtatóra küldés nem tesztelt, mert a beépített böngésző nyomtatási párbeszédét a vezérlés nem tudta befejezni. Határok és példák: `src/modules/packing/SPEC.md`. Az adatbázismentés és pénzügyi integráció továbbra is későbbi feladat.
+
+## Al-receptek és tápérték — v15
+
+A Receptúrák oldalon „Al-receptek (félkész termékek)” készíthetők, pl. alaplé vagy mártás: magyar/román név, kész mennyiség g-ban vagy ml-ben, alapanyagsorok nettó mennyiséggel és tisztítási veszteséggel. Mentéskor új változat készül. Al-recept csak alapanyagot tartalmazhat (al-recept az al-receptben nincs), aznap készül, nem raktári tétel. Az étel receptjében alapanyag- és al-receptsorok is szerepelhetnek; mindig az al-recept legfrissebb változata számít.
+
+Az anyagkiadás, a beszerzési terv és az önköltség az al-receptet alapanyagaira bontja, mindkét lépésben felfelé kerekítve. Ha két előnézet között új al-recept-változat készül, a kiadást a szerver elavultként elutasítja. Hiányzó al-recept-változat hiányzó receptnek számít.
+
+Az alapanyagoknál megadható a tápérték 100 g-ra (ml-ben mért alapanyagnál 100 ml-re), a fagyasztott jelölés és darabos alapanyagnál a darabtömeg; a „Tápérték és allergének” gombbal később is szerkeszthető. Új allergén az érintett ételekhez hozzáadódik, eltávolítás nem módosítja őket.
+
+Minden receptes étel alatt „Ételinformáció” jelenik meg a legfrissebb receptből: összetevők csökkenő tömeg szerint (al-recept zárójelben, fagyasztott `*`-gal), allergének és tápérték 100 g késztermékre. Kész tömeg = adagszám × az étel adagtömege; ml ≈ g. Ha egy alapanyag tápértéke hiányzik, az étel tápértéke nem jelenik meg, a hiányzók listázva. Ez számított adat, jóváhagyás és adalékanyag-nyilvántartás még nincs, és az ügyfélportálon még nem látszik.
+
+Ellenőrzés: 66 tartományteszt (9 új: al-recept felbontás, kerekítés, elavult előnézet, hiányzó változat, önköltség, allergén, tápérték, hiányzó adat, darabtömeg), TypeScript és publikálható build, böngészőben al-recept létrehozása, receptbe illesztése és az ételinformáció megjelenése. A 0013-as Drizzle-migráció csak bővít, meglévő adatot nem módosít.

@@ -89,6 +89,8 @@ const ops: OperationsData = {
   lots: [lot("valid", 200, "2026-11-02"), lot("expired", 1000, "2026-10-28")],
   issues: [],
   moves: [],
+  preparations: [],
+  preparationVersions: [],
 };
 test("Scale recipes and yield loss with exact upward rounding", () => {
   assert.equal(grossQuantity(900, 1000, 3, 10), 300);

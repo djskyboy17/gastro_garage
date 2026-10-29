@@ -13,13 +13,19 @@ import {
   orders,
   orderItems,
   audit,
+  preparations,
+  preparationVersions,
+  preparationLines,
+  recipePreparationLines,
 } from "@/db/schema";
 import {
   allocate,
   requirements,
   latestRecipe,
+  latestPreparation,
   type OperationsData,
 } from "./domain";
+import { nutrientKeys, serializeNutrition, type Nutrition } from "./nutrition";
 import { today, type Order } from "../shared/domain";
 import { sampleIngredients, sampleRecipes } from "./seed";
 const json = (v: unknown, status = 200) =>
@@ -59,24 +65,71 @@ export class OperationError extends Error {
 }
 export async function loadOperations(): Promise<OperationsData> {
   const db = getDb();
-  const [i, r, l, lots, issues, moves] = await Promise.all([
+  const [i, r, l, lots, issues, moves, preps, versions, prepLines, recipePreps] = await Promise.all([
     db.select().from(ingredients),
     db.select().from(recipes),
     db.select().from(recipeLines),
     db.select().from(stockLots),
     db.select().from(stockIssues),
     db.select().from(stockMoves).orderBy(desc(stockMoves.createdAt)).limit(200),
+    db.select().from(preparations),
+    db.select().from(preparationVersions),
+    db.select().from(preparationLines),
+    db.select().from(recipePreparationLines),
   ]);
   return {
     ingredients: i,
     recipes: r.map((recipe) => ({
       ...recipe,
       lines: l.filter((line) => line.recipeId === recipe.id),
+      preparations: recipePreps.filter((line) => line.recipeId === recipe.id),
     })),
     lots,
     issues,
     moves,
+    preparations: preps,
+    preparationVersions: versions.map((v) => ({
+      ...v,
+      lines: prepLines.filter((line) => line.versionId === v.id),
+    })),
   };
+}
+// Tápérték századokban (pl. 2,20 g → 220); a felület számol át.
+const nutritionInput = z
+  .object(
+    Object.fromEntries(nutrientKeys.map((k) => [k, z.number().int().min(0).max(10000000)])) as Record<
+      (typeof nutrientKeys)[number],
+      z.ZodNumber
+    >,
+  )
+  .nullable()
+  .optional();
+const splitAllergens = (s: string) => s.split(",").filter(Boolean);
+function validAllergens(value: string) {
+  return !value || splitAllergens(value).every((a) => allergenKeys.includes(a));
+}
+/**
+ * Az ételek, amelyek legfrissebb receptje (közvetlenül vagy al-recepten át) a megadott
+ * alapanyagot vagy al-receptet használja. Az allergének ezekhez csak hozzáadódnak.
+ */
+function affectedProducts(
+  ops: OperationsData,
+  source: { ingredientId?: string; preparationId?: string },
+) {
+  const productIds = [...new Set(ops.recipes.map((r) => r.productId))];
+  return productIds.filter((productId) => {
+    const r = latestRecipe(productId, ops.recipes);
+    if (!r) return false;
+    if (source.ingredientId && r.lines.some((l) => l.ingredientId === source.ingredientId)) return true;
+    return (r.preparations ?? []).some((p) => {
+      if (p.preparationId === source.preparationId) return true;
+      const v = latestPreparation(p.preparationId, ops.preparationVersions);
+      return !!source.ingredientId && !!v?.lines.some((l) => l.ingredientId === source.ingredientId);
+    });
+  });
+}
+function mergeAllergens(...lists: string[]) {
+  return [...new Set(lists.flatMap(splitAllergens))].sort().join(",");
 }
 export async function handleOperations(
   path: string,
@@ -188,19 +241,120 @@ export async function handleOperations(
         minStock: z.number().int().min(0).max(10000000),
         supplier: z.string().trim().max(200),
         allergens: z.string().max(200),
+        nutrition: nutritionInput,
+        frozen: z.boolean().optional(),
+        gramsPerPiece: z.number().int().min(1).max(100000).nullable().optional(),
       })
       .parse(body);
-    if (
-      i.allergens &&
-      i.allergens.split(",").some((a) => !allergenKeys.includes(a))
-    )
-      throw new OperationError("VALIDATION");
+    if (!validAllergens(i.allergens)) throw new OperationError("VALIDATION");
     const id = crypto.randomUUID();
     await db.batch([
-      db.insert(ingredients).values({ ...i, id }),
+      db.insert(ingredients).values({
+        ...i,
+        id,
+        nutrition: serializeNutrition((i.nutrition as Nutrition | null | undefined) ?? null),
+        frozen: i.frozen ? 1 : 0,
+        gramsPerPiece: i.unit === "pcs" ? (i.gramsPerPiece ?? null) : null,
+      }),
       db.insert(audit).values(log("ingredient_created", id, i.hu)),
     ]);
     return json({ ok: true, id }, 201);
+  }
+  if (path === "/api/operations/ingredient-details") {
+    const d = z
+      .object({
+        id: text(),
+        allergens: z.string().max(200),
+        nutrition: nutritionInput,
+        frozen: z.boolean(),
+        gramsPerPiece: z.number().int().min(1).max(100000).nullable(),
+      })
+      .parse(body);
+    if (!validAllergens(d.allergens)) throw new OperationError("VALIDATION");
+    const [existing] = await db.select().from(ingredients).where(eq(ingredients.id, d.id));
+    if (!existing) throw new OperationError("INVALID_ITEM");
+    const ops = await loadOperations();
+    // Új allergén: az érintett ételekhez hozzáadódik; eltávolítás az ételeket nem érinti.
+    const added = splitAllergens(d.allergens).filter((a) => !splitAllergens(existing.allergens).includes(a));
+    const productRows = added.length ? await db.select().from(products) : [];
+    const updates = affectedProducts(ops, { ingredientId: d.id }).flatMap((productId) => {
+      const p = productRows.find((p) => p.id === productId);
+      return p
+        ? [db.update(products).set({ allergens: mergeAllergens(p.allergens, added.join(",")) }).where(eq(products.id, productId))]
+        : [];
+    });
+    await db.batch([
+      db
+        .update(ingredients)
+        .set({
+          allergens: d.allergens,
+          nutrition: serializeNutrition((d.nutrition as Nutrition | null | undefined) ?? null),
+          frozen: d.frozen ? 1 : 0,
+          gramsPerPiece: existing.unit === "pcs" ? d.gramsPerPiece : null,
+        })
+        .where(eq(ingredients.id, d.id)),
+      ...updates,
+      db.insert(audit).values(log("ingredient_details_updated", d.id, existing.hu)),
+    ]);
+    return json({ ok: true, id: d.id });
+  }
+  if (path === "/api/operations/preparations") {
+    const d = z
+      .object({
+        preparationId: z.string().trim().max(200).optional(),
+        hu: z.string().trim().max(200).optional(),
+        ro: z.string().trim().max(200).optional(),
+        unit: z.enum(["g", "ml"]).optional(),
+        output: qty,
+        note: z.string().trim().max(1000),
+        lines: z
+          .array(z.object({ ingredientId: text(), quantity: qty, lossBps: z.number().int().min(0).max(9000) }))
+          .min(1)
+          .max(25),
+      })
+      .parse(body);
+    if (new Set(d.lines.map((l) => l.ingredientId)).size !== d.lines.length) throw new OperationError("INVALID_ITEM");
+    const known = await db.select().from(ingredients);
+    if (d.lines.some((l) => !known.some((i) => i.id === l.ingredientId))) throw new OperationError("INVALID_ITEM");
+
+    let preparationId = d.preparationId;
+    let label = "";
+    const commands = [];
+    if (preparationId) {
+      const [prep] = await db.select().from(preparations).where(eq(preparations.id, preparationId));
+      if (!prep) throw new OperationError("INVALID_ITEM");
+      label = prep.hu;
+    } else {
+      if (!d.hu || !d.ro || !d.unit) throw new OperationError("VALIDATION");
+      preparationId = crypto.randomUUID();
+      label = d.hu;
+      commands.push(db.insert(preparations).values({ id: preparationId, hu: d.hu, ro: d.ro, unit: d.unit, createdAt: now }));
+    }
+    const existing = await db.select().from(preparationVersions).where(eq(preparationVersions.preparationId, preparationId));
+    const version = Math.max(0, ...existing.map((v) => v.version)) + 1;
+    const versionId = crypto.randomUUID();
+    commands.push(
+      db.insert(preparationVersions).values({ id: versionId, preparationId, version, output: d.output, note: d.note, createdAt: now }),
+      ...d.lines.map((l) => db.insert(preparationLines).values({ ...l, id: crypto.randomUUID(), versionId })),
+    );
+    // Az al-recept alapanyagainak allergénjei az azt használó ételekhez hozzáadódnak.
+    const ops = await loadOperations();
+    const prepAllergens = mergeAllergens(...d.lines.map((l) => known.find((i) => i.id === l.ingredientId)!.allergens));
+    if (prepAllergens) {
+      const productRows = await db.select().from(products);
+      for (const productId of affectedProducts(ops, { preparationId })) {
+        const p = productRows.find((p) => p.id === productId);
+        if (p) commands.push(db.update(products).set({ allergens: mergeAllergens(p.allergens, prepAllergens) }).where(eq(products.id, productId)));
+      }
+    }
+    commands.push(db.insert(audit).values(log("preparation_version_created", versionId, label + " · v" + version)));
+    try {
+      await db.batch(commands as unknown as Parameters<typeof db.batch>[0]);
+    } catch (e) {
+      if (String(e).includes("UNIQUE")) throw new OperationError("CONFLICT", 409);
+      throw e;
+    }
+    return json({ ok: true, id: preparationId, versionId }, 201);
   }
   if (path === "/api/operations/recipes") {
     const d = z
@@ -216,12 +370,27 @@ export async function handleOperations(
               lossBps: z.number().int().min(0).max(9000),
             }),
           )
-          .min(1)
           .max(25),
+        preparations: z
+          .array(
+            z.object({
+              preparationId: text(),
+              quantity: qty,
+              lossBps: z.number().int().min(0).max(9000),
+            }),
+          )
+          .max(25)
+          .default([]),
       })
       .parse(body);
+    if (d.lines.length + d.preparations.length === 0) throw new OperationError("VALIDATION");
     if (new Set(d.lines.map((l) => l.ingredientId)).size !== d.lines.length)
       throw new OperationError("INVALID_ITEM");
+    if (new Set(d.preparations.map((l) => l.preparationId)).size !== d.preparations.length)
+      throw new OperationError("INVALID_ITEM");
+    const opsBefore = await loadOperations();
+    const prepVersions = d.preparations.map((l) => latestPreparation(l.preparationId, opsBefore.preparationVersions));
+    if (prepVersions.some((v) => !v)) throw new OperationError("INVALID_ITEM");
     const [product] = await db
       .select()
       .from(products)
@@ -243,6 +412,9 @@ export async function handleOperations(
           ...d.lines.flatMap((l) =>
             known.find((i) => i.id === l.ingredientId)!.allergens.split(","),
           ),
+          ...prepVersions.flatMap((v) =>
+            v!.lines.flatMap((l) => known.find((i) => i.id === l.ingredientId)?.allergens.split(",") ?? []),
+          ),
         ].filter(Boolean),
       ),
     ]
@@ -263,6 +435,11 @@ export async function handleOperations(
         ...d.lines.map((l) =>
           db
             .insert(recipeLines)
+            .values({ ...l, id: crypto.randomUUID(), recipeId: id }),
+        ),
+        ...d.preparations.map((l) =>
+          db
+            .insert(recipePreparationLines)
             .values({ ...l, id: crypto.randomUUID(), recipeId: id }),
         ),
         db
@@ -413,7 +590,7 @@ export async function handleOperations(
       .from(orderItems)
       .where(eq(orderItems.orderId, d.orderId));
     const ops = await loadOperations();
-    const req = requirements({ ...row, items } as Order, ops.recipes);
+    const req = requirements({ ...row, items } as Order, ops.recipes, ops.preparationVersions);
     if (req.missing.length) throw new OperationError("MISSING_RECIPE");
     if (
       JSON.stringify([...d.recipeIds].sort()) !==

@@ -122,7 +122,66 @@ export const ingredients = sqliteTable("ingredients", {
   minStock: integer("min_stock").notNull().default(0),
   allergens: text("allergens").notNull(),
   supplier: text("supplier").notNull(),
+  // Tápérték 100 g-ra (ml-nél 100 ml-re), JSON, századokban; üres = nincs megadva.
+  nutrition: text("nutrition").notNull().default(""),
+  frozen: integer("frozen").notNull().default(0),
+  gramsPerPiece: integer("grams_per_piece"),
 });
+// Al-receptek (félkész termékek): csak alapanyagot tartalmazhatnak.
+export const preparations = sqliteTable("preparations", {
+  id: text("id").primaryKey(),
+  hu: text("hu").notNull(),
+  ro: text("ro").notNull(),
+  unit: text("unit").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+export const preparationVersions = sqliteTable(
+  "preparation_versions",
+  {
+    id: text("id").primaryKey(),
+    preparationId: text("preparation_id")
+      .notNull()
+      .references(() => preparations.id),
+    version: integer("version").notNull(),
+    output: integer("output").notNull(),
+    note: text("note").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("preparation_version").on(t.preparationId, t.version),
+    check("preparation_output_positive", sql`${t.output} > 0`),
+  ],
+);
+export const preparationLines = sqliteTable(
+  "preparation_lines",
+  {
+    id: text("id").primaryKey(),
+    versionId: text("version_id")
+      .notNull()
+      .references(() => preparationVersions.id),
+    ingredientId: text("ingredient_id")
+      .notNull()
+      .references(() => ingredients.id),
+    quantity: integer("quantity").notNull(),
+    lossBps: integer("loss_bps").notNull().default(0),
+  },
+  (t) => [uniqueIndex("preparation_ingredient").on(t.versionId, t.ingredientId)],
+);
+export const recipePreparationLines = sqliteTable(
+  "recipe_preparation_lines",
+  {
+    id: text("id").primaryKey(),
+    recipeId: text("recipe_id")
+      .notNull()
+      .references(() => recipes.id),
+    preparationId: text("preparation_id")
+      .notNull()
+      .references(() => preparations.id),
+    quantity: integer("quantity").notNull(),
+    lossBps: integer("loss_bps").notNull().default(0),
+  },
+  (t) => [uniqueIndex("recipe_preparation").on(t.recipeId, t.preparationId)],
+);
 export const recipes = sqliteTable(
   "recipes",
   {

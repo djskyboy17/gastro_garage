@@ -400,3 +400,66 @@
     display: none;
   }
 }
+/* Al-receptek és ételinformáció (v15) */
+.preparation-panel {
+  margin-bottom: 22px;
+  padding: 18px 23px;
+}
+.preparation-panel .recipe-list {
+  margin-top: 10px;
+}
+.preparation-panel .recipe-panel {
+  border: 1px solid #edf0e6;
+  border-radius: 12px;
+}
+.dish-info {
+  border-top: 1px dashed #edf0e6;
+  padding: 12px 23px 4px;
+  font-size: 11px;
+  color: #5d6b51;
+  line-height: 1.7;
+}
+.dish-info h3 {
+  font-size: 12px;
+  margin: 0 0 6px;
+  color: #536a41;
+}
+.dish-info p {
+  margin: 0 0 6px;
+}
+.dish-info .ops-note {
+  margin: 6px 0;
+}
+.nutrition-table {
+  width: 100%;
+  max-width: 340px;
+  border-collapse: collapse;
+  margin: 6px 0;
+}
+.nutrition-table caption {
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: 4px;
+}
+.nutrition-table td {
+  padding: 3px 0;
+  border-bottom: 1px dashed #edf0e6;
+}
+.nutrition-table td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.dish-info .warning-text {
+  color: #9a5b14;
+}
+.nutrition-fields {
+  border: 1px solid #edf0e6;
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 14px 0;
+}
+.nutrition-fields legend {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0 4px;
+}

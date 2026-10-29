@@ -16,7 +16,7 @@ export function tabsFor(role:Role): string[] {
 export function canWrite(role:Role,path:string,body:unknown): boolean {
   const b = body && typeof body === "object" ? body as Record<string,unknown> : {};
   // Unknown endpoints are denied, even for admins; new modules must declare access.
-  const known = ["/api/demo","/api/products","/api/customers","/api/orders","/api/orders/state","/api/delivery/couriers","/api/delivery/assign","/api/operations/demo","/api/operations/ingredients","/api/operations/recipes","/api/operations/receive","/api/operations/waste","/api/operations/issue","/api/purchasing/suppliers","/api/purchasing/create","/api/purchasing/update","/api/purchasing/state","/api/purchasing/receive","/api/access/role"];
+  const known = ["/api/demo","/api/products","/api/customers","/api/orders","/api/orders/state","/api/delivery/couriers","/api/delivery/assign","/api/operations/demo","/api/operations/ingredients","/api/operations/recipes","/api/operations/ingredient-details","/api/operations/preparations","/api/operations/receive","/api/operations/waste","/api/operations/issue","/api/purchasing/suppliers","/api/purchasing/create","/api/purchasing/update","/api/purchasing/state","/api/purchasing/receive","/api/access/role"];
   if(path==="/api/packing/check")return ["owner","admin","dispatcher","kitchen"].includes(role);
   if(path==="/api/fulfillment/save")return isAdmin(role);
   const stocktakePaths=["/api/stocktake/create","/api/stocktake/save","/api/stocktake/refresh-line","/api/stocktake/post","/api/stocktake/reverse","/api/stocktake/cancel"];
@@ -34,7 +34,7 @@ export function canWrite(role:Role,path:string,body:unknown): boolean {
 }
 export function projectData(data:AppData,role:Role): AppData {
   if (isAdmin(role)) return data;
-  if(!isMember(role))return {...data,products:[],customers:[],orders:[],audit:[],recurring:{templates:[],occurrences:[]},safety:{points:[],records:[]},operations:{ingredients:[],recipes:[],lots:[],issues:[],moves:[]},purchasing:{suppliers:[],orders:[],events:[]},logistics:{couriers:[],events:[]}};
+  if(!isMember(role))return {...data,products:[],customers:[],orders:[],audit:[],recurring:{templates:[],occurrences:[]},safety:{points:[],records:[]},operations:{ingredients:[],recipes:[],lots:[],issues:[],moves:[],preparations:[],preparationVersions:[]},purchasing:{suppliers:[],orders:[],events:[]},logistics:{couriers:[],events:[]}};
   const sales = role === "dispatcher";
   const stock = role === "warehouse";
   return {
@@ -45,7 +45,7 @@ export function projectData(data:AppData,role:Role): AppData {
     customers:sales?data.customers:[],
     orders:data.orders.filter(o=>sales||o.status==="confirmed").map(o => sales?o:({...o,deliveryFee:0,fulfillmentPostalCode:"",fulfillmentSnapshot:"",fulfillmentSlotId:null,portalUserId:null,reviewNote:"",customerId:"",customerName:"#"+orderCode(o.id),address:"",phone:"",note:role==="kitchen"?o.note:"",courierId:null,courierName:"",courierPhone:"",payment:"",items:o.items.map(i=>({...i,price:0}))})),
     audit:[],
-    operations:stock?data.operations:{ingredients:[],recipes:[],lots:[],issues:[],moves:[]},
+    operations:stock?data.operations:{ingredients:[],recipes:[],lots:[],issues:[],moves:[],preparations:[],preparationVersions:[]},
     purchasing:stock?data.purchasing:{suppliers:[],orders:[],events:[]},
     logistics:sales?data.logistics:{couriers:[],events:[]},
   };
