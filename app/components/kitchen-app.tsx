@@ -73,6 +73,7 @@ import {
   portions,
   orderCode,
   kitchenSummary,
+  readyPortions,
   normalizeSearch,
   type Language,
   type AppData,
@@ -314,8 +315,8 @@ export default function KitchenApp() {
   const summary = kitchenSummary(active);
   const count = active.reduce((s, o) => s + portions(o), 0);
   const readyCount = active
-    .filter((o) => o.production === "ready")
-    .reduce((s, o) => s + portions(o), 0);
+    .filter((o) => o.status === "confirmed")
+    .reduce((s, o) => s + readyPortions(o), 0);
   const selectedOrder = data.orders.find((o) => o.id === selected);
   const longDate = new Intl.DateTimeFormat(lang === "hu" ? "hu-HU" : "ro-RO", {
     month: "long",
@@ -1011,9 +1012,9 @@ export default function KitchenApp() {
                   <>
                     <div className="kitchen-summary">
                       <ChefHat size={24} />
-                      <strong>{count}</strong>
+                      <strong>{summary.reduce((s, r) => s + r.remaining, 0)}</strong>
                       <span>
-                        {t("portions")} · {summary.length}{" "}
+                        {t("kitchenRemaining")} · {summary.length}{" "}
                         {t("items").toLowerCase()}
                       </span>
                       <div className="summary-progress">
@@ -1032,7 +1033,7 @@ export default function KitchenApp() {
                     </div>
                     <div className="kitchen-grid">
                       {summary.map((r, i) => (
-                        <article className="panel kitchen-card" key={i}>
+                        <article className={"panel kitchen-card" + (r.remaining === 0 ? " is-done" : "")} key={r.productId + r.hu + r.ro}>
                           <div className="kitchen-card-top">
                             <span className={"food-icon food-" + (i % 4)}>
                               <UtensilsCrossed size={24} />
@@ -1050,10 +1051,10 @@ export default function KitchenApp() {
                               ))}
                           </div>
                           <div className="kitchen-quantity">
-                            <strong>{r.quantity}</strong>
-                            <span>{t("units")}</span>
+                            <strong>{r.remaining}</strong>
+                            <span>{t("kitchenRemaining")}</span>
                             <small>
-                              {r.ready} {t("readyOf")}
+                              {r.ready} / {r.quantity} {t("kitchenDoneOf")}
                             </small>
                           </div>
                           <div className="progress-track">
@@ -1063,6 +1064,23 @@ export default function KitchenApp() {
                               }}
                             />
                           </div>
+                          {r.remaining > 0 ? (
+                            can("kitchen/ready") && (
+                              <button
+                                className="kitchen-done-button"
+                                disabled={busy}
+                                onClick={() => void mutate("kitchen/ready", { itemIds: r.pendingItemIds })}
+                              >
+                                <CheckCircle2 size={22} />
+                                {t("kitchenDone")}
+                              </button>
+                            )
+                          ) : (
+                            <p className="kitchen-all-done">
+                              <CheckCircle2 size={18} />
+                              {t("kitchenAllDone")}
+                            </p>
+                          )}
                         </article>
                       ))}
                     </div>

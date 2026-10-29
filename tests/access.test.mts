@@ -42,3 +42,10 @@ test("Beállítások: a ritkán használt nézetek a Beállítások alá kerüln
   assert.deepEqual(settingsTabs.filter((t) => tabsFor("owner").includes(t)), ["safety", "fulfillment", "access", "audit"]);
   assert.ok(isSettingsTab("audit") && !isSettingsTab("orders"));
 });
+test("Only the kitchen and administrators can mark dishes ready", () => {
+  assert.equal(canWrite("kitchen", "/api/kitchen/ready", {}), true);
+  assert.equal(canWrite("admin", "/api/kitchen/ready", {}), true);
+  assert.equal(canWrite("dispatcher", "/api/kitchen/ready", {}), false);
+  assert.equal(canWrite("warehouse", "/api/kitchen/ready", {}), false);
+  assert.equal(canWrite("courier", "/api/kitchen/ready", {}), false);
+});

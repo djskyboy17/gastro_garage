@@ -30,3 +30,4 @@
   align-items: center;
   flex-wrap: wrap;
 }
+.kitchen-done-button{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:58px;margin-top:18px;border-radius:10px;background:#294b38;color:#fff;font-family:'Manrope',sans-serif;font-size:20px;font-weight:750;letter-spacing:-.3px}.kitchen-done-button:hover{background:#1e3a2a;box-shadow:0 4px 12px #23473822}.kitchen-done-button:active{transform:translateY(1px)}.kitchen-all-done{display:flex;align-items:center;justify-content:center;gap:8px;min-height:58px;margin-top:18px;border-radius:10px;background:#edf4e2;color:#65853e;font-weight:650;font-size:13px}.kitchen-card.is-done{opacity:.72}.kitchen-card.is-done .kitchen-quantity strong{color:#8fa877}

@@ -36,6 +36,8 @@ export type Item = {
   allergens: string;
   quantity: number;
   price: number;
+  /** 1, ha a konyha ezt a tételt már késznek jelölte (v20). */
+  ready?: number;
 };
 export type Order = {
   packingItems?:string;
@@ -101,6 +103,13 @@ export function orderCode(id:string) {
   const match=/^recurring:([0-9a-f-]{36}):(\d{4}-\d{2}-\d{2})$/i.exec(id);
   return match?`R-${match[1].slice(0,6)}-${match[2].replaceAll("-","").slice(2)}`.toUpperCase():id.slice(-6).toUpperCase();
 }
+/** Egy tétel kész, ha a konyha külön késznek jelölte, vagy az egész rendelés már kész. */
+export function itemReady(order: Pick<Order, "production">, item: Pick<Item, "ready">) {
+  return order.production === "ready" || item.ready === 1;
+}
+export function readyPortions(order: Pick<Order, "production"|"items">) {
+  return order.items.reduce((s, i) => s + (itemReady(order, i) ? i.quantity : 0), 0);
+}
 export function kitchenSummary(orders: Order[]) {
   const result = new Map<
     string,
@@ -111,6 +120,10 @@ export function kitchenSummary(orders: Order[]) {
       allergens: string;
       quantity: number;
       ready: number;
+      /** Még elkészítendő adag. */
+      remaining: number;
+      /** A még nem kész tételek azonosítói; a „Kész” gomb ezeket jelöli. */
+      pendingItemIds: string[];
     }
   >();
   for (const o of orders.filter((o) => o.status === "confirmed"))
@@ -123,12 +136,19 @@ export function kitchenSummary(orders: Order[]) {
         allergens: i.allergens,
         quantity: 0,
         ready: 0,
+        remaining: 0,
+        pendingItemIds: [],
       };
       row.quantity += i.quantity;
-      if (o.production === "ready") row.ready += i.quantity;
+      if (itemReady(o, i)) row.ready += i.quantity;
+      else {
+        row.remaining += i.quantity;
+        row.pendingItemIds.push(i.id);
+      }
       result.set(key, row);
     }
-  return [...result.values()].sort((a, b) => b.quantity - a.quantity);
+  // Ami még hátra van, előre kerül; a teljesen kész ételek a végére.
+  return [...result.values()].sort((a, b) => Number(a.remaining === 0) - Number(b.remaining === 0) || b.quantity - a.quantity);
 }
 export function canCheckPacking(order:Pick<Order,'status'|'production'|'delivery'>){return order.status==='confirmed'&&order.production==='ready'&&['pending','failed'].includes(order.delivery);}
 export function nextState(order: Order, field: string, value: string) {

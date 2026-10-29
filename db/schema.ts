@@ -73,6 +73,7 @@ export const orderItems = sqliteTable("order_items", {
   allergens: text("allergens").notNull(),
   quantity: integer("quantity").notNull(),
   price: integer("price").notNull(),
+  ready: integer("ready").notNull().default(0),
 });
 export const audit = sqliteTable("audit", {
   id: text("id").primaryKey(),

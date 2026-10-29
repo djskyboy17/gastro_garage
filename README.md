@@ -163,3 +163,7 @@ A Rendelési szabályokban egy idősáv ideje, napjai és módja addig szabadon 
 ## Élő rendelési állapot az ügyfélnek — v19
 
 Az ügyfélportál „Rendeléseim” listájában minden rendelésnél lépéssor mutatja, hol tart: Beérkezett → Visszaigazolva → Készül → Elkészült → Úton → Kézbesítve (átvételnél: … → Átvehető → Átvéve). A lépések a konyhai, csomagolási és kiszállítási állapotokból számolódnak (`orderProgress` a `src/modules/portal/domain.ts`-ben); elutasított vagy lemondott rendelésnél nincs lépéssor, sikertelen kézbesítésnél figyelmeztetés jelenik meg. A lista 30 másodpercenként, illetve a fülre visszatéréskor magától frissül, de csak amíg az oldal látható; a kosár és a megkezdett űrlap ilyenkor nem változik.
+
+## Konyhai „Kész” gomb — v20
+
+A Konyhai terv kártyáin a nagy szám már a még elkészítendő adagot mutatja (mellette: kész / összes). Minden ételnél nagy „Kész” gomb van: megnyomva az étel összes még nem kész része késznek számít az aznapi rendelésekben. Ha egy rendelés minden része elkészült, a rendelés magától „kész” lesz, így csomagolható és kiküldhető; ha csak egy része, „készül”. Az elkészült ételek a lista végére kerülnek. A jelölést a konyha, az admin és a tulajdonos végezheti. Új migráció: `0014_kitchen_item_ready`.

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 // @ts-ignore Node's native type stripping resolves this test import.
 import {
   kitchenSummary,
+  readyPortions,
   total,
   nextState,
   normalizeSearch,
@@ -83,4 +84,20 @@ test("Started production cannot be cancelled and cancelled orders are immutable"
 });
 test("Romanian cedilla/comma and Hungarian accent searches normalize", () => {
   assert.equal(normalizeSearch("ȘȚşţ ŐŰ"), normalizeSearch("stst ou"));
+});
+test("Kitchen shows remaining portions per item and lists only unfinished item ids", () => {
+  const two = { ...base, id: "o2", items: [{ ...base.items[0]!, id: "i2", orderId: "o2", quantity: 5, ready: 1 }, { ...base.items[0]!, id: "i3", orderId: "o2", productId: "p2", hu: "Főétel", ro: "Fel principal", quantity: 2 }] };
+  const rows = kitchenSummary([base, two]);
+  const soup = rows.find((r) => r.productId === "p1")!;
+  assert.equal(soup.quantity, 8);
+  assert.equal(soup.ready, 5);
+  assert.equal(soup.remaining, 3);
+  assert.deepEqual(soup.pendingItemIds, ["i1"]);
+  assert.deepEqual(rows.find((r) => r.productId === "p2")!.pendingItemIds, ["i3"]);
+  assert.equal(readyPortions(two), 5);
+  // A teljesen kész rendelés minden tétele kész, akkor is, ha tételenként nincs jelölve.
+  assert.equal(readyPortions({ ...base, production: "ready" }), 3);
+  // A kész étel a lista végére kerül.
+  const done = kitchenSummary([{ ...base, production: "ready" }, { ...base, id: "o4", items: [{ ...base.items[0]!, id: "i4", productId: "p9", quantity: 1 }] }]);
+  assert.deepEqual(done.map((r) => r.remaining), [1, 0]);
 });

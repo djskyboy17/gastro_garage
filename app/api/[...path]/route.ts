@@ -1,4 +1,5 @@
 import {handlePacking,PackingError} from "@/src/modules/packing/server";
+import {handleKitchen,KitchenError} from "@/src/modules/kitchen/server";
 import {handleCourier,CourierError} from "@/src/modules/courier/server";
 import {fulfillmentOptions,loadPolicy,savePolicy,bookedSlotIds,FulfillmentError} from '@/src/modules/fulfillment/server';
 import {loadStocktakes,handleStocktake,StocktakeError} from '@/src/modules/stocktake/server';
@@ -77,6 +78,12 @@ async function handle(req: Request, write: boolean) {
     if(path==='/api/packing'||path.startsWith('/api/packing/')){
       let body:unknown;if(write){const raw=await req.text();if(raw.length>40000)return json({error:'TOO_LARGE'},413);body=JSON.parse(raw);}
       return await handlePacking(path,body,session,write,new URL(req.url).searchParams.get('date')??today());
+    }
+    if(path==="/api/kitchen/ready"){
+      if(!write)return json({error:"NOT_FOUND"},404);
+      const raw=await req.text();if(raw.length>40000)return json({error:"TOO_LARGE"},413);
+      if(!canWrite(session.role,path,{}))return json({error:"FORBIDDEN"},403);
+      return await handleKitchen(path,JSON.parse(raw),session,write);
     }
     if (!write && path === "/api/fulfillment") {
       if (!["owner","admin","dispatcher"].includes(session.role)) return json({error:"FORBIDDEN"},403);
@@ -416,6 +423,7 @@ async function handle(req: Request, write: boolean) {
     return json({ error: "NOT_FOUND" }, 404);
   } catch (e) {
     if (e instanceof PackingError) return json({error:e.message},e.status);
+    if (e instanceof KitchenError) return json({error:e.code},e.status);
     if (e instanceof CourierError) return json({error:e.code},e.status);
     if (e instanceof FulfillmentError) return json({error:e.code},e.status);
     if (/FULFILLMENT_CAPACITY/.test(String(e)))return json({error:"FULFILLMENT_CAPACITY"},409);
