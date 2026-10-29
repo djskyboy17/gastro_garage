@@ -6,6 +6,8 @@ export function packingSelection(items:{id:string}[],selected:string[]){
  if(new Set(selected).size!==selected.length||selected.some(id=>!items.some(i=>i.id===id)))throw Error('PACKING_ITEMS');
  return {checkedItemIds:[...selected].sort(),ready:items.length>0&&selected.length===items.length};
 }
+/** Csak az kerül a csomagolásba, amit még nem vittek el (futár úton, kézbesítve vagy átvéve: kimarad). */
+export function needsPacking(o:Pick<Order,"delivery">){return o.delivery==="pending"||o.delivery==="failed";}
 export function packingOrder(o:Order):PackingOrder{
  let selected:string[]=[];try{const parsed=JSON.parse(o.packingItems??'[]');if(Array.isArray(parsed))selected=parsed.filter((id:unknown)=>typeof id==='string'&&o.items.some(i=>i.id===id));}catch{}
  return {id:o.id,customerName:o.customerName,date:o.date,time:o.time,windowEnd:orderFulfillment(o)?.end??'',mode:o.fulfillmentMode??'delivery',note:o.note,production:o.production,delivery:o.delivery,revision:o.revision,courierAssigned:!!o.courierId,packingReady:o.packingReady??0,packingCheckedAt:o.packingCheckedAt??'',checkedItemIds:selected,items:o.items.map(({id,hu,ro,allergens,quantity})=>({id,hu,ro,allergens,quantity}))};

@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 // @ts-ignore Node native type stripping
-import {packingOrder,packingSelection,workPlan} from '../src/modules/packing/domain.ts';
+import {packingOrder,packingSelection,workPlan,needsPacking} from '../src/modules/packing/domain.ts';
 // @ts-ignore
 import {canCheckPacking,nextState,type Order} from '../src/modules/shared/domain.ts';
 // @ts-ignore
@@ -22,4 +22,10 @@ test('Packing transitions guard every departure and pickup while preserving hist
 });
 test('Packing checking is restricted to supervisors, kitchen and dispatcher',()=>{
  for(const role of ['owner','admin','kitchen','dispatcher'] as Role[]){assert.equal(canWrite(role,'/api/packing/check',{}),true);assert.ok(tabsFor(role).includes('packing'));}for(const role of ['warehouse','courier','pending','disabled'] as Role[]){assert.equal(canWrite(role,'/api/packing/check',{}),false);assert.ok(!tabsFor(role).includes('packing'));}
+});
+test('Packing lists only orders not yet taken away',()=>{
+ assert.equal(needsPacking({delivery:'pending'}),true);
+ assert.equal(needsPacking({delivery:'failed'}),true);
+ assert.equal(needsPacking({delivery:'transit'}),false);
+ assert.equal(needsPacking({delivery:'delivered'}),false);
 });

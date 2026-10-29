@@ -18,3 +18,6 @@ Acceptance:
 3. Unknown/duplicate row, unready order, foreign role, wrong origin or stale revision rejects without audit or checklist mutation. Concurrent saves at one revision allow only one write.
 4. Every generic/courier departure and pickup handover rejects unchecked packing. Courier sees packing readiness only and cannot check it. Ready+checked+assigned departure works; in-transit completion remains possible for historical unchecked orders.
 5. Uncheck before departure blocks it again. After departure checking is locked. No stock/payment mutation. HU/RO screen and print use immutable snapshots.
+
+## Felvett rendelések kimaradnak — v21
+A csomagolási nézet (terv, rendelések, címkék) csak azokat a rendeléseket mutatja, amelyeket még csomagolni kell: a kiszállítás állapota „függőben” vagy „sikertelen” (újra kell küldeni). Ami már úton van, kézbesítve lett vagy amit az ügyfél átvett, kimarad (`needsPacking`).

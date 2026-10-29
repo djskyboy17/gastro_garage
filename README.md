@@ -167,3 +167,7 @@ Az ügyfélportál „Rendeléseim” listájában minden rendelésnél lépéss
 ## Konyhai „Kész” gomb — v20
 
 A Konyhai terv kártyáin a nagy szám már a még elkészítendő adagot mutatja (mellette: kész / összes). Minden ételnél nagy „Kész” gomb van: megnyomva az étel összes még nem kész része késznek számít az aznapi rendelésekben. Ha egy rendelés minden része elkészült, a rendelés magától „kész” lesz, így csomagolható és kiküldhető; ha csak egy része, „készül”. Az elkészült ételek a lista végére kerülnek. A jelölést a konyha, az admin és a tulajdonos végezheti. Új migráció: `0014_kitchen_item_ready`.
+
+## Tisztább konyhai terv és csomagolás — v21
+
+A Konyhai tervről lekerült a rendeléslista (a Rendelések oldalon megvan). A csomagolásban csak az marad, amit még csomagolni kell: a futárnak már átadott, kézbesített vagy az ügyfél által átvett rendelés eltűnik a tervből, a rendelések és a címkék közül.

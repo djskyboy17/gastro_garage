@@ -1084,12 +1084,6 @@ export default function KitchenApp() {
                         </article>
                       ))}
                     </div>
-                    <section className="panel">
-                      <div className="panel-heading">
-                        <h2>{t("orders")}</h2>
-                      </div>
-                      {orderTable(daily.filter(o=>o.status==="confirmed"))}
-                    </section>
                   </>
                 )}
                 {tab === "delivery" && (
