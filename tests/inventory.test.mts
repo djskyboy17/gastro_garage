@@ -199,3 +199,35 @@ test("Missing recipes are reported rather than treated as zero demand", () => {
     ["p"],
   );
 });
+test("Forward procurement walks day by day: stock is used once, expired lots and late deliveries do not count", async () => {
+  // @ts-ignore Node native type stripping
+  const { forwardProcurement } = await import("../src/modules/inventory/domain.ts");
+  const at = (id: string, date: string, quantity: number, extra: Partial<Order> = {}): Order => ({
+    ...order,
+    id,
+    date,
+    ...extra,
+    items: [{ ...order.items[0]!, id: id + "-l", orderId: id, quantity }],
+  });
+  const orders = [
+    at("today", "2026-10-29", 3), // 300 g
+    at("monday", "2026-11-02", 30), // 3000 g, nagy rendelés hétfőre
+    at("later", "2026-11-04", 3), // 300 g, a beérkező szállítás fedezi
+    at("done", "2026-11-02", 30, { production: "ready" }),
+    at("request", "2026-11-02", 30, { status: "requested" }),
+    at("outside", "2026-11-20", 30),
+  ];
+  const days = forwardProcurement(orders, ops, "2026-10-29", 14, [{ ingredientId: "i", quantity: 1000, due: "2026-11-03" }]);
+  assert.deepEqual(days.map((d: { date: string }) => d.date), ["2026-10-29", "2026-11-02", "2026-11-04"]);
+  // A 200 g érvényes tétel ma elfogy, a lejárt tétel nem számít.
+  assert.deepEqual(days[0].shortage, [{ ingredientId: "i", quantity: 100, packs: 1, estimatedCost: 50 }]);
+  // Hétfőre nem marad készlet: a teljes 3000 g hiányzik, 3 csomag.
+  assert.equal(days[1].orders, 1);
+  assert.equal(days[1].portions, 30);
+  assert.deepEqual(days[1].shortage, [{ ingredientId: "i", quantity: 3000, packs: 3, estimatedCost: 1500 }]);
+  // A november 3-ra várt szállítás fedezi a november 4-i igényt.
+  assert.deepEqual(days[2].shortage, []);
+  // Recept nélküli étel jelzése.
+  const noRecipe = forwardProcurement([{ ...order, id: "x", date: "2026-10-30", items: [{ ...order.items[0]!, recipeId: null, productId: "unknown" }] }], ops, "2026-10-29", 7);
+  assert.deepEqual(noRecipe[0].missing, ["unknown"]);
+});

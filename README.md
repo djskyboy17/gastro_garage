@@ -189,3 +189,7 @@ Az Ételkatalógusban minden étel kártyáján „Kép feltöltése” gomb van
 ## Olvashatóbb felület — v24
 
 Nagyobb betűk és kevesebb üres hely az egész alkalmazásban (dolgozói munkatér, ügyfélportál, futárfelület). A korábban 8–12 px-es apró szövegek most 12–15 px-esek (például 9→12, 11→14, 12→15 px), az alapbetű 14 helyett 16 px; a nagyobb belső és külső térközök kb. 30%-kal kisebbek. Az elrendezés (menüsáv szélessége, töréspontok) nem változott.
+
+## Mikorra mi kell? — v25
+
+A Beszerzés oldal tetején új panel mutatja a következő 7/14/30 nap rendeléseihez napokra bontva, mi hiányzik a raktárból (például: „November 9., hétfő · 1 rendelés · 160 adag · 7 tétel hiányzik”). A számítás a recepteket (al-receptekkel), a raktárkészletet, a lejárati dátumokat és a már megrendelt, úton lévő beszerzéseket is figyelembe veszi, és a készletet napról napra fogyasztja, így egy tételt nem számol kétszer. Soronként látszik a hiányzó mennyiség, a csomagszám, a beszállító és a becsült költség. A „Beszerzési rendelés erre a napra” gomb kitöltött beszerzési rendelést nyit, a gyártás előtti napi határidővel.

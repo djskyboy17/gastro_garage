@@ -34,6 +34,7 @@ import {
   type PurchaseOrder,
 } from "@/src/modules/purchasing/domain";
 import { costFor } from "@/src/modules/inventory/domain";
+import ForwardProcurement from "./forward-procurement";
 type DraftLine = {
   ingredientId: string;
   quantity: number;
@@ -101,11 +102,11 @@ export default function PurchasingWorkspace({
       packPrice: i?.packPrice ?? 0,
     };
   };
-  function create(lines?: { ingredientId: string; quantity: number }[]) {
+  function create(lines?: { ingredientId: string; quantity: number }[], dueDate?: string) {
     setEditId("");
     setRequestId(crypto.randomUUID());
     setSupplierId(data.purchasing.suppliers[0]?.id ?? "");
-    setDue(day);
+    setDue(dueDate ?? day);
     setNote("");
     setRows(
       lines?.length
@@ -282,6 +283,7 @@ export default function PurchasingWorkspace({
           {!data.purchasing.suppliers.length && (
             <p className="ops-note">{t("supplierFirst")}</p>
           )}
+          <ForwardProcurement data={data} lang={lang} t={t} fmt={fmt} money={money} busy={busy} onCreate={create} />
           {renderPlan(create)}
           <p className="ops-note">{t("incomingHint")}</p>
         </>

@@ -89,3 +89,13 @@ export function purchaseValue(lines: PurchaseLine[]) {
     0,
   );
 }
+/** Minden visszaigazolt, még nem teljesen beérkezett beszerzési sor, a határidejével (v25). */
+export function inboundSchedule(data: PurchasingData) {
+  return data.orders
+    .filter((p) => p.status === "ordered")
+    .flatMap((p) =>
+      p.lines
+        .filter((l) => l.quantity > l.received)
+        .map((l) => ({ ingredientId: l.ingredientId, quantity: l.quantity - l.received, due: p.due })),
+    );
+}

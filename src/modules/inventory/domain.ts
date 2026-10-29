@@ -317,3 +317,93 @@ export function procurementPlan(
       .filter((r) => r.required > 0 || r.shortage > 0),
   };
 }
+/** Beérkező, még be nem vételezett beszerzés: a `due` napjától számít készletnek. */
+export type InboundLine = { ingredientId: string; quantity: number; due: string };
+export type ForwardDay = {
+  date: string;
+  orders: number;
+  portions: number;
+  /** Ételek, amelyekhez nincs recept: ezek igénye nem számolható. */
+  missing: string[];
+  shortage: { ingredientId: string; quantity: number; packs: number; estimatedCost: number }[];
+};
+const addDay = (date: string, days: number) => {
+  const d = new Date(date + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+};
+/**
+ * Előretekintő beszerzési terv (v25): a `from` naptól `days` napon át, napról napra.
+ * A még ki nem adott, visszaigazolt rendelések receptigényét a raktárkészletből vonja le
+ * (FEFO: előbb a hamarabb lejáró tétel), a lejárt tételt nem használja, a beérkező beszerzést
+ * a határidejétől számítja. Ami nem fedezhető, az aznapi hiány; a hiányt megvettnek tekinti,
+ * így a következő napok nem számolják újra.
+ */
+export function forwardProcurement(
+  orders: Order[],
+  ops: OperationsData,
+  from: string,
+  days: number,
+  inbound: InboundLine[] = [],
+): ForwardDay[] {
+  const to = addDay(from, days - 1);
+  const issued = new Set(ops.issues.map((i) => i.orderId));
+  const pool = [
+    ...ops.lots
+      .filter((l) => l.remaining > 0)
+      .map((l) => ({ ingredientId: l.ingredientId, left: l.remaining, from: l.received, expires: l.expires, key: l.id })),
+    ...inbound
+      .filter((l) => l.quantity > 0)
+      .map((l, i) => ({ ingredientId: l.ingredientId, left: l.quantity, from: l.due < from ? from : l.due, expires: "9999-12-31", key: "inbound:" + i })),
+  ];
+  const result: ForwardDay[] = [];
+  for (let date = from; date <= to; date = addDay(date, 1)) {
+    const dayOrders = orders.filter(
+      (o) =>
+        o.date === date &&
+        o.status === "confirmed" &&
+        o.production !== "ready" &&
+        o.delivery === "pending" &&
+        !issued.has(o.id),
+    );
+    if (!dayOrders.length) continue;
+    const needs = new Map<string, number>();
+    const missing = new Set<string>();
+    for (const o of dayOrders) {
+      const req = requirements(o, ops.recipes, ops.preparationVersions ?? []);
+      req.missing.forEach((id) => missing.add(id));
+      for (const [id, q] of req.needs) needs.set(id, (needs.get(id) ?? 0) + q);
+    }
+    const usable = pool
+      .filter((l) => l.left > 0 && l.from <= date && l.expires >= date)
+      .sort((a, b) => a.expires.localeCompare(b.expires) || a.from.localeCompare(b.from) || a.key.localeCompare(b.key));
+    const shortage: ForwardDay["shortage"] = [];
+    for (const [ingredientId, required] of needs) {
+      let left = required;
+      for (const lot of usable.filter((l) => l.ingredientId === ingredientId)) {
+        const used = Math.min(left, lot.left);
+        lot.left -= used;
+        left -= used;
+        if (!left) break;
+      }
+      if (left > 0) {
+        const i = ops.ingredients.find((i) => i.id === ingredientId);
+        const packQuantity = i?.packQuantity && i.packQuantity > 0 ? i.packQuantity : 1;
+        shortage.push({
+          ingredientId,
+          quantity: left,
+          packs: ceilRatio(BigInt(left), BigInt(packQuantity)),
+          estimatedCost: i ? costFor(left, i.packPrice, packQuantity) : 0,
+        });
+      }
+    }
+    result.push({
+      date,
+      orders: dayOrders.length,
+      portions: dayOrders.reduce((s, o) => s + o.items.reduce((n, i) => n + i.quantity, 0), 0),
+      missing: [...missing],
+      shortage,
+    });
+  }
+  return result;
+}

@@ -11,3 +11,12 @@ Expected supply includes outstanding quantities of confirmed orders due on or be
 API: POST /api/purchasing/suppliers, /create, /update, /state, /receive. GET /api/data includes supplier/order/event data. Limits: 25 distinct ingredient lines per purchase, integer g/ml/pieces, integer bani, up to 200 recent purchase events in the workspace response.
 
 Deferred: external supplier transmission, supplier catalog APIs, formal Romanian NIR generation, incoming e-Factura import, financial/tax settlement, returns and receipt reversal. Existing stock correction restrictions remain in force.
+
+## Előretekintő beszerzési terv — v25
+- A Beszerzés oldal tetején a „Mikorra mi kell? – következő napok” panel 7, 14 vagy 30 napra előre, napokra bontva mutatja a hiányzó alapanyagokat (`forwardProcurement`).
+- Számolás: a visszaigazolt, még nem kész, ki nem adott és ki nem szállított rendelések receptigénye (al-receptekkel). A készletet napról napra fogyasztja: előbb a hamarabb lejáró tételt, lejárt tételt nem használ, és ami egy nap elfogyott, az a következő napokra már nem számít. A megrendelt, még be nem érkezett beszerzés a határidejétől számít (`inboundSchedule`).
+- Az aznapi hiányt megvettnek tekinti, így a későbbi napok nem számolják újra.
+- Soronként: hiányzó mennyiség, csomagszám (felfelé kerekítve), beszállító, becsült költség. Recept nélküli ételnél figyelmeztetés.
+- A „Beszerzési rendelés erre a napra” gomb kitöltött beszerzési rendelést nyit a hiánylistával; mentés csak jóváhagyással történik.
+- [FELTÉTELEZÉS] A beszerzés határideje a gyártási nap előtti nap (de nem korábbi a mai napnál). Ha a beszállító másképp szállít, az űrlapon átírható.
+- A jóváhagyásra váró (portálos) rendelések nem számítanak bele, csak a visszaigazoltak.
