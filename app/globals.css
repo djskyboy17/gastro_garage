@@ -19,3 +19,14 @@
   font-size: 15px;
   margin: 32px 0 14px;
 }
+/* 24 órás időmező (v18) */
+.time-input-24 {
+  font-variant-numeric: tabular-nums;
+  min-width: 5.5em;
+}
+.datetime-24 {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}

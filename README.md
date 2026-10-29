@@ -151,3 +151,7 @@ Ellenőrzés: 67 tartományteszt (új: a nyilvános adat mezőlistája), TypeScr
 ## Beállítások menü — v17
 
 A főmenüben a „Modulok” helyett „Beállítások” szerepel. A ritkábban használt nézetek – HACCP és minőség, Rendelési szabályok, Dolgozói hozzáférés, Eseménynapló – a főmenüből a Beállítások oldalra kerültek, kártyákként; a modulok áttekintése is itt van (tulajdonos/admin). Egy beállítási rész megnyitásakor a menüben a Beállítások marad kiemelve, és „Vissza a beállításokhoz” gomb jelenik meg. A jogosultságok nem változtak: a konyha és a raktár a Beállítások alól éri el a HACCP-naplót, a diszpécser a rendelési szabályokat.
+
+## 24 órás időmezők — v18
+
+Az időpontok beviteli mezői (rendelés időpontja, ismétlődő rendelés, portál-idősávok kezdete/vége, napi étlap rendelési határideje) mindig 24 órás „ÓÓ:PP” formát használnak, a böngésző és a Windows nyelvétől függetlenül (pl. „1330” begépelve „13:30” lesz; 24:00 vagy afölötti érték nem menthető). A tárolt formátum nem változott.

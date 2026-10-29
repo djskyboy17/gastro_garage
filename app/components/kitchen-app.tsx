@@ -1,5 +1,6 @@
 "use client";
 import PackingWorkspace from "./packing-workspace";
+import { TimeInput24 } from "./time-input";
 import {orderFulfillment} from "@/src/modules/fulfillment/domain";
 import {
   useCallback,
@@ -1612,11 +1613,10 @@ export default function KitchenApp() {
                         />
                       </Field>
                       <Field label={t("time")}>
-                        <input
-                          type="time"
+                        <TimeInput24
                           required
                           value={newTime}
-                          onChange={(e) => setNewTime(e.target.value)}
+                          onChange={setNewTime}
                         />
                       </Field>
                     </div>
