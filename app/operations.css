@@ -7,27 +7,27 @@
 }
 .sidebar-bottom {
   flex-shrink: 0;
-  padding-top: 15px;
+  padding-top: 11px;
 }
 .sidebar .seedling {
   display: none;
 }
 .sidebar .workspace {
-  margin-top: 25px;
-  margin-bottom: 22px;
+  margin-top: 18px;
+  margin-bottom: 16px;
 }
 .ops-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   flex-wrap: wrap;
-  margin-bottom: 22px;
+  margin-bottom: 16px;
 }
 .ops-note {
   color: #86937a;
-  font-size: 11px;
+  font-size: 14px;
   line-height: 1.9;
-  margin: 13px 0 23px;
+  margin: 11px 0 17px;
   max-width: 800px;
 }
 .ops-metrics .metric {
@@ -38,15 +38,15 @@
 }
 .ops-tabs {
   display: flex;
-  gap: 24px;
+  gap: 17px;
   border-bottom: 1px solid #dfe5d6;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 .ops-tabs button {
   background: transparent;
   color: #8d9a7f;
-  padding: 12px 2px 15px;
-  font-size: 12px;
+  padding: 10px 2px 11px;
+  font-size: 15px;
   border-bottom: 2px solid transparent;
 }
 .ops-tabs button.selected {
@@ -58,50 +58,50 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 23px;
+  padding: 17px;
   color: #719052;
-  font-size: 12px;
+  font-size: 15px;
 }
 .recipe-list {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 23px;
+  gap: 17px;
 }
 .recipe-title {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 23px;
+  gap: 10px;
+  padding: 17px;
   border-bottom: 1px solid var(--line);
 }
 .recipe-title > div {
   flex: 1;
 }
 .recipe-title h2 {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.5;
 }
 .recipe-title small {
   display: block;
-  font-size: 9px;
+  font-size: 12px;
   color: #99a48d;
   margin-top: 6px;
 }
 .recipe-title .button {
-  padding: 8px 10px;
-  font-size: 10px;
+  padding: 8px 9px;
+  font-size: 13px;
   gap: 5px;
   min-height: 34px;
 }
 .recipe-ingredients {
-  padding: 10px 23px;
+  padding: 9px 17px;
 }
 .recipe-ingredients > div {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 0;
-  font-size: 11px;
+  gap: 9px;
+  padding: 9px 0;
+  font-size: 14px;
   color: #7a886c;
   border-bottom: 1px dashed #edf0e6;
 }
@@ -114,7 +114,7 @@
   color: #536a41;
 }
 .recipe-ingredients small {
-  font-size: 8px;
+  font-size: 12px;
   color: #a2aa96;
   max-width: 95px;
   text-align: right;
@@ -122,18 +122,18 @@
 .recipe-cost {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 14px;
   background: #f8faf3;
   border-top: 1px solid var(--line);
-  padding: 19px 23px;
+  padding: 14px 17px;
 }
 .recipe-cost > span {
-  font-size: 11px;
+  font-size: 14px;
   color: #71845e;
 }
 .recipe-cost small {
   display: block;
-  font-size: 9px;
+  font-size: 12px;
   color: #a0aa91;
   line-height: 1.8;
   margin-top: 6px;
@@ -142,7 +142,7 @@
 .recipe-cost > strong {
   margin-left: auto;
   font-family: Manrope, sans-serif;
-  font-size: 22px;
+  font-size: 23px;
   color: #486337;
   white-space: nowrap;
   letter-spacing: -0.7px;
@@ -151,44 +151,44 @@
   background: #fcf4df;
   border: 1px solid #f0e3ba;
   border-radius: 8px;
-  padding: 17px 20px;
+  padding: 12px 14px;
   display: flex;
   align-items: flex-start;
-  gap: 13px;
+  gap: 11px;
   color: #a18a45;
-  font-size: 11px;
+  font-size: 14px;
   line-height: 1.7;
-  margin: 20px 0;
+  margin: 14px 0;
 }
 .warning-note p {
-  font-size: 11px;
+  font-size: 14px;
   margin-top: 6px;
   color: #b0985a;
 }
 .procurement-summary {
   display: flex;
-  gap: 60px;
+  gap: 43px;
   align-items: center;
-  padding: 25px 28px;
-  margin-bottom: 23px;
+  padding: 18px 20px;
+  margin-bottom: 17px;
   border: 1px solid #dfe7d2;
   border-radius: 10px;
   background: #edf3e3;
 }
 .procurement-summary strong {
   font-family: Manrope, sans-serif;
-  font-size: 28px;
+  font-size: 29px;
   letter-spacing: -0.8px;
 }
 .procurement-summary small {
   font-family: "DM Sans", sans-serif;
-  font-size: 12px;
+  font-size: 15px;
   color: #93a17f;
   font-weight: 400;
   letter-spacing: 0;
 }
 .procurement-summary .eyebrow {
-  font-size: 8px;
+  font-size: 12px;
   margin-bottom: 8px;
 }
 .checkbox-label {
@@ -196,7 +196,7 @@
   align-items: center;
   gap: 8px;
   color: #7b8d67;
-  font-size: 12px;
+  font-size: 15px;
   margin-right: auto;
 }
 .checkbox-label input {
@@ -211,37 +211,37 @@
 .recipe-editor-line {
   display: grid;
   grid-template-columns: minmax(140px, 1fr) 120px 105px 28px;
-  gap: 11px;
+  gap: 9px;
   align-items: center;
 }
 .recipe-editor-line .field span {
-  font-size: 10px;
+  font-size: 13px;
 }
 .recipe-editor-line > .icon-button {
   margin-top: 8px;
 }
 .operation-modal .ops-note {
-  font-size: 10px;
+  font-size: 13px;
 }
 .operation-modal .button + .field {
-  margin-top: 20px;
+  margin-top: 14px;
 }
 .issue-line {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 14px;
   border-top: 1px solid var(--line);
-  padding: 13px 0;
+  padding: 11px 0;
 }
 .issue-line > div:first-child {
   flex: 1;
 }
 .issue-line strong {
-  font-size: 12px;
+  font-size: 15px;
 }
 .issue-line small {
   display: block;
-  font-size: 10px;
+  font-size: 13px;
   color: #98a58a;
   margin-top: 7px;
 }
@@ -250,25 +250,25 @@
   width: 145px;
 }
 .issue-lines {
-  margin: 20px 0;
+  margin: 14px 0;
 }
 .issue-orders {
-  margin-top: 23px;
+  margin-top: 17px;
 }
 .issue-order-row {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 11px;
   justify-content: space-between;
-  padding: 15px 23px;
+  padding: 11px 17px;
   border-top: 1px solid var(--line);
 }
 .issue-order-row .text-button {
-  font-size: 12px;
+  font-size: 15px;
   text-align: left;
 }
 .operations-workspace table td {
-  font-size: 11px;
+  font-size: 14px;
 }
 .operations-workspace .welcome {
   margin-top: 8px;
@@ -278,10 +278,10 @@
     grid-template-columns: 1fr;
   }
   .ops-actions .button {
-    font-size: 11px;
+    font-size: 14px;
   }
   .recipe-title h2 {
-    font-size: 15px;
+    font-size: 17px;
   }
   .recipe-cost small {
     max-width: 400px;
@@ -292,41 +292,41 @@
     gap: 8px;
   }
   .ops-actions .button {
-    font-size: 10px;
-    padding: 9px 12px;
+    font-size: 13px;
+    padding: 9px 10px;
   }
   .ops-tabs {
-    gap: 22px;
+    gap: 16px;
   }
   .ops-tabs button {
-    font-size: 11px;
+    font-size: 14px;
   }
   .recipe-title {
-    padding: 18px 16px;
+    padding: 13px 12px;
     flex-wrap: wrap;
   }
   .recipe-title > div {
     min-width: 150px;
   }
   .recipe-title > .button {
-    margin-left: 45px;
+    margin-left: 32px;
   }
   .recipe-ingredients {
-    padding: 8px 17px;
+    padding: 8px 12px;
   }
   .recipe-cost {
-    padding: 17px;
-    gap: 15px;
+    padding: 12px;
+    gap: 11px;
   }
   .recipe-cost > strong {
-    font-size: 20px;
+    font-size: 21px;
   }
   .recipe-editor-line {
     grid-template-columns: minmax(0, 1fr) 28px;
     gap: 0 9px;
     border-bottom: 1px solid var(--line);
-    padding-bottom: 13px;
-    margin-bottom: 18px;
+    padding-bottom: 11px;
+    margin-bottom: 13px;
   }
   .recipe-editor-line > .field:first-child {
     grid-column: 1/-1;
@@ -345,40 +345,40 @@
     width: 110px;
   }
   .issue-line strong {
-    font-size: 11px;
+    font-size: 14px;
   }
   .issue-line small {
-    font-size: 9px;
+    font-size: 12px;
   }
   .issue-order-row {
-    padding: 15px 17px;
+    padding: 11px 12px;
   }
   .issue-order-row .text-button {
-    font-size: 10px;
+    font-size: 13px;
   }
   .procurement-summary {
-    padding: 20px;
-    gap: 30px;
+    padding: 14px;
+    gap: 22px;
   }
   .procurement-summary strong {
-    font-size: 23px;
+    font-size: 24px;
   }
   .procurement-summary small {
-    font-size: 10px;
+    font-size: 13px;
   }
   .checkbox-label {
-    font-size: 11px;
+    font-size: 14px;
     margin: 0 0 8px;
     flex-basis: 100%;
   }
   .sidebar nav button {
     min-height: 39px;
-    padding-top: 10px;
-    padding-bottom: 10px;
+    padding-top: 9px;
+    padding-bottom: 9px;
   }
   .sidebar .workspace {
-    margin-top: 20px;
-    margin-bottom: 18px;
+    margin-top: 14px;
+    margin-bottom: 13px;
   }
 }
 @media print {
@@ -402,11 +402,11 @@
 }
 /* Al-receptek és ételinformáció (v15) */
 .preparation-panel {
-  margin-bottom: 22px;
-  padding: 18px 23px;
+  margin-bottom: 16px;
+  padding: 13px 17px;
 }
 .preparation-panel .recipe-list {
-  margin-top: 10px;
+  margin-top: 9px;
 }
 .preparation-panel .recipe-panel {
   border: 1px solid #edf0e6;
@@ -414,13 +414,13 @@
 }
 .dish-info {
   border-top: 1px dashed #edf0e6;
-  padding: 12px 23px 4px;
-  font-size: 11px;
+  padding: 10px 17px 4px;
+  font-size: 14px;
   color: #5d6b51;
   line-height: 1.7;
 }
 .dish-info h3 {
-  font-size: 12px;
+  font-size: 15px;
   margin: 0 0 6px;
   color: #536a41;
 }
@@ -455,11 +455,11 @@
 .nutrition-fields {
   border: 1px solid #edf0e6;
   border-radius: 12px;
-  padding: 10px 14px;
-  margin: 14px 0;
+  padding: 9px 10px;
+  margin: 10px 0;
 }
 .nutrition-fields legend {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
   padding: 0 4px;
 }
