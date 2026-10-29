@@ -8,6 +8,12 @@ import type { Plugin } from "vite";
 const localUserId = "local_seedy";
 const localEmail = "seedy@sites.test";
 const localFullName = "Seedy";
+// Helyi próbafiókok (csak a fejlesztői szerveren): a sütiben tárolt kulcs választja ki.
+// Pl. /signin-with-chatgpt?as=courier&return_to=/courier egy külön futár-fiókkal lép be.
+const localUsers: Record<string, { id: string; email: string; name: string }> = {
+  "1": { id: localUserId, email: localEmail, name: localFullName },
+  courier: { id: "local_courier", email: "futar@sites.test", name: "Teszt Futár" },
+};
 const localCookieName = "__sites_local_auth";
 const localHosts = new Set(["localhost", "127.0.0.1", "::1"]);
 const localAddresses = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
@@ -105,13 +111,17 @@ export function sites({ mockAuth = true } = {}): Plugin {
         const signIn = url.pathname === "/signin-with-chatgpt";
         const signOut = url.pathname === "/signout-with-chatgpt";
         if (!signIn && !signOut) {
-          if (signInCookies.length === 1 && signInCookies[0] === "1") {
-            setHeader(request, "oai-authenticated-user-id", localUserId);
-            setHeader(request, "oai-authenticated-user-email", localEmail);
+          const localUser =
+            signInCookies.length === 1 && Object.hasOwn(localUsers, signInCookies[0]!)
+              ? localUsers[signInCookies[0]!]
+              : undefined;
+          if (localUser) {
+            setHeader(request, "oai-authenticated-user-id", localUser.id);
+            setHeader(request, "oai-authenticated-user-email", localUser.email);
             setHeader(
               request,
               "oai-authenticated-user-full-name",
-              localFullName,
+              encodeURIComponent(localUser.name),
             );
             setHeader(
               request,
@@ -163,7 +173,7 @@ export function sites({ mockAuth = true } = {}): Plugin {
         );
         response.setHeader(
           "Set-Cookie",
-          `${localCookieName}=${signIn ? "1" : ""}; Path=/; ${
+          `${localCookieName}=${signIn ? (url.searchParams.get("as") === "courier" ? "courier" : "1") : ""}; Path=/; ${
             signOut ? "Max-Age=0; " : ""
           }HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`,
         );

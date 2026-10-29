@@ -171,3 +171,13 @@ A Konyhai terv kártyáin a nagy szám már a még elkészítendő adagot mutatj
 ## Tisztább konyhai terv és csomagolás — v21
 
 A Konyhai tervről lekerült a rendeléslista (a Rendelések oldalon megvan). A csomagolásban csak az marad, amit még csomagolni kell: a futárnak már átadott, kézbesített vagy az ügyfél által átvett rendelés eltűnik a tervből, a rendelések és a címkék közül.
+
+## Helyi próba-futárfiók — v22
+
+A fejlesztői szerveren (`npm run dev`) a tulajdonosi próbafiók (Seedy) mellett van egy külön futár-próbafiók is, hogy a futárfelület egy gépen kipróbálható legyen:
+
+1. Futárként belépés: http://localhost:5173/signin-with-chatgpt?as=courier&return_to=/courier („Teszt Futár”, futar@sites.test), majd „Hozzáférés kérése”.
+2. Vissza tulajdonosként: http://localhost:5173/signin-with-chatgpt?return_to=/ → Beállítások → Dolgozói hozzáférés: a Teszt Futárnak Futár szerepkör, majd a Futárfiókok összekapcsolásánál a futárnévhez kötés.
+3. Újra futárként belépve a /courier oldalon látszanak a futárhoz rendelt kiszállítások.
+
+Ez csak a helyi fejlesztői bejelentkezést érinti; élesben mindenki a saját fiókjával lép be.
