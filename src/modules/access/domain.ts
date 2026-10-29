@@ -6,11 +6,14 @@ export type Member = {userId:string;name:string;email:string;role:string;revisio
 export type Session = {userId:string;name:string;role:Role;canBootstrap:boolean};
 export const isAdmin = (role:Role) => role === "owner" || role === "admin";
 export const isMember = (role:Role) => ["owner","admin","dispatcher","kitchen","warehouse"].includes(role);
+/** Ritkán használt, beállítás jellegű nézetek: a főmenü helyett a Beállítások oldalról nyílnak. */
+export const settingsTabs = ["safety","fulfillment","access","audit"] as const;
+export const isSettingsTab = (tab:string) => (settingsTabs as readonly string[]).includes(tab);
 export function tabsFor(role:Role): string[] {
-  if (isAdmin(role)) return ["overview","orders","recurring","kitchen","packing","delivery","catalog","customers","menu","fulfillment","portal","recipes","inventory","stocktake","procurement","safety","roadmap","audit","access"];
-  if (role === "dispatcher") return ["overview","orders","recurring","packing","delivery","catalog","customers","menu","fulfillment","portal"];
-  if (role === "kitchen") return ["kitchen","packing","safety"];
-  if (role === "warehouse") return ["inventory","stocktake","recipes","procurement","safety"];
+  if (isAdmin(role)) return ["overview","orders","recurring","kitchen","packing","delivery","catalog","customers","menu","fulfillment","portal","recipes","inventory","stocktake","procurement","safety","audit","access","settings"];
+  if (role === "dispatcher") return ["overview","orders","recurring","packing","delivery","catalog","customers","menu","fulfillment","portal","settings"];
+  if (role === "kitchen") return ["kitchen","packing","safety","settings"];
+  if (role === "warehouse") return ["inventory","stocktake","recipes","procurement","safety","settings"];
   return [];
 }
 export function canWrite(role:Role,path:string,body:unknown): boolean {

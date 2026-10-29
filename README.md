@@ -147,3 +147,7 @@ Ellenőrzés: 66 tartományteszt (9 új: al-recept felbontás, kerekítés, elav
 A portál napi étlapján minden ételkártyán lenyitható „Ételinformáció” rész jelenik meg, még a kosárba tétel előtt: összetevők (al-recept zárójelben, fagyasztott `*`-gal), allergének és tápérték 100 g késztermékre, magyarul és románul. A nyilvános adat nem tartalmaz mennyiséget, grammot, receptet, önköltséget, beszállítót vagy készletadatot. Recept nélküli ételnél a portál azt kéri, hogy az ügyfél a konyhától érdeklődjön; hiányzó tápértéknél „még nincs megadva” jelenik meg.
 
 Ellenőrzés: 67 tartományteszt (új: a nyilvános adat mezőlistája), TypeScript és publikálható build; böngészőben a portál magyar és román ételkártyája.
+
+## Beállítások menü — v17
+
+A főmenüben a „Modulok” helyett „Beállítások” szerepel. A ritkábban használt nézetek – HACCP és minőség, Rendelési szabályok, Dolgozói hozzáférés, Eseménynapló – a főmenüből a Beállítások oldalra kerültek, kártyákként; a modulok áttekintése is itt van (tulajdonos/admin). Egy beállítási rész megnyitásakor a menüben a Beállítások marad kiemelve, és „Vissza a beállításokhoz” gomb jelenik meg. A jogosultságok nem változtak: a konyha és a raktár a Beállítások alól éri el a HACCP-naplót, a diszpécser a rendelési szabályokat.

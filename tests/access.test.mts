@@ -1,7 +1,7 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
 // @ts-ignore Native Node test imports
-import {canWrite,tabsFor,isMember,projectData,type Role} from "../src/modules/access/domain.ts";
+import {canWrite,tabsFor,isMember,projectData,settingsTabs,isSettingsTab,type Role} from "../src/modules/access/domain.ts";
 // @ts-ignore Native Node test imports
 import type {AppData} from "../src/modules/shared/domain.ts";
 test("Every role denies unknown paths and inactive roles deny business writes",()=>{
@@ -29,4 +29,16 @@ test("Kitchen projections remove contacts, sales and operational modules without
 });
 test("Warehouse and dispatcher get different projections; owner keeps complete data",()=>{
   const w=projectData(data,"warehouse"),d=projectData(data,"dispatcher");assert.equal(w.operations.ingredients[0].packPrice,500);assert.equal(w.orders[0].phone,"");assert.equal(w.orders[0].note,"");assert.equal(w.purchasing.suppliers.length,1);assert.equal(w.logistics.couriers.length,0);assert.equal(d.orders[0].phone,"Private phone");assert.equal(d.operations.ingredients.length,0);assert.equal(d.purchasing.suppliers.length,0);assert.equal(d.audit.length,0);assert.equal(projectData(data,"owner"),data);
+});
+test("Beállítások: a ritkán használt nézetek a Beállítások alá kerülnek, a jogosultság nem változik", () => {
+  for (const role of ["owner", "admin", "dispatcher", "kitchen", "warehouse"] as Role[]) {
+    const tabs = tabsFor(role);
+    assert.ok(tabs.includes("settings"), role);
+    assert.ok(!tabs.includes("roadmap"), role);
+  }
+  assert.deepEqual(settingsTabs.filter((t) => tabsFor("kitchen").includes(t)), ["safety"]);
+  assert.deepEqual(settingsTabs.filter((t) => tabsFor("warehouse").includes(t)), ["safety"]);
+  assert.deepEqual(settingsTabs.filter((t) => tabsFor("dispatcher").includes(t)), ["fulfillment"]);
+  assert.deepEqual(settingsTabs.filter((t) => tabsFor("owner").includes(t)), ["safety", "fulfillment", "access", "audit"]);
+  assert.ok(isSettingsTab("audit") && !isSettingsTab("orders"));
 });

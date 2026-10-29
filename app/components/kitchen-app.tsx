@@ -24,11 +24,13 @@ import {
   UtensilsCrossed,
   Users,
   Blocks,
+  Settings,
   History,
   Plus,
   Search,
   ArrowUpRight,
   ArrowRight,
+  ArrowLeft,
   Check,
   ChevronRight,
   ChevronLeft,
@@ -59,7 +61,7 @@ import { emptyRecurring } from "@/src/modules/recurring/domain";
 import SafetyWorkspace from "./safety-workspace";
 import { emptySafety } from "@/src/modules/safety/domain";
 import AccessWorkspace from "./access-workspace";
-import { tabsFor, isMember, canWrite, type Session } from "@/src/modules/access/domain";
+import { tabsFor, isMember, isAdmin, canWrite, isSettingsTab, type Session } from "@/src/modules/access/domain";
 import DeliveryWorkspace, { OrderDeliveryEditor } from "./delivery-workspace";
 import { emptyDelivery } from "@/src/modules/delivery/domain";
 import { emptyPurchasing } from "@/src/modules/purchasing/domain";
@@ -103,9 +105,9 @@ const nav = [
   ["stocktake", ClipboardList],
   ["procurement", ClipboardList],
   ["safety", CheckCircle2],
-  ["roadmap", Blocks],
   ["audit", History],
   ["access", Users],
+  ["settings", Settings],
 ] as const;
 const allergenKeys = [
   "gluten",
@@ -558,18 +560,16 @@ export default function KitchenApp() {
           </div>
           <p className="nav-label">{t("workspace")}</p>
           <nav aria-label={t("workspace")}>
-            {nav.filter(([key]) => session && tabsFor(session.role).includes(key)).map(([key, Icon], i) => (
+            {nav.filter(([key]) => session && tabsFor(session.role).includes(key) && !isSettingsTab(key)).map(([key, Icon], i) => (
               <button
                 key={key}
-                className={tab === key ? "active" : ""}
+                className={tab === key || (key === "settings" && isSettingsTab(tab)) ? "active" : ""}
                 onClick={() => navigate(key)}
               >
                 <Icon size={19} />
                 <span>{t(key)}</span>
                 {key === "portal" && data.orders.some(o=>o.status==="requested") ? <span className="nav-count">{data.orders.filter(o=>o.status==="requested").length}</span> : key === "orders" && active.length > 0 ? (
                   <span className="nav-count">{active.length}</span>
-                ) : key === "roadmap" ? (
-                  <span className="tiny-dot" />
                 ) : null}
               </button>
             ))}
@@ -637,7 +637,7 @@ export default function KitchenApp() {
             <div className="page-heading">
               <div>
                 <p className="eyebrow">
-                  {t(tab === "overview" ? "daily" : tab)}
+                  {t(tab === "overview" ? "daily" : isSettingsTab(tab) ? "settings" : tab)}
                 </p>
                 <h1>
                   {t(
@@ -647,8 +647,8 @@ export default function KitchenApp() {
                         ? "productionTitle"
                         : tab === "delivery"
                           ? "deliveryTitle"
-                          : tab === "roadmap"
-                            ? "roadmapTitle"
+                          : tab === "settings"
+                            ? "settingsTitle"
                             : tab,
                   )}
                 </h1>
@@ -668,8 +668,8 @@ export default function KitchenApp() {
                             ? "catalogHint"
                             : tab === "customers"
                               ? "customerHint"
-                              : tab === "roadmap"
-                                ? "roadmapHint"
+                              : tab === "settings"
+                                ? "settingsHint"
                                 : "settingsNote",
                   )}
                 </p>
@@ -684,6 +684,11 @@ export default function KitchenApp() {
                   <Button onClick={() => open("customer")}>
                     <Plus size={17} />
                     {t("newCustomer")}
+                  </Button>
+                ) : isSettingsTab(tab) ? (
+                  <Button secondary onClick={() => navigate("settings")}>
+                    <ArrowLeft size={17} />
+                    {t("backToSettings")}
                   </Button>
                 ) : ["overview", "orders"].includes(tab) ? (
                   <Button
@@ -1216,46 +1221,53 @@ export default function KitchenApp() {
                     )}
                   />
                 )}
-                {tab === "roadmap" && (
-                  <div className="module-grid">
-                    {[
-                      ...nav.filter(
-                        ([key]) =>
-                          !["overview", "roadmap", "audit"].includes(key),
-                      ),
-                      ["billing", Wallet],
-                    ].map(([key, Icon], i) => {
-                      const I = Icon as typeof Blocks;
-                      const available = nav.some(
-                        ([keyName]) => keyName === key,
-                      );
-                      return (
-                        <article
-                          className="panel module-card"
-                          key={String(key)}
-                        >
-                          <I size={26} />
-                          <span
-                            className={
-                              "badge " + (available ? "ready" : "pending")
-                            }
-                          >
-                            {t(available ? "available" : "planned")}
-                          </span>
-                          <h2>{t(String(key))}</h2>
-                          {available && (
-                            <button
-                              className="text-button"
-                              onClick={() => navigate(String(key))}
-                            >
+                {tab === "settings" && (
+                  <>
+                    <div className="module-grid settings-grid">
+                      {nav
+                        .filter(([key]) => isSettingsTab(key) && tabsFor(session.role).includes(key))
+                        .map(([key, Icon]) => (
+                          <article className="panel module-card settings-card" key={key}>
+                            <Icon size={26} />
+                            <h2>{t(key)}</h2>
+                            <p>{t("settingsAbout_" + key)}</p>
+                            <button className="text-button" onClick={() => navigate(key)}>
                               {t("open")}
                               <ArrowRight size={16} />
                             </button>
-                          )}
-                        </article>
-                      );
-                    })}
-                  </div>
+                          </article>
+                        ))}
+                    </div>
+                    {isAdmin(session.role) && (
+                      <>
+                        <h2 className="settings-section-title">{t("settingsModules")}</h2>
+                        <div className="module-grid">
+                          {[
+                            ...nav.filter(([key]) => !["overview", "settings"].includes(key)),
+                            ["billing", Wallet],
+                          ].map(([key, Icon]) => {
+                            const I = Icon as typeof Blocks;
+                            const available = nav.some(([keyName]) => keyName === key);
+                            return (
+                              <article className="panel module-card" key={String(key)}>
+                                <I size={26} />
+                                <span className={"badge " + (available ? "ready" : "pending")}>
+                                  {t(available ? "available" : "planned")}
+                                </span>
+                                <h2>{t(String(key))}</h2>
+                                {available && (
+                                  <button className="text-button" onClick={() => navigate(String(key))}>
+                                    {t("open")}
+                                    <ArrowRight size={16} />
+                                  </button>
+                                )}
+                              </article>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </>
                 )}
                 {tab === "packing" && <PackingWorkspace lang={lang} refresh={load} initialDate={packingTarget?.date??day} initialOrderId={packingTarget?.id??""}/>}
                 {tab === "fulfillment" && <FulfillmentWorkspace lang={lang} role={session.role}/>}
