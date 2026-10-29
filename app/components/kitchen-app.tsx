@@ -551,16 +551,6 @@ export default function KitchenApp() {
               <small>{t("brand")}</small>
             </span>
           </a>
-          <div className="workspace">
-            <span className="workspace-icon">
-              <ChefHat size={18} />
-            </span>
-            <span>
-              <strong>Konyha Studio</strong>
-              <small>{t("role_"+session.role)}</small>
-            </span>
-            <ChevronRight size={14} />
-          </div>
           <p className="nav-label">{t("workspace")}</p>
           <nav aria-label={t("workspace")}>
             {nav.filter(([key]) => session && tabsFor(session.role).includes(key) && !isSettingsTab(key)).map(([key, Icon], i) => (
@@ -591,7 +581,7 @@ export default function KitchenApp() {
               <span className="avatar owner-avatar">{session.name.slice(0,2).toUpperCase()}</span>
               <span>
                 <strong>{session.name}</strong>
-                <small>{t("signOut")}</small>
+                <small>{t("role_"+session.role)} · {t("signOut")}</small>
               </span>
               <LogOut size={17} />
             </a>
@@ -614,7 +604,11 @@ export default function KitchenApp() {
               <Menu size={22} />
             </button>
             <div className="breadcrumb">
-              Konyha Studio <ChevronRight size={14} />
+              {isSettingsTab(tab) && (
+                <>
+                  {t("settings")} <ChevronRight size={14} />
+                </>
+              )}
               <strong>{t(tab)}</strong>
             </div>
             <div className="topbar-right">
@@ -1241,25 +1235,24 @@ export default function KitchenApp() {
                 )}
                 {tab === "settings" && (
                   <>
-                    <div className="module-grid settings-grid">
+                    <div className="settings-grid">
                       {nav
                         .filter(([key]) => isSettingsTab(key) && tabsFor(session.role).includes(key))
                         .map(([key, Icon]) => (
-                          <article className="panel module-card settings-card" key={key}>
-                            <Icon size={26} />
-                            <h2>{t(key)}</h2>
-                            <p>{t("settingsAbout_" + key)}</p>
-                            <button className="text-button" onClick={() => navigate(key)}>
-                              {t("open")}
-                              <ArrowRight size={16} />
-                            </button>
-                          </article>
+                          <button type="button" className="panel settings-card" key={key} onClick={() => navigate(key)}>
+                            <Icon size={22} />
+                            <span>
+                              <strong>{t(key)}</strong>
+                              <small>{t("settingsAbout_" + key)}</small>
+                            </span>
+                            <ChevronRight size={18} className="settings-card-arrow" />
+                          </button>
                         ))}
                     </div>
                     {isAdmin(session.role) && (
                       <>
                         <h2 className="settings-section-title">{t("settingsModules")}</h2>
-                        <div className="module-grid">
+                        <div className="settings-grid settings-module-grid">
                           {[
                             ...nav.filter(([key]) => !["overview", "settings"].includes(key)),
                             ["billing", Wallet],
@@ -1267,19 +1260,20 @@ export default function KitchenApp() {
                             const I = Icon as typeof Blocks;
                             const available = nav.some(([keyName]) => keyName === key);
                             return (
-                              <article className="panel module-card" key={String(key)}>
-                                <I size={26} />
-                                <span className={"badge " + (available ? "ready" : "pending")}>
-                                  {t(available ? "available" : "planned")}
+                              <button
+                                type="button"
+                                className="panel settings-card compact"
+                                key={String(key)}
+                                disabled={!available}
+                                onClick={() => navigate(String(key))}
+                              >
+                                <I size={20} />
+                                <span>
+                                  <strong>{t(String(key))}</strong>
+                                  {!available && <small>{t("planned")}</small>}
                                 </span>
-                                <h2>{t(String(key))}</h2>
-                                {available && (
-                                  <button className="text-button" onClick={() => navigate(String(key))}>
-                                    {t("open")}
-                                    <ArrowRight size={16} />
-                                  </button>
-                                )}
-                              </article>
+                                {available && <ChevronRight size={18} className="settings-card-arrow" />}
+                              </button>
                             );
                           })}
                         </div>

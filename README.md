@@ -193,3 +193,7 @@ Nagyobb betűk és kevesebb üres hely az egész alkalmazásban (dolgozói munka
 ## Mikorra mi kell? — v25
 
 A Beszerzés oldal tetején új panel mutatja a következő 7/14/30 nap rendeléseihez napokra bontva, mi hiányzik a raktárból (például: „November 9., hétfő · 1 rendelés · 160 adag · 7 tétel hiányzik”). A számítás a recepteket (al-receptekkel), a raktárkészletet, a lejárati dátumokat és a már megrendelt, úton lévő beszerzéseket is figyelembe veszi, és a készletet napról napra fogyasztja, így egy tételt nem számol kétszer. Soronként látszik a hiányzó mennyiség, a csomagszám, a beszállító és a becsült költség. A „Beszerzési rendelés erre a napra” gomb kitöltött beszerzési rendelést nyit, a gyártás előtti napi határidővel.
+
+## Egyszerűbb menüsáv és Beállítások — v26
+
+A „Konyha Studio” felirat lekerült a menüsávról és a felső sávról. A szerepkör a bal alsó sarokban, a név alatt látszik. A felső sáv csak az aktuális oldalt mutatja; a beállítás-oldalaknál „Beállítások › …” formában. A Beállításokban az egész kártya kattintható, a „Megnyitás” gomb megszűnt, és a kártyák kisebbek, így több fér el egy képernyőn (telefonon két oszlopban).
