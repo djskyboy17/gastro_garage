@@ -1,4 +1,12 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import {
+  sqliteTable,
+  text,
+  integer,
+  check,
+  uniqueIndex,
+  index,
+} from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 export const products = sqliteTable("products", {
   id: text("id").primaryKey(),
   hu: text("hu").notNull(),
@@ -37,6 +45,7 @@ export const orders = sqliteTable("orders", {
   createdAt: text("created_at").notNull(),
 });
 export const orderItems = sqliteTable("order_items", {
+  recipeId: text("recipe_id").references(() => recipes.id),
   id: text("id").primaryKey(),
   orderId: text("order_id")
     .notNull()
@@ -56,5 +65,94 @@ export const audit = sqliteTable("audit", {
   action: text("action").notNull(),
   entity: text("entity").notNull(),
   detail: text("detail").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+export const ingredients = sqliteTable("ingredients", {
+  id: text("id").primaryKey(),
+  hu: text("hu").notNull(),
+  ro: text("ro").notNull(),
+  unit: text("unit").notNull(),
+  packQuantity: integer("pack_quantity").notNull(),
+  packPrice: integer("pack_price").notNull(),
+  minStock: integer("min_stock").notNull().default(0),
+  allergens: text("allergens").notNull(),
+  supplier: text("supplier").notNull(),
+});
+export const recipes = sqliteTable(
+  "recipes",
+  {
+    id: text("id").primaryKey(),
+    productId: text("product_id")
+      .notNull()
+      .references(() => products.id),
+    version: integer("version").notNull(),
+    yield: integer("yield").notNull(),
+    note: text("note").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("recipe_product_version").on(t.productId, t.version)],
+);
+export const recipeLines = sqliteTable(
+  "recipe_lines",
+  {
+    id: text("id").primaryKey(),
+    recipeId: text("recipe_id")
+      .notNull()
+      .references(() => recipes.id),
+    ingredientId: text("ingredient_id")
+      .notNull()
+      .references(() => ingredients.id),
+    quantity: integer("quantity").notNull(),
+    lossBps: integer("loss_bps").notNull().default(0),
+  },
+  (t) => [uniqueIndex("recipe_ingredient").on(t.recipeId, t.ingredientId)],
+);
+export const stockLots = sqliteTable(
+  "stock_lots",
+  {
+    id: text("id").primaryKey(),
+    ingredientId: text("ingredient_id")
+      .notNull()
+      .references(() => ingredients.id),
+    batch: text("batch").notNull(),
+    supplier: text("supplier").notNull(),
+    received: text("received").notNull(),
+    expires: text("expires").notNull(),
+    quantity: integer("quantity").notNull(),
+    remaining: integer("remaining").notNull(),
+    totalCost: integer("total_cost").notNull(),
+    document: text("document").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    check(
+      "stock_lot_balance",
+      sql`${t.remaining} >= 0 AND ${t.remaining} <= ${t.quantity}`,
+    ),
+    index("stock_lot_ingredient_expiry").on(t.ingredientId, t.expires),
+  ],
+);
+export const stockIssues = sqliteTable(
+  "stock_issues",
+  {
+    id: text("id").primaryKey(),
+    orderId: text("order_id")
+      .notNull()
+      .references(() => orders.id),
+    recipeSnapshot: text("recipe_snapshot").notNull(),
+    createdAt: text("created_at").notNull(),
+    actor: text("actor").notNull(),
+  },
+  (t) => [uniqueIndex("one_issue_per_order").on(t.orderId)],
+);
+export const stockMoves = sqliteTable("stock_moves", {
+  id: text("id").primaryKey(),
+  lotId: text("lot_id")
+    .notNull()
+    .references(() => stockLots.id),
+  issueId: text("issue_id").references(() => stockIssues.id),
+  quantity: integer("quantity").notNull(),
+  kind: text("kind").notNull(),
+  note: text("note").notNull(),
   createdAt: text("created_at").notNull(),
 });

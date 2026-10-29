@@ -1,5 +1,7 @@
+import { operationMessages } from "../inventory/i18n";
 export const messages: Record<"hu" | "ro", Record<string, string>> = {
   hu: {
+    ...operationMessages.hu,
     brand: "Catering műhely",
     previous: "Előző nap",
     next: "Következő nap",
@@ -113,7 +115,7 @@ export const messages: Record<"hu" | "ro", Record<string, string>> = {
       "Az alkalmazás üres adatbázissal indul. Rögzítsd az első ételt és ügyfelet, vagy töltsd be a jól jelölt mintaadatokat.",
     setup: "Első lépések",
     catalogHint:
-      "Belső ételtörzs · az összetevő-, recept- és tápértékkezelés a következő fejlesztési kör.",
+      "Belső ételtörzs · a receptek külön modulban szerkeszthetők; tápértékszámítás később.",
     customerHint: "Ügyfelek és szállítási címek egy helyen.",
     roadmapTitle: "Egy rendszer. Összekapcsolt modulok.",
     roadmapHint:
@@ -128,7 +130,7 @@ export const messages: Record<"hu" | "ro", Record<string, string>> = {
     portal: "Ügyfélportál",
     settingsNote: "Időzóna: Bukarest · Pénznem: RON",
     notice:
-      "Belső prototípus. A számlázás, a teljes receptúra és a HACCP még fejlesztés előtt áll.",
+      "Tesztváltozat. A számlázás és a HACCP a következő fejlesztési körökben készül.",
     progress: "A konyha haladása",
     nextDelivery: "Következő indulások",
     noDelivery: "Nincs függő kiszállítás.",
@@ -142,7 +144,7 @@ export const messages: Record<"hu" | "ro", Record<string, string>> = {
     noActivity: "Még nincs rögzített esemény.",
     signIn: "Bejelentkezés",
     signOut: "Kijelentkezés",
-    owner: "Privát munkaterület",
+    owner: "Közös tesztmunkaterület",
     sample: "Minta",
     deleteLine: "Tétel törlése",
     gluten: "Gluténtartalmú gabonák",
@@ -161,6 +163,7 @@ export const messages: Record<"hu" | "ro", Record<string, string>> = {
     molluscs: "Puhatestűek",
   },
   ro: {
+    ...operationMessages.ro,
     brand: "Atelier de catering",
     previous: "Ziua precedentă",
     next: "Ziua următoare",
@@ -275,7 +278,7 @@ export const messages: Record<"hu" | "ro", Record<string, string>> = {
       "Aplicația pornește cu o bază de date goală. Adaugă primul preparat și client sau încarcă datele demonstrative marcate.",
     setup: "Primii pași",
     catalogHint:
-      "Catalog intern · ingredientele, rețetele și valorile nutriționale urmează într-o etapă viitoare.",
+      "Catalog intern · rețetele se gestionează separat; calculul nutrițional urmează ulterior.",
     customerHint: "Clienți și adrese de livrare într-un singur loc.",
     roadmapTitle: "Un sistem. Module conectate.",
     roadmapHint:
@@ -290,7 +293,7 @@ export const messages: Record<"hu" | "ro", Record<string, string>> = {
     portal: "Portal clienți",
     settingsNote: "Fus orar: București · Monedă: RON",
     notice:
-      "Prototip intern. Facturarea, rețetele complete și HACCP sunt planificate.",
+      "Versiune de test. Facturarea și HACCP urmează în etapele viitoare.",
     progress: "Progresul bucătăriei",
     nextDelivery: "Următoarele plecări",
     noDelivery: "Nu există livrări în așteptare.",
@@ -304,7 +307,7 @@ export const messages: Record<"hu" | "ro", Record<string, string>> = {
     noActivity: "Nu există evenimente.",
     signIn: "Autentificare",
     signOut: "Deconectare",
-    owner: "Spațiu de lucru privat",
+    owner: "Spațiu comun de test",
     sample: "Exemplu",
     deleteLine: "Elimină preparatul",
     gluten: "Cereale cu gluten",

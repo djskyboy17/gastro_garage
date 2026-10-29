@@ -45,6 +45,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { messages } from "@/src/modules/shared/i18n";
+import OperationsWorkspace from "./operations-workspace";
+import { emptyOperations } from "@/src/modules/inventory/domain";
 import {
   today,
   total,
@@ -55,7 +57,13 @@ import {
   type AppData,
   type Order,
 } from "@/src/modules/shared/domain";
-const empty: AppData = { products: [], customers: [], orders: [], audit: [] };
+const empty: AppData = {
+  products: [],
+  customers: [],
+  orders: [],
+  audit: [],
+  operations: emptyOperations,
+};
 const nav = [
   ["overview", LayoutDashboard],
   ["orders", ClipboardList],
@@ -63,6 +71,9 @@ const nav = [
   ["delivery", Truck],
   ["catalog", UtensilsCrossed],
   ["customers", Users],
+  ["recipes", ChefHat],
+  ["inventory", Package],
+  ["procurement", ClipboardList],
   ["roadmap", Blocks],
   ["audit", History],
 ] as const;
@@ -487,7 +498,7 @@ export default function KitchenApp() {
                 <span>{t(key)}</span>
                 {key === "orders" && active.length > 0 ? (
                   <span className="nav-count">{active.length}</span>
-                ) : i === 6 ? (
+                ) : key === "roadmap" ? (
                   <span className="tiny-dot" />
                 ) : null}
               </button>
@@ -655,9 +666,14 @@ export default function KitchenApp() {
                     </div>
                   </section>
                 ) : null}
-                {["overview", "orders", "kitchen", "delivery"].includes(
-                  tab,
-                ) && (
+                {[
+                  "overview",
+                  "orders",
+                  "kitchen",
+                  "delivery",
+                  "inventory",
+                  "procurement",
+                ].includes(tab) && (
                   <div className="date-toolbar">
                     <div className="date-control">
                       <button
@@ -1135,6 +1151,18 @@ export default function KitchenApp() {
                     </div>
                   </section>
                 )}
+                {["recipes", "inventory", "procurement"].includes(tab) && (
+                  <OperationsWorkspace
+                    tab={tab}
+                    data={data}
+                    lang={lang}
+                    day={day}
+                    busy={busy}
+                    error={error}
+                    onSave={mutate}
+                    onOrder={detail}
+                  />
+                )}
                 {tab === "roadmap" && (
                   <div className="module-grid">
                     {[
@@ -1142,15 +1170,14 @@ export default function KitchenApp() {
                         ([key]) =>
                           !["overview", "roadmap", "audit"].includes(key),
                       ),
-                      ["recipes", ChefHat],
-                      ["inventory", Package],
-                      ["procurement", ClipboardList],
                       ["safety", CheckCircle2],
                       ["billing", Wallet],
                       ["portal", Users],
                     ].map(([key, Icon], i) => {
                       const I = Icon as typeof Blocks;
-                      const available = i < 5;
+                      const available = nav.some(
+                        ([keyName]) => keyName === key,
+                      );
                       return (
                         <article
                           className="panel module-card"

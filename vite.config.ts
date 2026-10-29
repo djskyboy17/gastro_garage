@@ -44,6 +44,9 @@ export default defineConfig(async ({ command }) => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
+    // The local test machine has a constrained memory budget; avoid a second
+    // minification pass and compression-size scan during the prototype build.
+    build: { minify: false, cssMinify: false, reportCompressedSize: false },
     server: {
       ...(managedLinux
         ? { host: "0.0.0.0", allowedHosts: ["terminal.local"] }

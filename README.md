@@ -1,6 +1,6 @@
-# Konyha – első fejlesztési változat
+# Konyha – rendelés, receptúra és raktár
 
-Az alkalmazás a munkakönyvtárban található. Privát Sites-alkalmazásként készül; a bejelentkezést a Sites kezeli.
+Nyilvános tesztalkalmazás: https://konyha-catering-zsolt.tinykoi1025.chatgpt.site. Az adatkezeléshez ChatGPT-belépés szükséges. Az adatkészlet közös a bejelentkezett tesztelőknek; dolgozói szerepkörök még nem készültek el.
 
 ## Kipróbálás
 
@@ -18,9 +18,11 @@ Az „ételes adag” az összes rendelt ételadag összege: egy leves és egy f
 
 HU/RO felület és keresés; étel- és ügyfélfelvétel; rendelésfelvétel; napi terv; kiszállítási állapotok; elkülönített fizetési állapot; adatbázis-mentés; eseménynapló; nyomtatás; CSV. A mentéskor szerveroldali ellenőrzés, rendelésenként verzióellenőrzés, ár- és allergénpillanatkép készül.
 
+Alapanyagtörzs g/ml/db egységekkel, receptváltozatok és alapanyagköltség, áruátvétel tételszámmal és lejárattal, kézzel jóváhagyott gyártási kiadás és selejt, visszakereshető készletmozgások, napi beszerzési hiánylista és CSV. A rendelésfelvétel nem csökkenti a készletet. A Raktár oldalon külön gombbal tölthetők be a raktári mintaadatok; előbb az alap mintaadatokat kell betölteni.
+
 ## Még tervezett
 
-Dolgozói jogosultságok; teljes receptúra és tápérték; raktár, tételek, lejáratok; beszerzés; HACCP; számlázás/e-Factura; futárhozzárendelés; útvonaltervezés; ügyfélportál; offline működés. Az első változat belső prototípus, éles üzemi bevezetés előtt ezek és a valós munkafolyamatok egyeztetése szükséges.
+Dolgozói jogosultságok; alreceptek és tápérték; beszállítói megrendelések és NIR; HACCP; számlázás/e-Factura; futárhozzárendelés; útvonaltervezés; ügyfélportál; offline működés; korrekciós/visszafordító műveletek. A jelenlegi változat tesztelésre szolgál.
 
 ## Technikai alap
 
@@ -30,7 +32,9 @@ TypeScript + React + Vinext; Drizzle; Sites D1/SQLite. Ez eltérés az eredeti P
 
 `node node_modules/typescript/bin/tsc --noEmit`
 
-`node --experimental-strip-types --test tests/domain.test.mts`
+`node --experimental-strip-types --test tests/domain.test.mts tests/inventory.test.mts`
+
+Helyi szerverrel: `node tests/api-smoke.mjs` és `node tests/inventory-api.mjs`. Ezek kizárólag a helyi adatbázisba írnak tesztadatokat.
 
 `npm run build`
 

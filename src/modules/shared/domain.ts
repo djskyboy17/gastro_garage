@@ -19,6 +19,7 @@ export type Customer = {
   note: string;
 };
 export type Item = {
+  recipeId?: string | null;
   id: string;
   orderId: string;
   productId: string;
@@ -54,6 +55,7 @@ export type Audit = {
   createdAt: string;
 };
 export type AppData = {
+  operations: import("../inventory/domain").OperationsData;
   products: Product[];
   customers: Customer[];
   orders: Order[];

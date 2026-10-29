@@ -15,7 +15,7 @@ GET /api/data returns the owner's workspace data. POST /api/products and /api/cu
 
 ## Access and persistence
 
-Sites owner-private access is required; API additionally requires the platform-injected identity header. No additional users/roles are authorized. Local preview auth is the starter's loopback-only simulation; production never uses the simulation. Operational records persist in D1, language preference only in localStorage.
+The user made Sites public for testing. API actions require the platform-injected ChatGPT identity header; authenticated testers use the shared test dataset. Employee roles are not yet implemented. Local preview auth is the starter's loopback-only simulation; production never uses the simulation. Records persist in D1, language preference only in localStorage.
 
 ## Acceptance examples
 
@@ -27,4 +27,4 @@ Sites owner-private access is required; API additionally requires the platform-i
 
 ## Deferred requirements
 
-Employee roles, tax classifications, invoices/e-Factura, complete ingredient/nutrition disclosure, recipe versions, stock lots and expiry, NIR, HACCP, notifications, capacity limits, offline writes, customer portal, recurring orders, deletion/correction workflows and accounting export. Do not use this prototype to issue tax documents or certify food safety.
+Employee roles, tax classifications, invoices/e-Factura, complete consumer ingredient/nutrition disclosure, subrecipes, NIR, HACCP, notifications, capacity limits, offline writes, customer portal, recurring orders, deletion/correction workflows and accounting export. Recipe versions, lots, expiry and procurement proposals are now described in ../inventory/SPEC.md. Do not use this prototype to issue tax documents or certify food safety.

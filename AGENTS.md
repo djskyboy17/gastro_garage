@@ -3,7 +3,7 @@
 One application with domain modules. English code identifiers; Hungarian and Romanian UI dictionaries. New modules must include a SPEC.md with boundaries, business rules and acceptance examples. Keep catalog, customers, orders, production, delivery and payments distinct.
 
 - All writes require authenticated identity, same-origin JSON requests and server validation.
-- This prototype is owner-private in Sites. Do not widen sharing. Employee authentication and role enforcement are not implemented yet; do not present this as a multiuser production system.
+- The user explicitly made this prototype public for testing. Preserve this audience. API writes require ChatGPT identity. Employee roles are not implemented; use sample data until the user announces production use.
 - Prices are integer bani, quantities are integer portions, dates are kitchen-local calendar dates in Europe/Bucharest. Use decimal arithmetic if fractional stock quantities are introduced.
 - Order creation snapshots item names, prices, allergens and customer delivery details. Never recalculate historical orders from current catalog data.
 - States and transitions belong to src/modules/shared/domain.ts. Use revision checks to reject stale updates. Save associated changes and audit entries atomically.

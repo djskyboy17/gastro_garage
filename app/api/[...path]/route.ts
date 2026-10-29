@@ -6,6 +6,12 @@ import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { nextState, today, type Order } from "@/src/modules/shared/domain";
 import { demoProducts, demoCustomers } from "@/src/modules/shared/seed";
+import {
+  loadOperations,
+  handleOperations,
+  OperationError,
+} from "@/src/modules/inventory/server";
+import { latestRecipe } from "@/src/modules/inventory/domain";
 export const dynamic = "force-dynamic";
 const json = (v: unknown, status = 200) =>
   Response.json(v, { status, headers: { "Cache-Control": "no-store" } });
@@ -31,14 +37,16 @@ async function handle(req: Request, write: boolean) {
     const db = getDb();
     const path = new URL(req.url).pathname;
     if (!write && path === "/api/data") {
-      const [p, c, o, i, a] = await Promise.all([
+      const [p, c, o, i, a, operations] = await Promise.all([
         db.select().from(products),
         db.select().from(customers),
         db.select().from(orders),
         db.select().from(orderItems),
         db.select().from(audit).orderBy(desc(audit.createdAt)).limit(60),
+        loadOperations(),
       ]);
       return json({
+        operations,
         products: p,
         customers: c,
         orders: o.map((row) => ({
@@ -53,6 +61,8 @@ async function handle(req: Request, write: boolean) {
     if (raw.length > 40000) return json({ error: "TOO_LARGE" }, 413);
     const body = JSON.parse(raw);
     const now = new Date().toISOString();
+    const operationResponse = await handleOperations(path, body, actor);
+    if (operationResponse) return operationResponse;
     const log = (action: string, entity: string, detail: string) => ({
       id: crypto.randomUUID(),
       actor,
@@ -239,6 +249,7 @@ async function handle(req: Request, write: boolean) {
         .where(eq(customers.id, d.customerId));
       if (!c) return json({ error: "CUSTOMER_MISSING" }, 400);
       const catalog = await db.select().from(products);
+      const recipeCatalog = (await loadOperations()).recipes;
       const seen = new Set<string>();
       const items = d.items.map((i) => {
         const p = catalog.find((p) => p.id === i.productId && p.active);
@@ -253,27 +264,26 @@ async function handle(req: Request, write: boolean) {
           allergens: p.allergens,
           price: p.price,
           quantity: i.quantity,
+          recipeId: latestRecipe(p.id, recipeCatalog)?.id ?? null,
         };
       });
       await db.batch([
-        db
-          .insert(orders)
-          .values({
-            id: d.id,
-            customerId: c.id,
-            customerName: c.name,
-            address: c.address,
-            phone: c.phone,
-            date: d.date,
-            time: d.time,
-            note: d.note,
-            production: "queued",
-            delivery: "pending",
-            payment: "unpaid",
-            status: "confirmed",
-            revision: 0,
-            createdAt: now,
-          }),
+        db.insert(orders).values({
+          id: d.id,
+          customerId: c.id,
+          customerName: c.name,
+          address: c.address,
+          phone: c.phone,
+          date: d.date,
+          time: d.time,
+          note: d.note,
+          production: "queued",
+          delivery: "pending",
+          payment: "unpaid",
+          status: "confirmed",
+          revision: 0,
+          createdAt: now,
+        }),
         ...items.map((i) => db.insert(orderItems).values(i)),
         db.insert(audit).values(log("order_created", d.id, c.name)),
       ]);
@@ -322,6 +332,7 @@ async function handle(req: Request, write: boolean) {
     }
     return json({ error: "NOT_FOUND" }, 404);
   } catch (e) {
+    if (e instanceof OperationError) return json({ error: e.code }, e.status);
     if (e instanceof z.ZodError || e instanceof SyntaxError)
       return json({ error: "VALIDATION" }, 400);
     const code = e instanceof Error ? e.message : "";
