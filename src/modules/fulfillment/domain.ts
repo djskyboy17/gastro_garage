@@ -3,7 +3,7 @@ export type FulfillmentMode='delivery'|'pickup';
 export type Zone={id:string;hu:string;ro:string;postcodes:string[];fee:number;minimum:number;active:boolean};
 export type FulfillmentSlot={id:string;mode:FulfillmentMode;weekdays:number[];start:string;end:string;capacity:number;active:boolean};
 export type FulfillmentPolicy={deliveryEnabled:boolean;pickupEnabled:boolean;pickupHu:string;pickupRo:string;pickupMinimum:number;closedWeekdays:number[];closedDates:string[];zones:Zone[];slots:FulfillmentSlot[]};
-export type PolicyData={revision:number|null;policy:FulfillmentPolicy};
+export type PolicyData={revision:number|null;policy:FulfillmentPolicy;bookedSlotIds?:string[]};
 export type FulfillmentSnapshot={mode:FulfillmentMode;slotId:string;start:string;end:string;weekdays:number[];zoneHu:string;zoneRo:string;postalCode:string;addressHu:string;addressRo:string;minimum:number;fee:number};
 export const emptyPolicy:FulfillmentPolicy={deliveryEnabled:false,pickupEnabled:false,pickupHu:'',pickupRo:'',pickupMinimum:0,closedWeekdays:[],closedDates:[],zones:[],slots:[]};
 export function isoWeekday(date:string){if(!validDay(date))throw Error('FULFILLMENT_DATE');return new Date(date+'T12:00:00Z').getUTCDay()||7;}

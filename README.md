@@ -155,3 +155,7 @@ A főmenüben a „Modulok” helyett „Beállítások” szerepel. A ritkábba
 ## 24 órás időmezők — v18
 
 Az időpontok beviteli mezői (rendelés időpontja, ismétlődő rendelés, portál-idősávok kezdete/vége, napi étlap rendelési határideje) mindig 24 órás „ÓÓ:PP” formát használnak, a böngésző és a Windows nyelvétől függetlenül (pl. „1330” begépelve „13:30” lesz; 24:00 vagy afölötti érték nem menthető). A tárolt formátum nem változott.
+
+## Szerkeszthető idősávok — v18
+
+A Rendelési szabályokban egy idősáv ideje, napjai és módja addig szabadon átírható, amíg nincs rá rendelés. Ha már van (bármilyen állapotú) rendelés, ezek az adatok rögzítettek – ilyenkor kapcsold ki vagy töröld az idősávot, és vegyél fel újat; a hely (kapacitás) továbbra is módosítható. A mentés a tranzakción belül is ellenőrzi, hogy közben nem érkezett-e foglalás az átírt idősávra. 0 hellyel az idősáv nem foglalható.
