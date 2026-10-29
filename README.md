@@ -181,3 +181,7 @@ A fejlesztői szerveren (`npm run dev`) a tulajdonosi próbafiók (Seedy) mellet
 3. Újra futárként belépve a /courier oldalon látszanak a futárhoz rendelt kiszállítások.
 
 Ez csak a helyi fejlesztői bejelentkezést érinti; élesben mindenki a saját fiókjával lép be.
+
+## Ételképek — v23
+
+Az Ételkatalógusban minden étel kártyáján „Kép feltöltése” gomb van (cseréhez „Kép cseréje”, mellette kuka ikon a törléshez). A kép a katalógusban és az ügyfélportál étlapján is megjelenik. Feltöltés előtt a böngésző lekicsinyíti (legfeljebb 1200 px, WebP), így egy telefonfotó is gyorsan feltölthető. JPG, PNG vagy WebP tölthető fel; tulajdonos, admin és diszpécser kezelheti. A képek az adatbázisban vannak; új migráció: `0015_product_images`. Részletek: `src/modules/images/SPEC.md`.

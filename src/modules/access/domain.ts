@@ -20,6 +20,7 @@ export function canWrite(role:Role,path:string,body:unknown): boolean {
   const b = body && typeof body === "object" ? body as Record<string,unknown> : {};
   // Unknown endpoints are denied, even for admins; new modules must declare access.
   const known = ["/api/demo","/api/products","/api/customers","/api/orders","/api/orders/state","/api/delivery/couriers","/api/delivery/assign","/api/operations/demo","/api/operations/ingredients","/api/operations/recipes","/api/operations/ingredient-details","/api/operations/preparations","/api/operations/receive","/api/operations/waste","/api/operations/issue","/api/purchasing/suppliers","/api/purchasing/create","/api/purchasing/update","/api/purchasing/state","/api/purchasing/receive","/api/access/role"];
+  if(path==="/api/products/image"||path==="/api/products/image/remove")return ["owner","admin","dispatcher"].includes(role);
   if(path==="/api/kitchen/ready")return ["owner","admin","kitchen"].includes(role);
   if(path==="/api/packing/check")return ["owner","admin","dispatcher","kitchen"].includes(role);
   if(path==="/api/fulfillment/save")return isAdmin(role);

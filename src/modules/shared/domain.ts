@@ -6,6 +6,8 @@ export function nextStocktakeState(status:string,action:'post'|'cancel'|'reverse
   throw Error('STOCKTAKE_STATE');
 }
 export type Product = {
+  hasImage?:number;
+  imageRevision?:number;
   portalVisible?:number;
   portalRevision?:number;
   id: string;

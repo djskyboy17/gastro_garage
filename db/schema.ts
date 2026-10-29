@@ -20,6 +20,19 @@ export const products = sqliteTable("products", {
   portion: integer("portion").notNull(),
   allergens: text("allergens").notNull(),
   active: integer("active").notNull().default(1),
+  /** 1, ha van kép. */
+  hasImage: integer("has_image").notNull().default(0),
+  /** Minden feltöltés és törlés növeli; a kép URL-jének verziója is, ezért soha nem csökken. */
+  imageRevision: integer("image_revision").notNull().default(0),
+});
+/** Étel képe: a böngésző által lekicsinyített JPG/PNG/WebP, base64-ben (v23). */
+export const productImages = sqliteTable("product_images", {
+  productId: text("product_id")
+    .primaryKey()
+    .references(() => products.id),
+  mime: text("mime").notNull(),
+  data: text("data").notNull(),
+  updatedAt: text("updated_at").notNull(),
 });
 export const customers = sqliteTable("customers", {
   id: text("id").primaryKey(),

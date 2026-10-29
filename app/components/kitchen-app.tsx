@@ -1,6 +1,7 @@
 "use client";
 import PackingWorkspace from "./packing-workspace";
 import { TimeInput24 } from "./time-input";
+import { ProductImage, ProductImageControls } from "./product-image";
 import {orderFulfillment} from "@/src/modules/fulfillment/domain";
 import {
   useCallback,
@@ -1108,10 +1109,11 @@ export default function KitchenApp() {
                         )
                         .map((p, i) => (
                           <article className="panel product-card" key={p.id}>
-                            <div className={"product-visual visual-" + (i % 4)}>
-                              <UtensilsCrossed size={58} strokeWidth={1} />
+                            <div className={"product-visual visual-" + (i % 4) + (p.hasImage === 1 ? " has-photo" : "")}>
+                              <ProductImage product={p} alt={title(p)} />
+                              {p.hasImage !== 1 && <UtensilsCrossed size={58} strokeWidth={1} />}
                               <span>{t(p.category)}</span>
-                              <span className="visual-number">0{i + 1}</span>
+                              {p.hasImage !== 1 && <span className="visual-number">0{i + 1}</span>}
                             </div>
                             <div className="product-body">
                               <h2>{title(p)}</h2>
@@ -1136,6 +1138,9 @@ export default function KitchenApp() {
                                 <strong>{money(p.price)}</strong>
                                 <span>{p.portion} g</span>
                               </div>
+                              {can("products/image") && (
+                                <ProductImageControls product={p} t={t} busy={busy} mutate={mutate} onError={setError} />
+                              )}
                             </div>
                           </article>
                         ))}

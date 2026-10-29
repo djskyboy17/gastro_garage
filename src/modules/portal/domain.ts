@@ -1,14 +1,14 @@
 import {orderFulfillment,type FulfillmentSnapshot} from "../fulfillment/domain.ts";
 import type {Product,Order,Language} from "../shared/domain";
-export type PublicProduct = Pick<Product,"id"|"hu"|"ro"|"descriptionHu"|"descriptionRo"|"category"|"price"|"portion"|"allergens">&{info?:import("../inventory/nutrition").PublicDishInfo|null};
+export type PublicProduct = Pick<Product,"id"|"hu"|"ro"|"descriptionHu"|"descriptionRo"|"category"|"price"|"portion"|"allergens"|"hasImage"|"imageRevision">&{info?:import("../inventory/nutrition").PublicDishInfo|null};
 export type PortalProfile={name:string;address:string;phone:string;revision:number};
 export type PortalOrder=Pick<Order,"id"|"customerName"|"address"|"phone"|"date"|"time"|"note"|"status"|"production"|"delivery"|"payment"|"revision"|"createdAt"|"reviewNote">&{fulfillmentMode:string;deliveryFee:number;fulfillment:FulfillmentSnapshot|null;items:Pick<Order["items"][number],"id"|"hu"|"ro"|"allergens"|"price"|"quantity">[]};
 export type PortalData={profile:PortalProfile|null;orders:PortalOrder[]};
 export type PortalPreview={fulfillment:FulfillmentSnapshot;subtotal:number;quote:string;profile:PortalProfile;date:string;time:string;note:string;items:{productId:string;hu:string;ro:string;allergens:string;price:number;quantity:number}[];total:number};
 export type PortalAccount={userId:string;customerId:string;name:string;address:string;phone:string;active:number;revision:number;createdAt:string};
 export function publicProduct(p:Product):PublicProduct {
-  const{id,hu,ro,descriptionHu,descriptionRo,category,price,portion,allergens}=p;
-  return {id,hu,ro,descriptionHu,descriptionRo,category,price,portion,allergens};
+  const{id,hu,ro,descriptionHu,descriptionRo,category,price,portion,allergens,hasImage,imageRevision}=p;
+  return {id,hu,ro,descriptionHu,descriptionRo,category,price,portion,allergens,hasImage:hasImage??0,imageRevision:imageRevision??0};
 }
 export function publicOrder(o:Order):PortalOrder {
   const{id,customerName,address,phone,date,time,note,status,production,delivery,payment,revision,createdAt,reviewNote}=o;
