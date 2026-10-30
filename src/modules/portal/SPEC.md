@@ -34,3 +34,6 @@ A v27 óta a portálon az étlap teszi rendelhetővé az ételt, a „közzété
 ## Ügyfélportál oldal: kereső a kérések helyett — v37
 A belső Ügyfélportál oldalról kikerült a „Visszaigazolásra váró kérések” lista. A kérések a Rendelések oldalon a „Visszaigazolásra vár” szűrővel érhetők el, és a rendelés részleteiben ugyanúgy visszaigazolhatók vagy elutasíthatók. Helyette ügyfélkereső van a fiókok fölött: név, cím vagy telefon alapján, kis-nagybetű és ékezet nélkül.
 Az oldal a főmenü helyett a Beállítások alól nyílik (settingsTabs), a jogosultság változatlan.
+
+## Étlap kártyák és info-ablak — v44
+Az ételkártyán nagy kép (vagy kategóriaszínű helykitöltő), a jobb felső sarokban „i” gomb, a kártyán „Allergének · Összetevők” link. Mindkettő felugró ablakot nyit (telefonon alulról felcsúszó lap): leírás, ár, adagtömeg, allergének kiemelt címkékként, összetevők és tápérték. A kötelező tájékoztatás (EU 1169/2011, 14. cikk) így is a kosárba tétel előtt elérhető; a rendelés előnézete is felsorolja az allergéneket. Kosárba tétel után a gomb helyén darabszámláló (− n +) jelenik meg; telefonon alul mindig látható kosársáv (adag, összeg, ugrás a kosárhoz). A „Tesztportál” felirat élesben megszűnt.

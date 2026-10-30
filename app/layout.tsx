@@ -7,6 +7,7 @@ import "./access.css";
 import "./safety.css";
 import "./recurring.css";
 import "./portal.css";
+import "./portal-v44.css";
 import "./menu.css";
 import "./stocktake.css";
 import "./fulfillment.css";

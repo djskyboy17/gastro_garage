@@ -92,3 +92,5 @@ input[type=checkbox]{min-width:22px;min-height:22px}
 .back-to-overview{display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:10px 16px;border-radius:10px;background:#294b38;color:#fff;font-weight:700;font-size:16px}
 .back-to-overview:hover{background:#1e3a2a}
 @media (max-width:420px){.back-to-overview{padding:10px 12px;font-size:15px}}
+/* v42: álló képernyőn (magasabb, mint széles) és 900 px alatt is mobil elrendezés: a bal oldali menü elrejtve, a ☰ gombbal nyílik. */
+@media (orientation:portrait) and (min-width:701px),(min-width:701px) and (max-width:900px){.sidebar{transform:translateX(-100%);width:238px;transition:transform .2s}.sidebar.is-open{transform:translateX(0)}.scrim{position:fixed;inset:0;background:#12261d66;z-index:35}.main-shell{margin:0;width:100%}.mobile-menu{display:inline-flex}.topbar{padding:0 16px;justify-content:flex-start;gap:12px}.topbar-right{margin-left:auto}main{padding:22px 18px 0}}

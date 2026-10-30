@@ -67,13 +67,16 @@ export function PublicDishInfoView({
   info,
   lang,
   t,
+  open,
 }: {
   info: PublicDishInfo | null | undefined;
   lang: Language;
   t: (key: string) => string;
+  /** Az info-ablakban eleve kinyitva jelenik meg (v44). */
+  open?: boolean;
 }) {
   return (
-    <details className="portal-dish-info">
+    <details className="portal-dish-info" open={open}>
       <summary>{t("dishInfo")}</summary>
       {!info ? (
         <p>{t("portalDishInfoMissing")}</p>

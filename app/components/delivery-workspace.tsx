@@ -39,14 +39,14 @@ export default function DeliveryWorkspace({data,lang,busy,mutate,day,onOrder}: P
       </div>
       <div className="manifest-summary"><strong>{day} · {courier==="all"?t("all"):courier==="unassigned"?t("unassigned"):data.logistics.couriers.find(c=>c.id===courier)?.name} · {t(state==="open"?"openDeliveries":state)}</strong><span>{rows.length} {t("stopCount")} · {rows.reduce((s,o)=>s+portions(o),0)} {t("units")} · {t("toCollect")}: {money(rows.filter(o=>o.payment==="unpaid").reduce((s,o)=>s+total(o),0))}</span></div>
     </section>
-    <div className="delivery-grid">{rows.length ? rows.map((o,i)=><article className="panel delivery-card" key={o.id}>
+    <div className="delivery-grid">{rows.length ? rows.map((o,i)=><article className="panel delivery-card is-clickable" key={o.id} role="button" tabIndex={0} aria-label={t("open")+" · "+o.customerName} onClick={()=>onOrder(o)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();onOrder(o);}}}>
       <div className="delivery-card-top"><span className="stop-number">{String(i+1).padStart(2,"0")}</span><strong>{o.time}</strong><span className={"badge "+o.delivery}>{t(o.delivery)}</span></div>
       <h2>{o.customerName}</h2><p>{o.address}</p>{o.phone && <p>{t("phone")}: {o.phone}</p>}
       <p className="courier-assigned">{t("courier")}: <strong>{o.courierName || t("unassigned")}</strong></p>
       <div className="delivery-items">{o.items.map(item=><div key={item.id}><span>{item[lang]}</span><strong>×{item.quantity}</strong></div>)}</div>
       {o.note && <p className="delivery-order-note">{o.note}</p>}
       <small>#{o.id}</small>
-      <div className="delivery-card-bottom"><span>{money(total(o))}<small>{t(o.payment)}</small></span><button className="button secondary" disabled={busy} onClick={()=>onOrder(o)}>{t("open")}<ArrowUpRight size={16}/></button></div>
+      <div className="delivery-card-bottom"><span>{money(total(o))}<small>{t(o.payment)}</small></span><ArrowUpRight size={22} className="delivery-card-open" aria-hidden="true"/></div>
     </article>) : <div className="panel empty"><Truck size={30}/><h3>{t("noDelivery")}</h3></div>}</div>
   </div>;
 }

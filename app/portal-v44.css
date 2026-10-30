@@ -1,0 +1,107 @@
+/* ===== v44: modern, mobilbarát ügyfélportál ===== */
+.portal-page{--brand:#1f3b2f;--accent:#f26b1d;--accent-dark:#d9560c;background:linear-gradient(180deg,#fbf7ef 0,#f5f6f0 420px);font-size:16px}
+.portal-page .portal-header{position:sticky;top:0;z-index:30;max-width:none;padding:10px max(16px,calc((100vw - 1240px)/2));background:#fffffff0;backdrop-filter:blur(10px);border-bottom:1px solid #ece6d8;box-shadow:0 2px 14px #1f3b2f0d}
+.portal-page .portal-brand img{width:72px;height:72px}
+.portal-page .portal-header nav a{font-weight:600;padding:10px 12px;border-radius:999px}
+.portal-page .portal-header nav a:hover{background:#f1efe6}
+.portal-page .portal-content{max-width:1240px;padding:0 16px 120px}
+.portal-page .portal-hero{margin-top:18px;padding:30px 32px;border-radius:24px;background:radial-gradient(circle at 85% 20%,#f2a23c55 0,transparent 45%),linear-gradient(135deg,#1f3b2f 0,#2d5a43 100%);color:#fff;box-shadow:0 14px 40px #1f3b2f33}
+.portal-page .portal-hero h1{color:#fff;font-size:40px;letter-spacing:-1.2px;line-height:1.1}
+.portal-page .portal-hero p{color:#d9e6cf;font-size:17px;max-width:560px}
+.portal-page .portal-hero .eyebrow{color:#f6c56b}
+.portal-page .portal-hero-icon{width:96px;height:96px;border-radius:28px;background:#ffffff1f;color:#ffd27a;display:grid;place-items:center}
+.portal-page .portal-shop{margin-top:22px;grid-template-columns:minmax(0,1fr) 340px;gap:22px}
+.portal-page .portal-section-heading h2{font-size:26px;letter-spacing:-.6px}
+.portal-page .portal-week-nav{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 8px;scrollbar-width:none}
+.portal-page .portal-week-nav::-webkit-scrollbar{display:none}
+.portal-page .portal-week-nav button{flex:0 0 auto;min-height:48px;padding:8px 16px;border-radius:999px;border:1px solid #e3ddcf;background:#fff;font-weight:600;color:#4a5a41;white-space:nowrap}
+.portal-page .portal-week-nav button.selected{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:0 4px 12px #1f3b2f33}
+.portal-page .portal-categories{display:flex;gap:8px;overflow-x:auto;padding:6px 2px 10px;margin:6px 0 4px;scrollbar-width:none}
+.portal-page .portal-categories::-webkit-scrollbar{display:none}
+.portal-page .portal-categories button{flex:0 0 auto;min-height:44px;padding:8px 18px;border-radius:999px;background:#efece2;color:#4f5c45;font-weight:600;border:0}
+.portal-page .portal-categories button.active{background:var(--accent);color:#fff}
+.portal-page .portal-menu-grid{grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}
+.portal-page .portal-dish{display:flex;flex-direction:column;background:#fff;border:1px solid #ece7db;border-radius:20px;overflow:hidden;box-shadow:0 6px 22px #1f3b2f12;transition:transform .15s,box-shadow .15s;padding:0}
+.portal-page .portal-dish:hover{transform:translateY(-2px);box-shadow:0 12px 30px #1f3b2f1f}
+.portal-page .portal-dish.in-cart{border-color:#f5b47a;box-shadow:0 0 0 2px #f5b47a66,0 8px 24px #1f3b2f14}
+.portal-page .portal-dish-art{height:auto;min-height:0;aspect-ratio:4/3;width:100%;position:relative;overflow:hidden;background:linear-gradient(135deg,#eef2e3,#dfe8cf)}
+.portal-page .portal-dish-art.soup{background:linear-gradient(135deg,#fbefd9,#f3dcb4)}
+.portal-page .portal-dish-art.dessert{background:linear-gradient(135deg,#f9e6dc,#efcdb9)}
+.portal-page .portal-dish-art.vegetarian{background:linear-gradient(135deg,#e7f3dc,#cfe6b9)}
+.portal-page .portal-dish-art .product-photo{transition:transform .3s}
+.portal-page .portal-dish:hover .product-photo{transform:scale(1.04)}
+.portal-page .portal-dish-art>svg{opacity:.55}
+.portal-page .portal-dish-art span.portal-dish-chip,.portal-dish-chip{position:absolute;left:12px;top:auto;bottom:12px;background:#fffffff2;color:#1f3b2f;padding:6px 11px;border-radius:999px;font-size:13px;font-weight:700;box-shadow:0 2px 8px #0002}
+.portal-dish-chip.static{position:static;display:inline-block;align-self:flex-start;margin:0;box-shadow:none;background:#f1efe6}
+.portal-info-button{position:absolute;top:10px;right:10px;width:44px;height:44px;border-radius:50%;background:#fffffff2;color:#1f3b2f;display:grid;place-items:center;box-shadow:0 2px 10px #0003;border:0}
+.portal-info-button:hover{background:#fff;color:var(--accent)}
+.portal-page .portal-dish-art span.portal-dish-count{position:absolute;left:10px;top:10px;bottom:auto;min-width:34px;height:34px;padding:0 10px;border-radius:999px;background:var(--accent);color:#fff;font-weight:800;font-size:16px;display:grid;place-items:center}
+.portal-page .portal-dish-body{display:flex;flex-direction:column;gap:8px;padding:16px 16px 18px;flex:1}
+.portal-page .portal-dish-body h3{font-family:Manrope,sans-serif;font-size:20px;font-weight:800;color:#1f3b2f;letter-spacing:-.3px;line-height:1.25}
+.portal-dish-desc{color:#6c7663;font-size:15px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:0}
+.portal-dish-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:14px;color:#6f7a66}
+.portal-page .portal-dish-meta .portal-availability{background:#eef4e4;color:#466b2f;padding:3px 9px;border-radius:999px;font-weight:600;font-size:13px}
+.portal-page .portal-dish-meta .portal-availability.low{background:#fff0dc;color:#a8560f}
+.portal-info-link{background:none;border:0;padding:4px 0;color:#1f6b4a;font-weight:600;text-decoration:underline;text-underline-offset:3px;font-size:14px;min-height:32px}
+.portal-dish-buy{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:8px}
+.portal-dish-buy>strong{font-family:Manrope,sans-serif;font-size:24px;font-weight:800;color:#1f3b2f}
+.portal-add{display:inline-flex;align-items:center;gap:8px;min-height:50px;padding:12px 20px;border-radius:999px;background:var(--accent);color:#fff;font-weight:800;font-size:16px;border:0;box-shadow:0 6px 16px #f26b1d55;transition:background .15s,transform .1s}
+.portal-add:hover{background:var(--accent-dark)}
+.portal-add:active{transform:scale(.96)}
+.portal-add:disabled{background:#c9c4b8;box-shadow:none}
+.portal-stepper{display:inline-flex;align-items:center;gap:4px;background:#1f3b2f;border-radius:999px;padding:4px}
+.portal-stepper button{width:44px;height:44px;border-radius:50%;border:0;background:#ffffff1f;color:#fff;display:grid;place-items:center}
+.portal-stepper button:disabled{opacity:.4}
+.portal-stepper span{min-width:30px;text-align:center;color:#fff;font-weight:800;font-size:18px}
+.portal-page .portal-cart{top:100px;border-radius:20px;border:1px solid #ece7db;box-shadow:0 8px 28px #1f3b2f12;padding:20px}
+.portal-page .portal-cart .button,.portal-page .portal-checkout .button{min-height:52px;border-radius:999px;font-size:16px;font-weight:700;width:100%;justify-content:center}
+.portal-page .portal-quantity button{width:40px;height:40px;border-radius:50%}
+/* Info-ablak: telefonon alulról felcsúszó lap, gépen középen */
+.portal-info-dialog{border:0;padding:0;width:min(560px,100vw);max-height:92vh;border-radius:24px;overflow:hidden auto;box-shadow:0 24px 80px #12261d55;color:#2d3a28}
+.portal-info-dialog::backdrop{background:#12261d80;backdrop-filter:blur(3px)}
+.portal-info-hero{position:relative;aspect-ratio:16/9;display:grid;place-items:center;overflow:hidden;background:linear-gradient(135deg,#eef2e3,#dfe8cf);color:#6b8750}
+.portal-info-hero.soup{background:linear-gradient(135deg,#fbefd9,#f3dcb4);color:#ae915c}
+.portal-info-hero.dessert{background:linear-gradient(135deg,#f9e6dc,#efcdb9);color:#b88c70}
+.portal-info-close{position:absolute;top:12px;right:12px;width:46px;height:46px;border-radius:50%;border:0;background:#fffffff2;color:#1f3b2f;display:grid;place-items:center;box-shadow:0 2px 10px #0003}
+.portal-info-content{padding:18px 20px 24px;display:flex;flex-direction:column;gap:10px;font-size:16px;line-height:1.55}
+.portal-info-content h2{font-family:Manrope,sans-serif;font-size:26px;font-weight:800;color:#1f3b2f;letter-spacing:-.5px}
+.portal-info-facts{display:flex;gap:14px;align-items:baseline}
+.portal-info-facts strong{font-size:22px;color:#1f3b2f}
+.portal-allergen-chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.portal-allergen-chips span{background:#fff0dc;color:#8a4310;border:1px solid #f5c999;padding:4px 10px;border-radius:999px;font-weight:700;font-size:14px}
+.portal-allergen-chips span.none{background:#eef4e4;color:#466b2f;border-color:#cfe0b6}
+.portal-info-content .portal-dish-info{border:1px solid #ece7db;border-radius:14px;padding:12px 14px;background:#fbfaf6}
+.portal-info-content .portal-dish-info summary{font-weight:700;cursor:pointer;min-height:36px}
+/* Telefonon alsó, mindig látható kosársáv */
+.portal-cart-bar{display:none}
+@media (max-width:900px){
+  .portal-page .portal-shop{grid-template-columns:1fr}
+  .portal-page .portal-cart{position:static}
+  .portal-cart-bar{position:fixed;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:40;display:flex;align-items:center;gap:10px;padding:12px 14px 12px 18px;border-radius:999px;background:#1f3b2f;color:#fff;font-weight:700;box-shadow:0 10px 30px #12261d66}
+  .portal-cart-bar strong{font-size:18px}
+  .portal-cart-bar-go{margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:var(--accent);padding:9px 14px;border-radius:999px}
+}
+@media (max-width:700px){
+  .portal-page .portal-header{flex-wrap:nowrap;gap:8px;padding:8px 12px}
+  .portal-page .portal-brand img{width:52px;height:52px}
+  .portal-page .portal-header nav{display:none}
+  .portal-page .portal-account-link{font-size:13px;padding:6px 4px}
+  .portal-page .portal-hero{padding:22px 20px;border-radius:20px;margin-top:12px}
+  .portal-page .portal-hero h1{font-size:30px}
+  .portal-page .portal-hero p{font-size:15px}
+  .portal-page .portal-hero-icon{display:none}
+  .portal-page .portal-menu-grid{grid-template-columns:1fr;gap:16px}
+  .portal-page .portal-dish-art{aspect-ratio:16/10}
+  .portal-info-dialog{width:100vw;max-width:100vw;margin:auto 0 0;border-radius:24px 24px 0 0;max-height:90vh}
+}
+.portal-page .portal-categories{flex-wrap:nowrap}
+.portal-page .portal-account-link{display:inline-flex;align-items:center;gap:6px;min-height:44px}
+@media (max-width:700px){.portal-page .portal-header .language-switch{margin-left:auto}.portal-page .portal-account-link span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.portal-page .portal-account-link{width:44px;justify-content:center;border-radius:50%;background:#f1efe6;color:#1f3b2f;padding:0}}
+.portal-cart-bar>*{white-space:nowrap}
+.portal-cart-bar{font-size:15px;gap:8px}
+.portal-cart-bar strong{font-size:17px}
+@media (max-width:380px){.portal-cart-bar>span:nth-of-type(1){display:none}}
+/* v44.1: nagyobb logó a fejlécben */
+.portal-page .portal-brand img{width:118px;height:118px;filter:drop-shadow(0 3px 6px #1f3b2f33)}
+.portal-page .portal-header{padding-top:6px;padding-bottom:6px}
+@media (max-width:700px){.portal-page .portal-brand img{width:84px;height:84px}.portal-page .portal-header{padding:4px 12px}}

@@ -262,3 +262,6 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 - Áttekintés: négy állapotkártya – Rendelés, Konyhai terv, Csomagolás, Futár – narancs (még nem kezdődött), sárga (folyamatban), zöld (kész) színnel; a rendelési érték lent, visszafogott sávban (fizetve / fizetésre vár).
 - Fejléc: a modul neve már nem ismétlődik háromszor; a fejlécben minden modulból nagy „Vissza az Áttekintéshez” gomb van (annak, akinek van Áttekintés oldala).
 - Szerepkörök: nincs külön raktáros; a konyha látja az Áttekintés összes részét (rendelések, konyha, csomagolás, kiszállítás), és kezeli a raktárt, a leltárt és a beszerzést.
+- Álló képernyőn (magasabb, mint széles) és 900 px alatt mobil elrendezés: a bal oldali menü elrejtve, a ☰ gombbal nyílik. Kiszállítás: az egész kártya megnyitja a rendelést, a külön Megnyitás gomb megszűnt.
+- Futár munkatér: sötétzöld, fix fejléc a logóval és a nagy „Futár munkatér” címmel (alatta a futár neve), nagyobb betűk, nagy gombok (indulás, kézbesítve teljes szélességben), kiemelt napi összesítő.
+- Ügyfélportál: modern, mobilbarát étlap – nagy képes kártyák, „i” gomb az allergénekhez és összetevőkhöz (felugró ablak), jól látható narancs „Kosárba” gomb, darabszámláló, telefonon alsó kosársáv, görgethető nap- és kategóriaválasztó.
