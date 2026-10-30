@@ -20,7 +20,7 @@ A ChatGPT Sites fejléceire épülő bejelentkezés helyett saját e-mail + jels
 - Fejlesztés: a helyi szerveren (`import.meta.env.DEV`) a próbafiókok (Seedy, Teszt Futár) fejlécei is elfogadottak; éles buildben ez az ág nincs benne.
 
 ## Nincs még benne
-- Elfelejtett jelszó e-mailben (nincs e-mail-küldő). Addig a tulajdonos új fiókot kérhet a dolgozótól.
+- Elfelejtett jelszó e-mailben (nincs e-mail-küldő). Helyette: Google-belépés vagy ideiglenes jelszó a tulajdonostól (v30).
 - E-mail-cím megerősítése.
 
 ## Ellenőrző példák
@@ -29,3 +29,13 @@ A ChatGPT Sites fejléceire épülő bejelentkezés helyett saját e-mail + jels
 - 8 rossz jelszó után → 429.
 - Tulajdonosi cím kód nélkül → `OWNER_SETUP_CODE`.
 - Nem JSON kérés → 415; idegen origin → 403.
+
+## v30: Google-belépés, ideiglenes jelszó, erősebb védelem
+- Google (OpenID Connect, kódfolyam PKCE-vel): `/api/auth/google/start` → Google → `/api/auth/google/callback`. Az állapot (state) a sütiben és az adatbázisban (`oauth_states`, 10 perc, egyszer használható) is egyezzen; nonce-ellenőrzés; csak megerősített Google e-mail. Az ID-token közvetlenül a Google tokenvégpontjától jön TLS-en (OIDC Core 3.1.3.7), ezért aláírás-letöltés nélkül ellenőrizzük: kibocsátó, címzett, lejárat, nonce.
+- Fiók-összekötés: `auth_identities` (`google:<sub>`). Első belépéskor a Google által megerősített e-mail-címmel meglévő fiókhoz köt, különben jelszó nélküli fiókot hoz létre. Jelszóval ilyen fiókba nem lehet belépni, amíg a felhasználó nem ad meg jelszót.
+- Beállítás: `GOOGLE_CLIENT_ID` (cloudflare.json, nyilvános) + `GOOGLE_CLIENT_SECRET` (Cloudflare-titok). Ha bármelyik hiányzik, a gomb nem jelenik meg.
+- Ideiglenes jelszó (`/api/auth/admin-reset`): tulajdonos vagy admin ad, a tulajdonosnak és saját magának nem. A jelszó csak a válaszban látszik egyszer; a fiók minden munkamenete megszűnik, és `must_change_password=1`. Amíg nincs új jelszó, csak a `/api/session` és a `/api/auth/*` érhető el (`PASSWORD_CHANGE_REQUIRED`).
+- Gyenge jelszó tiltása (`PASSWORD_WEAK`): gyakori jelszó, egy karakter ismétlése, rövid számsor, az e-mail neve benne, 4-nél kevesebb különböző karakter. Új jelszó nem lehet a régi (`PASSWORD_SAME`).
+- IP-alapú korlát is: egy címről 15 percen belül 30 sikertelen belépés után zárol (`cf-connecting-ip`).
+- Napló: `login` (password/google), `password_reset`, `password_changed`, `account_created`.
+- Biztonsági fejlécek minden válaszon: `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, https alatt HSTS (aldomainek nélkül).

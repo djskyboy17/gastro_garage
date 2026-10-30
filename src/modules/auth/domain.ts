@@ -93,3 +93,81 @@ export function safeReturn(value: string | null) {
 export function sameText(a: string, b: string) {
   return sameBytes(enc.encode(a), enc.encode(b));
 }
+
+// ---- v30: erősebb jelszó, ideiglenes jelszó, Google-belépés ----
+
+/** Címenként ennyi sikertelen belépés után zárol (több e-mail próbálgatása ellen). */
+export const MAX_IP_FAILURES = 30;
+const COMMON = new Set([
+  "1234567890", "0123456789", "12345678910", "qwertyuiop", "asdfghjkl1", "password12", "password123", "jelszo1234", "jelszo12345",
+  "parola1234", "parola12345", "iloveyou12", "abcdefghij", "1q2w3e4r5t", "qwerty1234", "admin12345", "konyha1234", "catering12",
+  "1111111111", "aaaaaaaaaa", "q1w2e3r4t5", "zaq12wsxcde", "welcome123",
+]);
+/** Túl könnyen kitalálható jelszó: gyakori jelszó, egyetlen ismétlődő karakter, csak számsor, vagy benne az e-mail neve. */
+export function weakPassword(password: string, email = "") {
+  const p = password.toLowerCase();
+  if (COMMON.has(p)) return true;
+  if (/^(.)\1+$/.test(p)) return true;
+  if (/^\d+$/.test(p) && p.length < 14) return true;
+  const local = normalizeEmail(email).split("@")[0] ?? "";
+  if (local.length >= 4 && p.includes(local)) return true;
+  return new Set(p).size < 4;
+}
+/** Ideiglenes jelszó, amit az admin átad: jól olvasható, összetéveszthető betűk nélkül (xxxx-xxxx-xxxx). */
+export function temporaryPassword() {
+  const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  const chars = Array.from(bytes, (b) => alphabet[b % alphabet.length]);
+  return [0, 4, 8].map((i) => chars.slice(i, i + 4).join("")).join("-");
+}
+export const toBase64Url = (bytes: Uint8Array) => toB64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+export function randomToken(size = 32) {
+  return toBase64Url(crypto.getRandomValues(new Uint8Array(size)));
+}
+/** PKCE: a kódcsere csak azzal a böngészővel működik, amelyik a belépést elindította. */
+export async function pkceChallenge(verifier: string) {
+  return toBase64Url(new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(verifier))));
+}
+export const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
+export const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+export function googleAuthUrl(o: { clientId: string; redirectUri: string; state: string; challenge: string; nonce: string }) {
+  const q = new URLSearchParams({
+    client_id: o.clientId,
+    redirect_uri: o.redirectUri,
+    response_type: "code",
+    scope: "openid email profile",
+    state: o.state,
+    nonce: o.nonce,
+    code_challenge: o.challenge,
+    code_challenge_method: "S256",
+    prompt: "select_account",
+  });
+  return GOOGLE_AUTH_URL + "?" + q.toString();
+}
+export type GoogleClaims = { iss?: string; aud?: string; exp?: number; nonce?: string; sub?: string; email?: string; email_verified?: boolean | string; name?: string };
+export function decodeJwtPayload(jwt: string): GoogleClaims {
+  const part = jwt.split(".")[1];
+  if (!part) throw new AuthError("GOOGLE_FAILED");
+  const json = atob(part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "="));
+  return JSON.parse(new TextDecoder().decode(Uint8Array.from(json, (c) => c.charCodeAt(0)))) as GoogleClaims;
+}
+/**
+ * A Google tokenvégpontjától közvetlenül (TLS-en) kapott ID-token adatainak ellenőrzése (OIDC Core 3.1.3.7):
+ * kibocsátó, címzett, lejárat, nonce, és csak megerősített e-mail-cím fogadható el.
+ */
+export function verifiedGoogleUser(claims: GoogleClaims, o: { clientId: string; nonce: string; nowSeconds: number }) {
+  if (claims.iss !== "https://accounts.google.com" && claims.iss !== "accounts.google.com") throw new AuthError("GOOGLE_FAILED");
+  if (claims.aud !== o.clientId) throw new AuthError("GOOGLE_FAILED");
+  if (!claims.exp || claims.exp < o.nowSeconds) throw new AuthError("GOOGLE_FAILED");
+  if (!claims.nonce || !sameText(claims.nonce, o.nonce)) throw new AuthError("GOOGLE_FAILED");
+  if (!claims.sub || !claims.email) throw new AuthError("GOOGLE_FAILED");
+  if (claims.email_verified !== true && claims.email_verified !== "true") throw new AuthError("GOOGLE_EMAIL_UNVERIFIED");
+  const email = normalizeEmail(claims.email);
+  return { subject: claims.sub, email, name: (claims.name ?? "").trim().slice(0, 200) || email };
+}
+
+/** Csak a tulajdonos és az admin adhat ideiglenes jelszót; a tulajdonosnak és saját magának nem. */
+export type ResetPolicy = { actorId: string; actorRole: string; ownerId: string | null };
+export function canResetPassword(policy: ResetPolicy, targetId: string) {
+  return ["owner", "admin"].includes(policy.actorRole) && targetId !== policy.actorId && targetId !== policy.ownerId;
+}

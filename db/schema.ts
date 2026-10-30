@@ -458,9 +458,12 @@ export const authUsers = sqliteTable(
     id: text("id").primaryKey(),
     email: text("email").notNull(),
     name: text("name").notNull(),
+    /** Üres, ha a fiók csak Google-lel lép be (v30). */
     passwordHash: text("password_hash").notNull(),
     createdAt: text("created_at").notNull(),
     passwordChangedAt: text("password_changed_at").notNull(),
+    /** 1, ha ideiglenes jelszót kapott: belépés után előbb új jelszót kell adnia (v30). */
+    mustChangePassword: integer("must_change_password").notNull().default(0),
   },
   (t) => [uniqueIndex("auth_users_email").on(t.email)],
 );
@@ -483,7 +486,32 @@ export const authFailures = sqliteTable(
   {
     id: text("id").primaryKey(),
     email: text("email").notNull(),
+    /** A kérés IP-címe: címenkénti korlátozáshoz is (v30). */
+    ip: text("ip").notNull().default(""),
     createdAt: text("created_at").notNull(),
   },
-  (t) => [index("auth_failures_email").on(t.email, t.createdAt)],
+  (t) => [index("auth_failures_email").on(t.email, t.createdAt), index("auth_failures_ip").on(t.ip, t.createdAt)],
 );
+/** Külső belépés (Google) összekötése egy fiókkal; id = "google:<sub>" (v30). */
+export const authIdentities = sqliteTable(
+  "auth_identities",
+  {
+    id: text("id").primaryKey(),
+    provider: text("provider").notNull(),
+    subject: text("subject").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsers.id),
+    email: text("email").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("auth_identities_user").on(t.userId)],
+);
+/** Folyamatban lévő Google-belépés (10 percig érvényes): állapot, PKCE-kulcs, nonce, visszatérési cím. */
+export const oauthStates = sqliteTable("oauth_states", {
+  id: text("id").primaryKey(),
+  verifier: text("verifier").notNull(),
+  nonce: text("nonce").notNull(),
+  returnTo: text("return_to").notNull(),
+  createdAt: text("created_at").notNull(),
+});

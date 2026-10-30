@@ -216,3 +216,11 @@ Feltöltés saját, ingyenes Cloudflare-fiókra: lépésenként a `TELEPITES.md`
 ## Saját címek a veres.no alatt — v29
 
 Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügyfélrendelés, a gyökér a `/portal`-ra irányít), `konyha.veres.no` (konyhai munkatér) és `courier.veres.no` (a gyökér a `/courier`-re irányít). Mindhárom ugyanaz a worker és ugyanaz az adatbázis (`konyha-db`); az átirányítást a `worker/index.ts` végzi a `PORTAL_HOST` / `COURIER_HOST` alapján. A címek a `cloudflare.json` `domains` részében vannak.
+
+## Google-belépés, ideiglenes jelszó, erősebb belépés — v30
+
+- Belépés Google-fiókkal (megjelenik, amint a Google-ügyfél be van állítva; lépések: `TELEPITES.md`).
+- Elfelejtett jelszó: a tulajdonos/admin ideiglenes jelszót ad (Dolgozói hozzáférés, illetve Ügyfélportál-fiókok), első belépéskor kötelező új jelszót adni.
+- Jelszó módosítása oldal (`/password`), a Beállításokból és a portál fejlécéből.
+- Gyenge jelszavak tiltása, IP-alapú próbálkozás-korlát, biztonsági fejlécek, belépések naplózása.
+- Új migráció: `0017_auth_google_reset`. Részletek: `src/modules/auth/SPEC.md`.

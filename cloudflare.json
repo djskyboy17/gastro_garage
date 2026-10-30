@@ -6,5 +6,6 @@
     "portal": "gastrogarage.veres.no",
     "kitchen": "konyha.veres.no",
     "courier": "courier.veres.no"
-  }
+  },
+  "googleClientId": ""
 }

@@ -70,12 +70,16 @@ if (command === "setup") {
   run(["secret", "put", "KITCHEN_OWNER_EMAIL", "--config", file]);
   console.log("Titkos tulajdonosi beállítókód (hosszú, véletlen szöveg; a regisztrációnál kell majd):");
   run(["secret", "put", "OWNER_SETUP_CODE", "--config", file]);
+} else if (command === "google") {
+  requireDatabase();
+  console.log("A Google OAuth-ügyfél titkos kulcsa (Client secret) a Google Cloud Console-ból:");
+  run(["secret", "put", "GOOGLE_CLIENT_SECRET", "--config", migrationConfig()]);
 } else if (command === "deploy") {
   requireDatabase();
   const build = spawnSync(process.execPath, [resolve(root, "scripts/run-framework.mjs"), "build"], { cwd: root, stdio: "inherit" });
   if (build.status !== 0) process.exit(build.status ?? 1);
   run(["deploy", "--config", resolve(root, "dist/server/wrangler.json")]);
 } else {
-  console.log("Használat: node scripts/cloudflare.mjs setup | migrate | secrets | deploy");
+  console.log("Használat: node scripts/cloudflare.mjs setup | migrate | secrets | google | deploy");
   process.exit(command ? 1 : 0);
 }

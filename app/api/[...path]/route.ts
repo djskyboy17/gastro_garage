@@ -13,7 +13,7 @@ import { getDb } from "@/db";
 import { loadPublicCatalog, handlePortal, PortalError } from "@/src/modules/portal/server";
 import { loadRecurring, handleRecurring, RecurringError } from "@/src/modules/recurring/server";
 import { loadSafety, handleSafety, SafetyError } from "@/src/modules/safety/server";
-import { products, customers, orders, orderItems, audit } from "@/db/schema";
+import { products, customers, orders, orderItems, audit, workspaceOwners } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { nextState, today, type Order } from "@/src/modules/shared/domain";
@@ -52,15 +52,24 @@ async function handle(req: Request, write: boolean) {
       return !!u && isMember((await sessionFor(u)).role);
     });
     if (path.startsWith("/api/auth/")) {
-      if (!write) return json({ error: "NOT_FOUND" }, 404);
-      if (req.headers.get("origin") !== new URL(req.url).origin) return json({ error: "INVALID_ORIGIN" }, 403);
-      if (!req.headers.get("content-type")?.includes("application/json")) return json({ error: "JSON_REQUIRED" }, 415);
-      const raw = await req.text();
-      if (raw.length > 4000) return json({ error: "TOO_LARGE" }, 413);
-      return await handleAuth(path, JSON.parse(raw), req);
+      let authBody: unknown;
+      if (write) {
+        if (req.headers.get("origin") !== new URL(req.url).origin) return json({ error: "INVALID_ORIGIN" }, 403);
+        if (!req.headers.get("content-type")?.includes("application/json")) return json({ error: "JSON_REQUIRED" }, 415);
+        const raw = await req.text();
+        if (raw.length > 4000) return json({ error: "TOO_LARGE" }, 413);
+        authBody = JSON.parse(raw);
+      }
+      return await handleAuth(path, authBody, req, write, async (u) => {
+        const s = await sessionFor(u);
+        const [owner] = await getDb().select().from(workspaceOwners).where(eq(workspaceOwners.id, 1));
+        return { role: s.role, ownerId: owner?.userId ?? null };
+      });
     }
     const user = await currentUser(req);
     if (!user) return json({ error: "AUTH_REQUIRED" }, 401);
+    // Ideiglenes jelszóval belépve csak a munkamenet kérdezhető le, amíg új jelszót nem ad.
+    if (user.mustChangePassword && path !== "/api/session") return json({ error: "PASSWORD_CHANGE_REQUIRED" }, 403);
     const actor = user.userId;
     const identity = { userId:actor,email:user.email,name:user.name };
     const session = await sessionFor(identity);
@@ -85,7 +94,7 @@ async function handle(req: Request, write: boolean) {
       }
       return await handlePortal(path,body,identity,session,write);
     }
-    if (!write && path === "/api/session") return json(session);
+    if (!write && path === "/api/session") return json({ ...session, mustChangePassword: Boolean(user.mustChangePassword) });
     if (!write && path === "/api/access/members") return json(await loadMembers(session));
     if (!isMember(session.role) && path !== "/api/access/request") return json({error:"ACCESS_PENDING"},403);
     if(path==='/api/packing'||path.startsWith('/api/packing/')){

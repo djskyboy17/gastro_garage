@@ -35,6 +35,7 @@ import {
   ArrowLeft,
   Check,
   ChevronRight,
+  KeyRound,
   ChevronLeft,
   X,
   RefreshCw,
@@ -205,6 +206,8 @@ export default function KitchenApp() {
       const sr = await fetch("/api/session", { cache: "no-store" });
       const current = await sr.json() as Session & {error?:string};
       if (!sr.ok) { setSession(null); setData(empty); throw new Error(current.error || "loadError"); }
+      // Ideiglenes jelszóval előbb új jelszót kell adni.
+      if((current as Session & {mustChangePassword?:boolean}).mustChangePassword){window.location.replace('/password?forced=1&return_to=/');return;}
       setSession(current);
       if(current.role==='courier'){setData(empty);setModal(null);setError('');window.location.replace('/courier');return;}
       const allowed = tabsFor(current.role);
@@ -706,6 +709,8 @@ export default function KitchenApp() {
                   <a href="/signin?return_to=/">
                     {t("signIn")}
                   </a>
+                ) : error === "PASSWORD_CHANGE_REQUIRED" ? (
+                  <a href="/password?forced=1&return_to=/">{t("passwordChangeLink")}</a>
                 ) : (
                   <button onClick={() => void load()}>{t("refresh")}</button>
                 )}
@@ -1248,6 +1253,14 @@ export default function KitchenApp() {
                             <ChevronRight size={18} className="settings-card-arrow" />
                           </button>
                         ))}
+                      <a className="panel settings-card" href="/password?return_to=/">
+                        <KeyRound size={22} />
+                        <span>
+                          <strong>{t("passwordChangeLink")}</strong>
+                          <small>{t("passwordSettingsAbout")}</small>
+                        </span>
+                        <ChevronRight size={18} className="settings-card-arrow" />
+                      </a>
                     </div>
                     {isAdmin(session.role) && (
                       <>

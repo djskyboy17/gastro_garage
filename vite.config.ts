@@ -19,6 +19,7 @@ const cloudflareDeploy = existsSync("./cloudflare.json")
       databaseName?: string;
       databaseId?: string;
       domains?: { portal?: string; kitchen?: string; courier?: string };
+      googleClientId?: string;
     })
   : {};
 
@@ -26,11 +27,13 @@ const cloudflareDeploy = existsSync("./cloudflare.json")
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 const managedLinux = readExecutionProfile() === "managed-linux";
 
-const localBindingConfig = {
+// Fejlesztéskor a helyi adatbázis (helyőrző azonosító) marad; csak az éles build kapja a valódi D1-azonosítót.
+const bindingConfig = (build: boolean) => ({
   ...(cloudflareDeploy.workerName ? { name: cloudflareDeploy.workerName } : {}),
   vars: {
     PORTAL_HOST: cloudflareDeploy.domains?.portal ?? "",
     COURIER_HOST: cloudflareDeploy.domains?.courier ?? "",
+    GOOGLE_CLIENT_ID: cloudflareDeploy.googleClientId ?? "",
   },
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
@@ -38,8 +41,8 @@ const localBindingConfig = {
     ? [
         {
           binding: d1,
-          database_name: cloudflareDeploy.databaseName || "site-creator-d1",
-          database_id: cloudflareDeploy.databaseId || SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
+          database_name: build ? cloudflareDeploy.databaseName || "site-creator-d1" : "site-creator-d1",
+          database_id: (build && cloudflareDeploy.databaseId) || SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
         },
       ]
     : [],
@@ -51,7 +54,7 @@ const localBindingConfig = {
         },
       ]
     : [],
-};
+});
 
 export default defineConfig(async ({ command }) => {
   configureToolEnvironment(process.cwd());
@@ -79,7 +82,7 @@ export default defineConfig(async ({ command }) => {
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
         inspectorPort: false,
         config: {
-          ...localBindingConfig,
+          ...bindingConfig(command === "build"),
           // Saját aldomainek csak az éles buildbe kerülnek: a feltöltés létrehozza a DNS-t és a tanúsítványt.
           ...(command === "build" && cloudflareDeploy.domains
             ? {

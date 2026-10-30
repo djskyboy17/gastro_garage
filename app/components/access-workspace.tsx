@@ -1,5 +1,6 @@
 "use client";
 import CourierAccountBindings from "./courier-account-bindings";
+import { TemporaryPasswordButton } from "./auth-page";
 import { useState, useEffect } from "react";
 import { messages } from "@/src/modules/shared/i18n";
 import { staffRoles, type Member, type Session } from "@/src/modules/access/domain";
@@ -16,5 +17,5 @@ export default function AccessWorkspace({lang,session,busy,mutate}:{lang:Languag
 function MemberRow({member,locked,lang,busy,save}:{member:Member;locked:boolean;lang:Language;busy:boolean;save:(role:string)=>Promise<void>}){
   const [role,setRole]=useState(member.role);
   const t=(k:string)=>messages[lang][k]??k;
-  return <form className="access-member" onSubmit={e=>{e.preventDefault();void save(role);}}><div><strong>{member.name}</strong><small>{member.email}</small><span className="badge">{t("role_"+member.role)}</span></div><label>{t("role")}<select aria-label={t("role")+" · "+member.name} value={role} disabled={locked||busy} onChange={e=>setRole(e.target.value)}>{(member.role==="owner"?["owner"]:staffRoles).map(r=><option key={r} value={r}>{t("role_"+r)}</option>)}</select></label><button className="button secondary" disabled={locked||busy||role===member.role}>{t("save")}</button></form>;
+  return <form className="access-member" onSubmit={e=>{e.preventDefault();void save(role);}}><div><strong>{member.name}</strong><small>{member.email}</small><span className="badge">{t("role_"+member.role)}</span></div><label>{t("role")}<select aria-label={t("role")+" · "+member.name} value={role} disabled={locked||busy} onChange={e=>setRole(e.target.value)}>{(member.role==="owner"?["owner"]:staffRoles).map(r=><option key={r} value={r}>{t("role_"+r)}</option>)}</select></label><button className="button secondary" disabled={locked||busy||role===member.role}>{t("save")}</button>{!locked&&<TemporaryPasswordButton userId={member.userId} name={member.name} lang={lang} disabled={busy}/>}</form>;
 }

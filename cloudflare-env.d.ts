@@ -6,6 +6,9 @@ declare namespace Cloudflare {
     /** Az ügyfélrendelés és a futár saját címe (cloudflare.json → domains), v29. */
     PORTAL_HOST?: string;
     COURIER_HOST?: string;
+    /** Google-belépés (v30): az azonosító nyilvános (cloudflare.json), a titkos kulcs Cloudflare-titok. */
+    GOOGLE_CLIENT_ID?: string;
+    GOOGLE_CLIENT_SECRET?: string;
     DB?: D1Database;
     BUCKET?: R2Bucket;
   }
