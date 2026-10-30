@@ -87,6 +87,7 @@ export function SignInPage() {
           </button>
         ))}
       </div>
+      <img className="auth-logo" src="/logo.png" alt="Gastro-Garage" width={170} height={170} />
       <h1>{t("authTitle")}</h1>
       <p>{t("authIntro")}</p>
       {google && (
@@ -228,6 +229,7 @@ export function PasswordPage() {
           </button>
         ))}
       </div>
+      <img className="auth-logo" src="/logo.png" alt="Gastro-Garage" width={170} height={170} />
       <h1>{t("passwordTitle")}</h1>
       <p>{t(forced ? "passwordForced" : "passwordIntro")}</p>
       {done ? (

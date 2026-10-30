@@ -546,13 +546,8 @@ export default function KitchenApp() {
               navigate("overview");
             }}
           >
-            <span className="brand-mark">
-              <UtensilsCrossed size={23} />
-            </span>
-            <span>
-              konyha<span className="brand-dot">.</span>
-              <small>{t("brand")}</small>
-            </span>
+            <img className="brand-logo" src="/logo.png" alt="Gastro-Garage" width={150} height={150} />
+            <small>{t("brand")}</small>
           </a>
           <p className="nav-label">{t("workspace")}</p>
           <nav aria-label={t("workspace")}>

@@ -14,11 +14,12 @@ import "./courier.css";
 import "./packing.css";
 
 export const metadata: Metadata = {
-  title: "Konyha · Catering műhely",
+  title: "Gastro-Garage · Catering",
   description: "Magyar–román catering munkafelület.",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: [{ url: "/favicon-32.png", sizes: "32x32", type: "image/png" }, { url: "/logo-192.png", sizes: "192x192", type: "image/png" }],
+    shortcut: "/favicon-32.png",
+    apple: "/apple-touch-icon.png",
   },
 };
 

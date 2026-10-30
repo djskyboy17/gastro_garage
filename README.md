@@ -224,3 +224,8 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 - Jelszó módosítása oldal (`/password`), a Beállításokból és a portál fejlécéből.
 - Gyenge jelszavak tiltása, IP-alapú próbálkozás-korlát, biztonsági fejlécek, belépések naplózása.
 - Új migráció: `0017_auth_google_reset`. Részletek: `src/modules/auth/SPEC.md`.
+
+## Gastro-Garage logó, élő Google-belépés — v31
+
+- A „konyha.” felirat és ikon helyett mindenhol a Gastro-Garage logó (háttér nélkül): konyhai oldalsáv, ügyfélportál, futár, belépés, jelszócsere, böngésző-ikon (`public/logo.png`, `logo-192.png`, `favicon-32.png`, `apple-touch-icon.png`).
+- A Google-ügyfél azonosítója a `cloudflare.json`-ban; a Google-belépés élesben bekapcsolva.
