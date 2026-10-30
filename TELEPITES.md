@@ -2,6 +2,14 @@
 
 Az alkalmazás Cloudflare Workers + D1 adatbázison fut. Az ingyenes csomag egy konyhának bőven elég (napi kb. 100 000 kérés, 5 GB adatbázis).
 
+## Jelenlegi címek
+
+- Ügyfélrendelés: https://gastrogarage.veres.no (a portálra visz)
+- Konyhai munkatér: https://konyha.veres.no
+- Futár: https://courier.veres.no (a futároldalra visz)
+
+A címeket a `cloudflare.json` `domains` része adja meg; a `cf:deploy` hozza létre a DNS-rekordot és a tanúsítványt. Meglévő DNS-rekordot nem ír felül.
+
 ## Egyszer kell
 
 1. Hozz létre ingyenes fiókot: https://dash.cloudflare.com/sign-up

@@ -212,3 +212,7 @@ A ChatGPT Sites bejelentkezés helyett saját fiókok vannak: a `/signin` oldalo
 A helyi fejlesztői szerveren a próbafiókok (Seedy, Teszt Futár) továbbra is működnek; a belépőoldal alján linkként is elérhetők. Éles buildben nincsenek benne.
 
 Feltöltés saját, ingyenes Cloudflare-fiókra: lépésenként a `TELEPITES.md` írja le (`npm run cf:setup`, `cf:migrate`, `cf:deploy`, `cf:secrets`).
+
+## Saját címek a veres.no alatt — v29
+
+Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügyfélrendelés, a gyökér a `/portal`-ra irányít), `konyha.veres.no` (konyhai munkatér) és `courier.veres.no` (a gyökér a `/courier`-re irányít). Mindhárom ugyanaz a worker és ugyanaz az adatbázis (`konyha-db`); az átirányítást a `worker/index.ts` végzi a `PORTAL_HOST` / `COURIER_HOST` alapján. A címek a `cloudflare.json` `domains` részében vannak.

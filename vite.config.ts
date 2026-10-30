@@ -14,7 +14,12 @@ const { d1, r2 } = hostingConfig;
 // Saját Cloudflare-fiókra telepítés (v28): a worker neve és a D1 azonosítója a cloudflare.json-ból jön.
 // Az azonosító nem titok; amíg üres, a helyi helyőrző marad.
 const cloudflareDeploy = existsSync("./cloudflare.json")
-  ? (JSON.parse(readFileSync("./cloudflare.json", "utf8")) as { workerName?: string; databaseName?: string; databaseId?: string })
+  ? (JSON.parse(readFileSync("./cloudflare.json", "utf8")) as {
+      workerName?: string;
+      databaseName?: string;
+      databaseId?: string;
+      domains?: { portal?: string; kitchen?: string; courier?: string };
+    })
   : {};
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
@@ -23,6 +28,10 @@ const managedLinux = readExecutionProfile() === "managed-linux";
 
 const localBindingConfig = {
   ...(cloudflareDeploy.workerName ? { name: cloudflareDeploy.workerName } : {}),
+  vars: {
+    PORTAL_HOST: cloudflareDeploy.domains?.portal ?? "",
+    COURIER_HOST: cloudflareDeploy.domains?.courier ?? "",
+  },
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
   d1_databases: d1
@@ -71,6 +80,14 @@ export default defineConfig(async ({ command }) => {
         inspectorPort: false,
         config: {
           ...localBindingConfig,
+          // Saját aldomainek csak az éles buildbe kerülnek: a feltöltés létrehozza a DNS-t és a tanúsítványt.
+          ...(command === "build" && cloudflareDeploy.domains
+            ? {
+                routes: Object.values(cloudflareDeploy.domains)
+                  .filter(Boolean)
+                  .map((pattern) => ({ pattern, custom_domain: true })),
+              }
+            : {}),
           ...(command === "serve"
             ? {
                 services: [

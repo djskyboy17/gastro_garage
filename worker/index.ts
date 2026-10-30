@@ -1,9 +1,14 @@
 import handler from "vinext/server/fetch-handler";
 import { runWithConnectorBinding } from "../lib/connector-context";
 import type { ConnectorBinding } from "../lib/connector-contract.mjs";
+import { startRedirect } from "../src/modules/shared/hosts";
 
 const worker = {
   fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
+    // gastrogarage.… → ügyfélrendelés, courier.… → futár; a többi cím a konyhai munkatér.
+    const url = new URL(request.url);
+    const target = startRedirect(url.host, url.pathname, { portal: env.PORTAL_HOST, courier: env.COURIER_HOST });
+    if (target) return Response.redirect(new URL(target, url).toString(), 302);
     let binding = ctx.props?.CONNECTORS;
     // Local preview emulates the same request-scoped capability. This branch and
     // the auxiliary service binding are absent from production builds.

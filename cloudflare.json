@@ -1,5 +1,10 @@
 {
   "workerName": "konyha",
   "databaseName": "konyha-db",
-  "databaseId": ""
+  "databaseId": "8e4d74b3-eb33-4da1-8fe2-a0abe8c4dd6d",
+  "domains": {
+    "portal": "gastrogarage.veres.no",
+    "kitchen": "konyha.veres.no",
+    "courier": "courier.veres.no"
+  }
 }
