@@ -6,7 +6,7 @@ import {fulfillmentOptions,loadPolicy,savePolicy,bookedSlotIds,FulfillmentError}
 import {loadStocktakes,handleStocktake,StocktakeError} from '@/src/modules/stocktake/server';
 import {loadMenu,publicMenu,saveMenu,MenuError} from '@/src/modules/menu/server';
 import { env } from "cloudflare:workers";
-import { getChatGPTUser } from "@/app/chatgpt-auth";
+import { currentUser, handleAuth, AuthError } from "@/src/modules/auth/server";
 import { sessionFor, handleAccess, loadMembers, AccessError } from "@/src/modules/access/server";
 import { isMember, canWrite, projectData } from "@/src/modules/access/domain";
 import { getDb } from "@/db";
@@ -48,13 +48,21 @@ async function handle(req: Request, write: boolean) {
     if (!write && path === "/api/portal/menu") return json(await publicMenu(new URL(req.url).searchParams.get("date")??today()));
     if (!write && path === "/api/portal/catalog") return json(await loadPublicCatalog());
     if (!write && path === "/api/products/image") return await serveProductImage(req, async () => {
-      const u = await getChatGPTUser();
-      return !!u && isMember((await sessionFor({ userId: u.userId, email: u.email, name: u.displayName })).role);
+      const u = await currentUser(req);
+      return !!u && isMember((await sessionFor(u)).role);
     });
-    const user = await getChatGPTUser();
+    if (path.startsWith("/api/auth/")) {
+      if (!write) return json({ error: "NOT_FOUND" }, 404);
+      if (req.headers.get("origin") !== new URL(req.url).origin) return json({ error: "INVALID_ORIGIN" }, 403);
+      if (!req.headers.get("content-type")?.includes("application/json")) return json({ error: "JSON_REQUIRED" }, 415);
+      const raw = await req.text();
+      if (raw.length > 4000) return json({ error: "TOO_LARGE" }, 413);
+      return await handleAuth(path, JSON.parse(raw), req);
+    }
+    const user = await currentUser(req);
     if (!user) return json({ error: "AUTH_REQUIRED" }, 401);
     const actor = user.userId;
-    const identity = { userId:actor,email:user.email,name:user.displayName };
+    const identity = { userId:actor,email:user.email,name:user.name };
     const session = await sessionFor(identity);
     if (write) {
       if (req.headers.get("origin") !== new URL(req.url).origin)
@@ -150,7 +158,7 @@ async function handle(req: Request, write: boolean) {
     if(path==="/api/menu/save") return json(await saveMenu(body,actor));
     const recurringResponse = await handleRecurring(path,body,actor);
     if (recurringResponse) return recurringResponse;
-    const safetyResponse = await handleSafety(path,body,actor,user.displayName);
+    const safetyResponse = await handleSafety(path,body,actor,user.name);
     if (safetyResponse) return safetyResponse;
     const deliveryResponse = await handleDelivery(path, body, actor);
     if (deliveryResponse) return deliveryResponse;
@@ -435,6 +443,7 @@ async function handle(req: Request, write: boolean) {
   } catch (e) {
     if (e instanceof PackingError) return json({error:e.message},e.status);
     if (e instanceof KitchenError) return json({error:e.code},e.status);
+    if (e instanceof AuthError) return json({error:e.code},e.status);
     if (e instanceof ImageError) return json({error:e.code},e.status);
     if (e instanceof CourierError) return json({error:e.code},e.status);
     if (e instanceof FulfillmentError) return json({error:e.code},e.status);

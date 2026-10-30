@@ -451,3 +451,39 @@ export const fulfillmentPolicy=sqliteTable("fulfillment_policy",{
   revision:integer("revision").notNull().default(0),
   content:text("content").notNull(),
 },t=>[check("fulfillment_singleton",sql`${t.id}=1`)]);
+/** Saját fiókok (v28): e-mail + jelszó. Az azonosító ugyanaz, amit a members / portal_profiles user_id használ. */
+export const authUsers = sqliteTable(
+  "auth_users",
+  {
+    id: text("id").primaryKey(),
+    email: text("email").notNull(),
+    name: text("name").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    createdAt: text("created_at").notNull(),
+    passwordChangedAt: text("password_changed_at").notNull(),
+  },
+  (t) => [uniqueIndex("auth_users_email").on(t.email)],
+);
+/** Munkamenetek: csak a süti tartalmának SHA-256 lenyomata kerül ide. */
+export const authSessions = sqliteTable(
+  "auth_sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsers.id),
+    createdAt: text("created_at").notNull(),
+    expiresAt: text("expires_at").notNull(),
+  },
+  (t) => [index("auth_sessions_user").on(t.userId)],
+);
+/** Sikertelen belépések a próbálkozások korlátozásához. */
+export const authFailures = sqliteTable(
+  "auth_failures",
+  {
+    id: text("id").primaryKey(),
+    email: text("email").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("auth_failures_email").on(t.email, t.createdAt)],
+);

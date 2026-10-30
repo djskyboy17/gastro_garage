@@ -527,8 +527,8 @@ export default function KitchenApp() {
       <p>{t(session.role==="disabled"?"accessBlocked":"accessWaiting")}</p>
       {session.role!=="disabled" && <button className="button" disabled={busy} onClick={()=>void mutate("access/request",{})}>{t(session.canBootstrap?"ownerStart":"accessRequest")}</button>}
       <button className="button secondary" disabled={busy} onClick={()=>void load()}>{t("accessRefresh")}</button>
-      <a href="/signout-with-chatgpt?return_to=/" target="_top">{t("signOut")}</a>
-    </> : <a className="button" href="/signin-with-chatgpt?return_to=/" target="_top">{t("signIn")}</a>}
+      <a href="/signout?return_to=/">{t("signOut")}</a>
+    </> : <a className="button" href="/signin?return_to=/">{t("signIn")}</a>}
     <a className="button secondary" href="/portal">{t("portalOpen")}</a>
   </main>;
   return (
@@ -574,8 +574,8 @@ export default function KitchenApp() {
               <p>{t("notice")}</p>
             </div>
             <a
-              href="/signout-with-chatgpt?return_to=/"
-              target="_top"
+              href="/signout?return_to=/"
+             
               className="profile"
             >
               <span className="avatar owner-avatar">{session.name.slice(0,2).toUpperCase()}</span>
@@ -703,7 +703,7 @@ export default function KitchenApp() {
                 <AlertCircle size={18} />
                 <span>{t(error) === error ? t("saveError") : t(error)}</span>
                 {error === "AUTH_REQUIRED" ? (
-                  <a href="/signin-with-chatgpt?return_to=/" target="_top">
+                  <a href="/signin?return_to=/">
                     {t("signIn")}
                   </a>
                 ) : (

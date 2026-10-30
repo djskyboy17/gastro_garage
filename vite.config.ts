@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from "node:fs";
 import vinext from "vinext";
 import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
@@ -10,20 +11,26 @@ const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
   "00000000-0000-4000-8000-000000000000";
 
 const { d1, r2 } = hostingConfig;
+// Saját Cloudflare-fiókra telepítés (v28): a worker neve és a D1 azonosítója a cloudflare.json-ból jön.
+// Az azonosító nem titok; amíg üres, a helyi helyőrző marad.
+const cloudflareDeploy = existsSync("./cloudflare.json")
+  ? (JSON.parse(readFileSync("./cloudflare.json", "utf8")) as { workerName?: string; databaseName?: string; databaseId?: string })
+  : {};
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 const managedLinux = readExecutionProfile() === "managed-linux";
 
 const localBindingConfig = {
+  ...(cloudflareDeploy.workerName ? { name: cloudflareDeploy.workerName } : {}),
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
   d1_databases: d1
     ? [
         {
           binding: d1,
-          database_name: "site-creator-d1",
-          database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
+          database_name: cloudflareDeploy.databaseName || "site-creator-d1",
+          database_id: cloudflareDeploy.databaseId || SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
         },
       ]
     : [],

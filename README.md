@@ -204,3 +204,11 @@ A „Konyha Studio” felirat lekerült a menüsávról és a felső sávról. A
 - A Beállítások oldal „Modulok áttekintése” része nem ismétli meg a fenti beállítás-kártyákat, így minden csak egyszer szerepel.
 - Az ügyfélportálon minden aktív étel rendelhető, amely rajta van az adott napi étlapon, a megadott adagszámig. A külön „Kínálat / közzététel” jelölés megszűnt (az Ügyfélportál oldalról és a végpontból is), az étlap az egyetlen feltétel. A nyilvános katalógus a mai vagy későbbi, nyitott étlapokon szereplő aktív ételeket adja.
 - Az aktív ételek képe bejelentkezés nélkül is elérhető.
+
+## Saját bejelentkezés és Cloudflare-telepítés — v28
+
+A ChatGPT Sites bejelentkezés helyett saját fiókok vannak: a `/signin` oldalon e-mail-címmel és jelszóval lehet regisztrálni és belépni (HU/RO). A jelszavak sózott PBKDF2-kivonatként, a munkamenetek csak lenyomatként vannak az adatbázisban (30 napos, HttpOnly süti). 8 sikertelen próbálkozás után az e-mail 15 percre zárolódik. A tulajdonosi e-mail-címet csak titkos beállítókóddal lehet regisztrálni. Részletek: `src/modules/auth/SPEC.md`. Új migráció: `0016_auth_accounts`.
+
+A helyi fejlesztői szerveren a próbafiókok (Seedy, Teszt Futár) továbbra is működnek; a belépőoldal alján linkként is elérhetők. Éles buildben nincsenek benne.
+
+Feltöltés saját, ingyenes Cloudflare-fiókra: lépésenként a `TELEPITES.md` írja le (`npm run cf:setup`, `cf:migrate`, `cf:deploy`, `cf:secrets`).
