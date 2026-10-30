@@ -237,3 +237,11 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 - A QR-kód a nyilvános `/label?id=` oldalt nyitja meg (magyarul és románul, ügyféladat nélkül).
 - A konyha és a portál láblécében is Gastro-Garage szerepel.
 - Új migráció: `0018_product_labels`. Új csomag: `qrcode-generator`. Részletek: `src/modules/labels/SPEC.md`.
+
+## Címke kijelölése nyomtatás előtt — v33
+
+- A Termékcímkék nézetben te választod ki, melyik ételhez kell címke („Címke kell”), és hány példányban; csak a kijelöltek nyomtatódnak („Kijelölt címkék nyomtatása”).
+
+## Hiányzó címkeadat pótlása — v34
+
+- A Termékcímkék hiánylistájában az ételre kattintva felugró ablakban pótolható a fogyaszthatósági idő, a tárolás és a gyártói adat (tulajdonos/admin).

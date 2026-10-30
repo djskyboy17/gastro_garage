@@ -89,6 +89,7 @@ export function anyFrozen(nodes: LabelNode[]): boolean {
 export type MissingLabelData = "recipe" | "nutrition" | "shelfLife" | "storage" | "producer";
 export type ConsumerLabel = {
   itemId: string;
+  productId: string;
   orderCode: string;
   /** Ennyi példány kell (adagonként egy). */
   copies: number;
@@ -106,7 +107,7 @@ export type ConsumerLabel = {
   url: string;
   missing: MissingLabelData[];
 };
-export type PublicLabel = Omit<ConsumerLabel, "orderCode" | "copies" | "missing" | "url">;
+export type PublicLabel = Omit<ConsumerLabel, "orderCode" | "copies" | "missing" | "url" | "productId">;
 
 export function consumerLabel(input: {
   item: { id: string; productId: string; hu: string; ro: string; allergens: string; quantity: number };
@@ -134,6 +135,7 @@ export function consumerLabel(input: {
   if (!settings.producerName || !settings.producerAddress) missing.push("producer");
   return {
     itemId: item.id,
+    productId: item.productId,
     orderCode: input.orderCode,
     copies: item.quantity,
     name: { hu: item.hu, ro: item.ro },

@@ -38,3 +38,9 @@ Semmit nem töltünk ki csendben. A címkenézet ételenként felsorolja, mi hi�
 3. Recept, fogyaszthatósági idő, tárolás vagy gyártó nélkül → hiánylista, nem üres helyettesítés.
 4. A nyilvános válaszban nincs rendeléskód, példányszám, ügyfélnév.
 5. Elavult `revision` mentés → 409, semmi nem változik. Konyha/diszpécser nem menthet címkeadatot.
+
+## Kijelölés nyomtatás előtt — v33
+Nem minden ételre kerül címke. A Termékcímkék nézetben ételenként (rendelési tételenként) be kell jelölni, hogy kell-e címke; alapból egyik sincs kijelölve. Kijelöléskor a példányszám az adagszám, 1–100 között átírható. Csak a kijelölt címkék nyomtatódnak, a megadott példányszámban; a hiányzó adatokra figyelmeztetés is csak a kijelöltekre szól. A kijelölés nem mentődik (újratöltés vagy napváltás után üres), és semmilyen adatot nem módosít.
+
+## Hiányzó adat pótlása felugró ablakban — v34
+A Termékcímkék hiánylistájában az étel sorára kattintva felugró ablak nyílik. Tulajdonos és admin itt pótolhatja az étel fogyaszthatósági idejét és tárolását, valamint a gyártói adatokat (ez minden címkére érvényes). Mentéskor csak az adott étel sora és a beállítások mentődnek (ugyanaz a `POST /api/labels/settings`, ütközésvizsgálattal); utána a címkék újratöltődnek, a kijelölés megmarad. Recept és tápérték itt nem pótolható: az ablak megmondja, melyik oldalon lehet. Konyha és diszpécser a hiánylistát látja, de nem kattintható, és jelzi, hogy tulajdonos/admin pótolhatja.

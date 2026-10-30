@@ -67,3 +67,22 @@
 .label-qr{display:flex;flex-direction:column;align-items:center;font-size:6pt}
 .consumer-label .label-qr .qr-code{width:17mm;height:17mm}
 .consumer-label .label-qr small{font-size:6.4pt;color:#333}
+/* Kijelölés: csak a bepipált címkék nyomtatódnak */
+.label-select-bar{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:12px}
+.consumer-label-preview{opacity:.55}
+.consumer-label-preview.is-selected{opacity:1}
+.label-choose{display:flex;align-items:center;gap:14px;min-height:40px;font-weight:600;color:#2d4933}
+.label-choose label{display:flex;align-items:center;gap:7px;cursor:pointer}
+.label-choose input[type=checkbox]{width:22px;height:22px;accent-color:#294b38}
+.label-choose input[type=number]{width:64px;border:1px solid #dfe6d6;border-radius:6px;padding:6px;font-size:15px}
+/* Hiánylista: kattintásra felugró ablakban pótolható */
+.label-missing li{margin:4px 0}
+.label-missing-fix{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;width:100%;text-align:left;background:#fffaf0;border:1px solid #edd39b;border-radius:7px;padding:9px 11px;color:#5e4510;font-size:15px}
+.label-missing-fix:hover{background:#fff1d6}
+.label-missing-fix span{margin-left:auto;font-weight:700;color:#294b38;text-decoration:underline}
+.label-missing ul{list-style:none;padding-left:0}
+.label-fix-dish{font-family:Manrope,sans-serif;font-size:19px;font-weight:750;margin-bottom:12px}
+.label-fix-group{border:1px solid var(--line);border-radius:8px;padding:12px;margin:0 0 12px}
+.label-fix-group legend{padding:0 6px;font-weight:700;color:#42543e}
+.label-fix-group small{color:#7a8a6b;font-size:13px}
+.label-fix-elsewhere{background:#f4f6ef;border-radius:7px;padding:10px 12px;font-size:14px;color:#56664a}
