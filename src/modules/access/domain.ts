@@ -7,10 +7,10 @@ export type Session = {userId:string;name:string;role:Role;canBootstrap:boolean}
 export const isAdmin = (role:Role) => role === "owner" || role === "admin";
 export const isMember = (role:Role) => ["owner","admin","dispatcher","kitchen","warehouse"].includes(role);
 /** Ritkán használt, beállítás jellegű nézetek: a főmenü helyett a Beállítások oldalról nyílnak. */
-export const settingsTabs = ["safety","fulfillment","stocktake","access","audit"] as const;
+export const settingsTabs = ["safety","fulfillment","stocktake","labels","access","audit"] as const;
 export const isSettingsTab = (tab:string) => (settingsTabs as readonly string[]).includes(tab);
 export function tabsFor(role:Role): string[] {
-  if (isAdmin(role)) return ["overview","orders","recurring","kitchen","packing","delivery","catalog","customers","menu","fulfillment","portal","recipes","inventory","stocktake","procurement","safety","audit","access","settings"];
+  if (isAdmin(role)) return ["overview","orders","recurring","kitchen","packing","delivery","catalog","customers","menu","fulfillment","portal","recipes","inventory","stocktake","labels","procurement","safety","audit","access","settings"];
   if (role === "dispatcher") return ["overview","orders","recurring","packing","delivery","catalog","customers","menu","fulfillment","portal","settings"];
   if (role === "kitchen") return ["kitchen","packing","safety","settings"];
   if (role === "warehouse") return ["inventory","stocktake","recipes","procurement","safety","settings"];
@@ -23,6 +23,7 @@ export function canWrite(role:Role,path:string,body:unknown): boolean {
   if(path==="/api/products/image"||path==="/api/products/image/remove")return ["owner","admin","dispatcher"].includes(role);
   if(path==="/api/kitchen/ready")return ["owner","admin","kitchen"].includes(role);
   if(path==="/api/packing/check")return ["owner","admin","dispatcher","kitchen"].includes(role);
+  if(path==="/api/labels/settings")return isAdmin(role);
   if(path==="/api/fulfillment/save")return isAdmin(role);
   const stocktakePaths=["/api/stocktake/create","/api/stocktake/save","/api/stocktake/refresh-line","/api/stocktake/post","/api/stocktake/reverse","/api/stocktake/cancel"];
   if(stocktakePaths.includes(path))return isAdmin(role)||(role==="warehouse"&&!["/api/stocktake/post","/api/stocktake/reverse"].includes(path));

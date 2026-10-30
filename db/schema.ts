@@ -515,3 +515,24 @@ export const oauthStates = sqliteTable("oauth_states", {
   returnTo: text("return_to").notNull(),
   createdAt: text("created_at").notNull(),
 });
+/** Fogyasztói címke ételenként (v32): fogyaszthatósági idő napokban és tárolási feltétel. */
+export const productLabels = sqliteTable("product_labels", {
+  productId: text("product_id")
+    .primaryKey()
+    .references(() => products.id),
+  /** A gyártás napjához képest hány nap múlva jár le (0 = aznap fogyasztandó). */
+  shelfLifeDays: integer("shelf_life_days").notNull(),
+  storageRo: text("storage_ro").notNull().default(""),
+  storageHu: text("storage_hu").notNull().default(""),
+  updatedAt: text("updated_at").notNull(),
+});
+/** A címkén szereplő gyártói adatok (egyetlen sor, v32). */
+export const labelSettings = sqliteTable(
+  "label_settings",
+  {
+    id: integer("id").primaryKey(),
+    revision: integer("revision").notNull().default(0),
+    content: text("content").notNull(),
+  },
+  (t) => [check("label_settings_singleton", sql`${t.id}=1`)],
+);

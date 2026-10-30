@@ -11,6 +11,7 @@ import { safetyMessages } from "../safety/i18n";
 import { recurringMessages } from "../recurring/i18n";
 import { portalMessages } from "../portal/i18n";
 import { authMessages } from "../auth/i18n";
+import { labelMessages } from "../labels/i18n";
 export const messages: Record<"hu" | "ro", Record<string, string>> = {
   hu: {
     ...operationMessages.hu,
@@ -21,6 +22,7 @@ export const messages: Record<"hu" | "ro", Record<string, string>> = {
     ...recurringMessages.hu,
     ...portalMessages.hu,
     ...authMessages.hu,
+    ...labelMessages.hu,
     ...menuMessages.hu,
     ...stocktakeMessages.hu,
     ...fulfillmentMessages.hu,
@@ -216,6 +218,7 @@ export const messages: Record<"hu" | "ro", Record<string, string>> = {
     ...recurringMessages.ro,
     ...portalMessages.ro,
     ...authMessages.ro,
+    ...labelMessages.ro,
     ...menuMessages.ro,
     ...stocktakeMessages.ro,
     ...fulfillmentMessages.ro,

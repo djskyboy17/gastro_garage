@@ -50,6 +50,8 @@ export type InfoNode = {
   /** Nettó tömeg grammban a recept teljes adagszámára (a sorrendhez). */
   grams: number;
   frozen: boolean;
+  /** Az alapanyag saját allergénjei (a címkén ezek az összetevők kiemelve jelennek meg). */
+  allergens?: string[];
   children?: InfoNode[];
 };
 
@@ -93,7 +95,7 @@ export function recipeInfo(product: Product, recipe: Recipe, ops: OperationsData
     const i = ingredient(line.ingredientId);
     if (!i) continue;
     leaves.push({ ingredient: i, quantity: line.quantity });
-    nodes.push({ name: { hu: i.hu, ro: i.ro }, grams: gramsOf(i, line.quantity) ?? 0, frozen: !!i.frozen });
+    nodes.push({ name: { hu: i.hu, ro: i.ro }, grams: gramsOf(i, line.quantity) ?? 0, frozen: !!i.frozen, allergens: i.allergens.split(",").filter(Boolean) });
   }
 
   for (const line of recipe.preparations ?? []) {
@@ -110,7 +112,7 @@ export function recipeInfo(product: Product, recipe: Recipe, ops: OperationsData
       // Az al-recept nettó alapanyaga a felhasznált nettó mennyiség arányában.
       const quantity = (p.quantity * line.quantity) / version.output;
       leaves.push({ ingredient: i, quantity });
-      children.push({ name: { hu: i.hu, ro: i.ro }, grams: gramsOf(i, quantity) ?? 0, frozen: !!i.frozen });
+      children.push({ name: { hu: i.hu, ro: i.ro }, grams: gramsOf(i, quantity) ?? 0, frozen: !!i.frozen, allergens: i.allergens.split(",").filter(Boolean) });
     }
     children.sort((a, b) => b.grams - a.grams);
     nodes.push({ name: { hu: prep.hu, ro: prep.ro }, grams: line.quantity, frozen: false, children });

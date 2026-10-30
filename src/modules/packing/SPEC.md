@@ -21,3 +21,5 @@ Acceptance:
 
 ## Felvett rendelések kimaradnak — v21
 A csomagolási nézet (terv, rendelések, címkék) csak azokat a rendeléseket mutatja, amelyeket még csomagolni kell: a kiszállítás állapota „függőben” vagy „sikertelen” (újra kell küldeni). Ami már úton van, kézbesítve lett vagy amit az ügyfél átvett, kimarad (`needsPacking`).
+
+A fogyasztói címke (fogyaszthatósági idő, tárolás, QR-kód) külön modul: ../labels/SPEC.md (v32). Az itteni munkacímke továbbra is belső címke.

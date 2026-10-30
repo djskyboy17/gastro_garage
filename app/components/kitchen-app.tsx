@@ -47,6 +47,7 @@ import {
   CheckCircle2,
   Wallet,
   LogOut,
+  Tag,
   Menu,
   Loader2,
   Trash2,
@@ -57,6 +58,7 @@ import OperationsWorkspace from "./operations-workspace";
 import PurchasingWorkspace from "./purchasing-workspace";
 import FulfillmentWorkspace from "./fulfillment-workspace";
 import StocktakeWorkspace from "./stocktake-workspace";
+import LabelsWorkspace from "./labels-workspace";
 import MenuWorkspace from "./menu-workspace";
 import PortalManagement, { OrderRequestReview } from "./portal-management";
 import RecurringWorkspace from "./recurring-workspace";
@@ -107,6 +109,7 @@ const nav = [
   ["recipes", ChefHat],
   ["inventory", Package],
   ["stocktake", ClipboardList],
+  ["labels", Tag],
   ["procurement", ClipboardList],
   ["safety", CheckCircle2],
   ["audit", History],
@@ -1291,6 +1294,7 @@ export default function KitchenApp() {
                 )}
                 {tab === "packing" && <PackingWorkspace lang={lang} refresh={load} initialDate={packingTarget?.date??day} initialOrderId={packingTarget?.id??""}/>}
                 {tab === "fulfillment" && <FulfillmentWorkspace lang={lang} role={session.role}/>}
+                {tab === "labels" && <LabelsWorkspace lang={lang}/>}
                 {tab === "stocktake" && <StocktakeWorkspace ops={data.operations} lang={lang} role={session.role} refresh={load}/>}
                 {tab === "menu" && <MenuWorkspace products={data.products} lang={lang}/>}
                 {tab === "portal" && <PortalManagement data={data} lang={lang} role={session.role} busy={busy} mutate={mutate} refresh={load} onOrder={detail}/>}
@@ -1357,7 +1361,7 @@ export default function KitchenApp() {
                 {t("saved")}
               </span>
               <span>
-                konyha. <span className="footer-dot">/</span>{" "}
+                Gastro-Garage <span className="footer-dot">/</span>{" "}
                 {t("settingsNote")}
               </span>
             </footer>

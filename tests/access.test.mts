@@ -39,7 +39,10 @@ test("Beállítások: a ritkán használt nézetek a Beállítások alá kerüln
   assert.deepEqual(settingsTabs.filter((t) => tabsFor("kitchen").includes(t)), ["safety"]);
   assert.deepEqual(settingsTabs.filter((t) => tabsFor("warehouse").includes(t)), ["safety", "stocktake"]);
   assert.deepEqual(settingsTabs.filter((t) => tabsFor("dispatcher").includes(t)), ["fulfillment"]);
-  assert.deepEqual(settingsTabs.filter((t) => tabsFor("owner").includes(t)), ["safety", "fulfillment", "stocktake", "access", "audit"]);
+  assert.deepEqual(settingsTabs.filter((t) => tabsFor("owner").includes(t)), ["safety", "fulfillment", "stocktake", "labels", "access", "audit"]);
+  // Címkeadatokat csak tulajdonos és admin ment (v32).
+  for (const role of ["owner", "admin"] as const) assert.equal(canWrite(role, "/api/labels/settings", {}), true);
+  for (const role of ["dispatcher", "kitchen", "warehouse", "courier"] as const) assert.equal(canWrite(role, "/api/labels/settings", {}), false);
   assert.ok(isSettingsTab("audit") && !isSettingsTab("orders"));
 });
 test("Only the kitchen and administrators can mark dishes ready", () => {

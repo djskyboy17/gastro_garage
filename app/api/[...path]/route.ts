@@ -1,4 +1,5 @@
 import {handlePacking,PackingError} from "@/src/modules/packing/server";
+import {handleLabels,publicLabel,LabelError} from "@/src/modules/labels/server";
 import {handleKitchen,KitchenError} from "@/src/modules/kitchen/server";
 import {serveProductImage,handleProductImage,ImageError} from "@/src/modules/images/server";
 import {handleCourier,CourierError} from "@/src/modules/courier/server";
@@ -47,6 +48,7 @@ async function handle(req: Request, write: boolean) {
     if (!write && path === "/api/portal/fulfillment") return json(await fulfillmentOptions(new URL(req.url).searchParams.get("date")??today()));
     if (!write && path === "/api/portal/menu") return json(await publicMenu(new URL(req.url).searchParams.get("date")??today()));
     if (!write && path === "/api/portal/catalog") return json(await loadPublicCatalog());
+    if (!write && path === "/api/public/label") return await publicLabel(req);
     if (!write && path === "/api/products/image") return await serveProductImage(req, async () => {
       const u = await currentUser(req);
       return !!u && isMember((await sessionFor(u)).role);
@@ -100,6 +102,10 @@ async function handle(req: Request, write: boolean) {
     if(path==='/api/packing'||path.startsWith('/api/packing/')){
       let body:unknown;if(write){const raw=await req.text();if(raw.length>40000)return json({error:'TOO_LARGE'},413);body=JSON.parse(raw);}
       return await handlePacking(path,body,session,write,new URL(req.url).searchParams.get('date')??today());
+    }
+    if(path==='/api/labels'||path==='/api/labels/settings'){
+      let body:unknown;if(write){const raw=await req.text();if(raw.length>200000)return json({error:'TOO_LARGE'},413);body=JSON.parse(raw);}
+      return await handleLabels(path,body,session,write,req);
     }
     if(path==="/api/products/image"||path==="/api/products/image/remove"){
       if(!write)return json({error:"NOT_FOUND"},404);
@@ -451,6 +457,7 @@ async function handle(req: Request, write: boolean) {
     return json({ error: "NOT_FOUND" }, 404);
   } catch (e) {
     if (e instanceof PackingError) return json({error:e.message},e.status);
+    if (e instanceof LabelError) return json({error:e.message},e.status);
     if (e instanceof KitchenError) return json({error:e.code},e.status);
     if (e instanceof AuthError) return json({error:e.code},e.status);
     if (e instanceof ImageError) return json({error:e.code},e.status);

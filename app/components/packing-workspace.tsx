@@ -1,12 +1,15 @@
 "use client";
 import {useCallback,useEffect,useState} from 'react';
+import {createPortal} from 'react-dom';
 import {Printer,RefreshCw,ChevronLeft,ChevronRight,PackageCheck} from 'lucide-react';
 import {messages} from '@/src/modules/shared/i18n';
 import {today,orderCode,canCheckPacking,type Language} from '@/src/modules/shared/domain';
 import {addDays,validDay} from '@/src/modules/menu/domain';
 import {workPlan,type PackingData,type PackingOrder} from '@/src/modules/packing/domain';
+import type {ConsumerLabel} from '@/src/modules/labels/domain';
+import {PrintableLabel} from './consumer-label';
 export default function PackingWorkspace({lang,refresh,initialDate,initialOrderId=''}:{lang:Language;refresh:()=>Promise<void>;initialDate?:string;initialOrderId?:string}){
- const [date,setDate]=useState(()=>initialDate??today()),[data,setData]=useState<PackingData|null>(null),[orderId,setOrderId]=useState(initialOrderId),[view,setView]=useState<'plan'|'orders'|'labels'>(initialOrderId?'orders':'plan'),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[success,setSuccess]=useState(false),[version,setVersion]=useState(0);
+ const [date,setDate]=useState(()=>initialDate??today()),[data,setData]=useState<PackingData|null>(null),[orderId,setOrderId]=useState(initialOrderId),[view,setView]=useState<'plan'|'orders'|'labels'|'consumer'>(initialOrderId?'orders':'plan'),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[success,setSuccess]=useState(false),[version,setVersion]=useState(0);
  const t=(k:string)=>messages[lang][k]??k;
  const reload=useCallback(()=>{setError('');setSuccess(false);setVersion(v=>v+1);},[]);
  useEffect(()=>{let ignore=false;setLoading(true);setData(previous=>previous?.date===date?previous:null);
@@ -19,17 +22,37 @@ export default function PackingWorkspace({lang,refresh,initialDate,initialOrderI
  return <section className={'packing-workspace packing-view-'+view} aria-label={t('packing')}>
   <div className="packing-toolbar packing-no-print"><div className="packing-date"><button className="button secondary" aria-label={t('previous')} disabled={busy||loading||date<=addDays(today(),-90)} onClick={()=>{setError('');setSuccess(false);setOrderId('');setDate(addDays(date,-1));}}><ChevronLeft size={16}/></button><label>{t('date')}<input type="date" min={addDays(today(),-90)} max={addDays(today(),90)} value={date} disabled={busy||loading} onChange={e=>{if(!validDay(e.target.value))return;setError('');setSuccess(false);setOrderId('');setDate(e.target.value);}}/></label><button className="button secondary" aria-label={t('next')} disabled={busy||loading||date>=addDays(today(),90)} onClick={()=>{setError('');setSuccess(false);setOrderId('');setDate(addDays(date,1));}}><ChevronRight size={16}/></button></div><button className="button secondary" disabled={busy||loading} onClick={reload}><RefreshCw size={16}/>{t('refresh')}</button><button className="button secondary" disabled={busy||loading||!data?.orders.length} onClick={()=>window.print()}><Printer size={16}/>{t('packingPrint')}</button></div>
   <p className="packing-intro packing-no-print">{t('packingIntro')}</p>
-  <div className="packing-tabs packing-no-print" role="group" aria-label={t('packing')}>{(['plan','orders','labels'] as const).map(v=><button className={'button '+(view===v?'':'secondary')} aria-pressed={view===v} disabled={busy} key={v} onClick={()=>setView(v)}>{t(v==='plan'?'packingPlan':v==='orders'?'packingOrders':'packingLabels')}</button>)}</div>
+  <div className="packing-tabs packing-no-print" role="group" aria-label={t('packing')}>{(['plan','orders','labels','consumer'] as const).map(v=><button className={'button '+(view===v?'':'secondary')} aria-pressed={view===v} disabled={busy} key={v} onClick={()=>setView(v)}>{t(v==='plan'?'packingPlan':v==='orders'?'packingOrders':v==='labels'?'packingLabels':'packingConsumerLabels')}</button>)}</div>
   {view!=='plan'&&data&&<label className="packing-filter packing-no-print">{t('packingFilter')}<select disabled={busy||loading} value={orderId} onChange={e=>setOrderId(e.target.value)}><option value="">{t('all')}</option>{data.orders.map(o=><option key={o.id} value={o.id}>#{orderCode(o.id)} · {o.time} · {o.customerName}</option>)}</select></label>}
   {error&&<p role="alert" className="portal-alert packing-no-print">{t(error)}</p>}{success&&<p role="status" className="portal-success packing-no-print">{t('packingSaved')}</p>}{loading&&<p role="status">{t('loading')}</p>}
-  {data&&<div className="packing-print-area"><div className="packing-print-heading"><h2>{t(view==='plan'?'packingPlan':view==='orders'?'packingOrders':'packingLabels')} · {date}</h2><small>{t('portalTimezone')}</small></div>
+  {data&&<div className="packing-print-area"><div className="packing-print-heading"><h2>{t(view==='plan'?'packingPlan':view==='orders'?'packingOrders':view==='labels'?'packingLabels':'packingConsumerLabels')} · {date}</h2><small>{t('portalTimezone')}</small></div>
    {!data.orders.length?<p className="panel packing-empty">{t('packingEmpty')}</p>:<>
    {view==='plan'&&<><div className="packing-summary">{[['packingTotal',totals.quantity],['packingPrepared',totals.ready],['packingPacked',totals.packed]].map(([key,n])=><div className="panel" key={key}><small>{t(String(key))}</small><strong>{n}</strong></div>)}</div><div className="panel packing-table-wrap"><table className="packing-table"><thead><tr><th>{t('time')}</th><th>{t('packingDish')}</th><th>{t('packingTotal')}</th><th>{t('packingPrepared')}</th><th>{t('packingPacked')}</th></tr></thead><tbody>{rows.map((r,i)=><tr key={i}><td>{r.time}{r.windowEnd?'–'+r.windowEnd:''}</td><td><strong>{r[lang]}</strong><small>{t('allergens')}: {allergens(r.allergens)}</small></td><td>{r.quantity}</td><td>{r.ready}</td><td>{r.packed}</td></tr>)}</tbody></table></div><p className="packing-hint">{t('packingAllergensHint')}</p></>}
    {view==='orders'&&<><p className="packing-hint packing-no-print">{t('packingHint')}</p><div className="packing-order-list">{displayOrders.map(o=><PackingCard key={o.id+':'+o.revision} order={o} lang={lang} busy={busy||loading} save={save}/>)}</div></>}
    {view==='labels'&&<><p className="packing-hint packing-no-print">{t('packingLabelHint')}</p><div className="packing-label-grid">{displayOrders.flatMap(o=>o.items.map(i=><article className="packing-label" key={i.id}><header><strong>#{orderCode(o.id)}</strong><span>{o.date} · {o.time}{o.windowEnd?'–'+o.windowEnd:''}</span></header><h3>{o.customerName}</h3><p>{t(o.mode==='pickup'?'fulfillPickup':'fulfillDelivery')}</p><h4>{i[lang]}</h4><strong className="packing-label-portions">{i.quantity} {t('packingPortions')}</strong><p>{t('allergens')}: {allergens(i.allergens)}</p><small>{t(o.packingReady===1?'packingComplete':'packingIncomplete')}</small></article>))}</div></>}
+   {view==='consumer'&&<ConsumerLabels key={date+':'+orderId+':'+version} date={date} orderId={orderId} lang={lang}/>}
    </>}
   </div>}
  </section>;
+}
+// Nap, rendelés vagy frissítés változásakor a szülő új kulccsal újra létrehozza (tiszta állapot).
+function ConsumerLabels({date,orderId,lang}:{date:string;orderId:string;lang:Language}){
+ const [labels,setLabels]=useState<ConsumerLabel[]|null>(null),[error,setError]=useState(''),t=(k:string)=>messages[lang][k]??k,ro=(k:string)=>messages.ro[k]??k;
+ useEffect(()=>{let ignore=false;
+  void (async()=>{try{const r=await fetch('/api/labels?date='+encodeURIComponent(date)+(orderId?'&orderId='+encodeURIComponent(orderId):''),{cache:'no-store'}),d=await r.json() as {labels?:ConsumerLabel[];error?:string};if(!r.ok)throw Error(d.error??'loadError');if(!ignore)setLabels(d.labels??[]);}catch(e){if(!ignore)setError((e as Error).message);}})();return ()=>{ignore=true;};
+ },[date,orderId]);
+ if(error)return <p role="alert" className="portal-alert">{t(error)}</p>;
+ if(!labels)return <p role="status">{t('loading')}</p>;
+ if(!labels.length)return <p className="panel packing-empty">{t('labelEmpty')}</p>;
+ // Ételenként egyszer jelezzük, mi hiányzik.
+ const missing=new Map<string,{name:string;keys:string[]}>();for(const l of labels)if(l.missing.length)missing.set(l.name.ro,{name:l.name[lang],keys:l.missing});
+ return <>
+  <p className="packing-hint packing-no-print">{t('labelConsumerHint')}</p>
+  {missing.size>0&&<div className="label-missing packing-no-print" role="alert"><strong>{t('labelMissingTitle')}</strong><ul>{[...missing.values()].map(m=><li key={m.name}><b>{m.name}</b>: {m.keys.map(k=>t('labelMissing_'+k)).join(', ')}</li>)}</ul></div>}
+  <div className="consumer-label-grid">{labels.map(l=><div className="consumer-label-preview" key={l.itemId}><small>#{l.orderCode} · {l.copies} {t('labelCopies')}</small><PrintableLabel label={l} t={ro}/></div>)}</div>
+  {/* Nyomtatáskor csak ez látszik: adagonként egy 62 mm-es oldal. */}
+  {createPortal(<div className="consumer-print-root">{labels.flatMap(l=>Array.from({length:l.copies},(_,i)=><PrintableLabel key={l.itemId+':'+i} label={l} t={ro}/>))}</div>,document.body)}
+ </>;
 }
 function PackingCard({order:o,lang,busy,save}:{order:PackingOrder;lang:Language;busy:boolean;save:(o:PackingOrder,itemIds:string[])=>Promise<void>}){
  const [selected,setSelected]=useState(o.checkedItemIds),t=(k:string)=>messages[lang][k]??k,editable=canCheckPacking({...o,status:'confirmed'}),changed=JSON.stringify([...selected].sort())!==JSON.stringify([...o.checkedItemIds].sort());

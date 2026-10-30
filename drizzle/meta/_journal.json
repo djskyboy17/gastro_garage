@@ -127,6 +127,13 @@
       "when": 1793346606118,
       "tag": "0017_auth_google_reset",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1793360301369,
+      "tag": "0018_product_labels",
+      "breakpoints": true
     }
   ]
 }

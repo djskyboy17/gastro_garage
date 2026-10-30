@@ -229,3 +229,11 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 
 - A „konyha.” felirat és ikon helyett mindenhol a Gastro-Garage logó (háttér nélkül): konyhai oldalsáv, ügyfélportál, futár, belépés, jelszócsere, böngésző-ikon (`public/logo.png`, `logo-192.png`, `favicon-32.png`, `apple-touch-icon.png`).
 - A Google-ügyfél azonosítója a `cloudflare.json`-ban; a Google-belépés élesben bekapcsolva.
+
+## Fogyasztói címke QR-kóddal — v32
+
+- Beállítások → Címkeadatok: gyártói adatok, alapértelmezett tárolás, ételenként fogyaszthatósági idő és tárolás.
+- Napi munkaterv és csomagolás → Termékcímkék: adagonként egy román nyelvű címke (EU 1169/2011) 62 mm-es címkeszalagra: összetevők kiemelt allergénekkel, tápérték, nettó tömeg, gyártás napja, „A se consuma până la”, tételszám, tárolás, gyártó, QR-kód. A hiányzó adatokat ételenként jelzi.
+- A QR-kód a nyilvános `/label?id=` oldalt nyitja meg (magyarul és románul, ügyféladat nélkül).
+- A konyha és a portál láblécében is Gastro-Garage szerepel.
+- Új migráció: `0018_product_labels`. Új csomag: `qrcode-generator`. Részletek: `src/modules/labels/SPEC.md`.

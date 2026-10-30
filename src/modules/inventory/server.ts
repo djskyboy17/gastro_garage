@@ -104,7 +104,7 @@ export async function loadOperations(): Promise<OperationsData> {
   };
 }
 /** Csak a recept- és alapanyagadatok (készlet, mozgások nélkül) az ételinformációhoz. */
-async function loadRecipeData(): Promise<OperationsData> {
+export async function loadRecipeData(): Promise<OperationsData> {
   const db = getDb();
   const [i, r, l, preps, versions, prepLines, recipePreps] = await Promise.all([
     db.select().from(ingredients),
