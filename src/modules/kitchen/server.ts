@@ -12,7 +12,7 @@ const openOrder="SELECT id FROM orders WHERE status='confirmed' AND production I
  */
 export async function handleKitchen(path:string,body:unknown,session:Session,write:boolean){
  if(!write||path!=='/api/kitchen/ready')return json({error:'NOT_FOUND'},404);
- if(!['owner','admin','kitchen'].includes(session.role))throw new KitchenError('FORBIDDEN',403);
+ if(!['owner','admin','kitchen','warehouse'].includes(session.role))throw new KitchenError('FORBIDDEN',403);
  const d=z.object({itemIds:z.array(z.string().min(1).max(200)).min(1).max(500)}).strict().parse(body);
  const ids=JSON.stringify([...new Set(d.itemIds)]),now=new Date().toISOString();
  const touched=`SELECT DISTINCT order_id FROM order_items WHERE id IN (SELECT value FROM json_each(?))`;

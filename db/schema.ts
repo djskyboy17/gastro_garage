@@ -5,6 +5,7 @@ import {
   check,
   uniqueIndex,
   index,
+  primaryKey,
 } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 export const products = sqliteTable("products", {
@@ -535,4 +536,16 @@ export const labelSettings = sqliteTable(
     content: text("content").notNull(),
   },
   (t) => [check("label_settings_singleton", sql`${t.id}=1`)],
+);
+/** Napi futárbeosztás (v36): ki dolgozik aznap. A csomagolásnál csak ők választhatók. */
+export const courierShifts = sqliteTable(
+  "courier_shifts",
+  {
+    date: text("date").notNull(),
+    courierId: text("courier_id")
+      .notNull()
+      .references(() => couriers.id),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.date, t.courierId] })],
 );

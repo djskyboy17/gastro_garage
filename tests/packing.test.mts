@@ -21,7 +21,7 @@ test('Packing transitions guard every departure and pickup while preserving hist
  assert.throws(()=>nextState(order,'delivery','transit'),/PACKING_REQUIRED/);assert.throws(()=>nextState({...order,fulfillmentMode:'pickup'},'delivery','delivered'),/PACKING_REQUIRED/);assert.equal(nextState({...order,packingReady:1},'delivery','transit').delivery,'transit');assert.equal(nextState({...order,delivery:'transit'},'delivery','delivered').delivery,'delivered');
 });
 test('Packing checking is restricted to supervisors, kitchen and dispatcher',()=>{
- for(const role of ['owner','admin','kitchen','dispatcher'] as Role[]){assert.equal(canWrite(role,'/api/packing/check',{}),true);assert.ok(tabsFor(role).includes('packing'));}for(const role of ['warehouse','courier','pending','disabled'] as Role[]){assert.equal(canWrite(role,'/api/packing/check',{}),false);assert.ok(!tabsFor(role).includes('packing'));}
+ for(const role of ['owner','admin','kitchen','warehouse','dispatcher'] as Role[]){assert.equal(canWrite(role,'/api/packing/check',{}),true);assert.ok(tabsFor(role).includes('packing'));}for(const role of ['courier','pending','disabled'] as Role[]){assert.equal(canWrite(role,'/api/packing/check',{}),false);assert.ok(!tabsFor(role).includes('packing'));}
 });
 test('Packing lists only orders not yet taken away',()=>{
  assert.equal(needsPacking({delivery:'pending'}),true);

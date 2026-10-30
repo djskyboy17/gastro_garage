@@ -22,3 +22,36 @@ test("Manifest filters date, cancellation, assignment and status without droppin
   assert.deepEqual(deliveryList(rows,base.date,"unassigned","all").map(o=>o.id),["o1"]);
   assert.equal(deliveryList(rows,base.date,"c","delivered").length,1);
 });
+
+test("Daily roster: only couriers on shift that day, least loaded suggested first", async () => {
+  // @ts-ignore Node native type stripping
+  const { shiftCouriers, suggestCourier } = await import("../src/modules/delivery/domain.ts");
+  const list = [{ id: "a", name: "Anna" }, { id: "b", name: "Béla" }, { id: "c", name: "Csaba" }];
+  const shifts = [{ date: "2026-11-02", courierId: "b" }, { date: "2026-11-02", courierId: "c" }, { date: "2026-11-03", courierId: "a" }];
+  const on = shiftCouriers(list, shifts, "2026-11-02");
+  assert.deepEqual(on.map((c: { id: string }) => c.id), ["b", "c"]);
+  assert.deepEqual(shiftCouriers(list, shifts, "2026-11-04"), []);
+  const orders = [
+    { date: "2026-11-02", courierId: "b", delivery: "pending", status: "confirmed" },
+    { date: "2026-11-02", courierId: "b", delivery: "transit", status: "confirmed" },
+    { date: "2026-11-02", courierId: "c", delivery: "delivered", status: "confirmed" },
+    { date: "2026-11-01", courierId: "c", delivery: "pending", status: "confirmed" },
+  ];
+  assert.equal(suggestCourier(on, orders, "2026-11-02"), "c");
+  assert.equal(suggestCourier([], orders, "2026-11-02"), null);
+});
+test("Switching to pickup keeps or removes the fee as chosen and uses the pickup address", async () => {
+  // @ts-ignore Node native type stripping
+  const { pickupSwitch } = await import("../src/modules/delivery/domain.ts");
+  const snap = { mode: "delivery", slotId: "s1", start: "11:00", end: "13:00", zoneHu: "Kézdi", zoneRo: "Tg", postalCode: "525400", addressHu: "", addressRo: "", fee: 5000 };
+  const policy = { pickupHu: "Nyújtód, Fő út 1", pickupRo: "Lunca, Str. Principală 1" };
+  const keep = pickupSwitch(snap, policy, 5000, false);
+  assert.equal(keep.fee, 5000);
+  assert.equal(keep.snapshot.mode, "pickup");
+  assert.equal(keep.snapshot.start, "11:00");
+  assert.equal(keep.snapshot.postalCode, "");
+  assert.equal(keep.address, "Nyújtód, Fő út 1 / Lunca, Str. Principală 1");
+  const drop = pickupSwitch(snap, policy, 5000, true);
+  assert.equal(drop.fee, 0);
+  assert.equal(drop.snapshot.fee, 0);
+});

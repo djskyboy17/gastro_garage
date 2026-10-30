@@ -13,3 +13,9 @@ Read projections: dispatcher sees sales/delivery but no stock, purchasing or glo
 API: GET /api/session; POST /api/access/request; GET /api/access/members; POST /api/access/role. Every API response is no-store. POST requires same-origin JSON and platform identity. Caller role is loaded from DB on each request; no client/session role caching as authority.
 
 Acceptance: no anonymous access or forged role/header escalation; unapproved user cannot read data; registration never resets a blocked user; kitchen can start cooking but cannot edit payment; warehouse can receive goods but cannot modify customers; dispatcher cannot modify recipe or roles; owner/self demotion rejected; stale updates do not create extra audit; HU/RO UI and reload preserve effective role. Local integration tests seed temporary role fixtures in the local-only D1 database and restore the owner afterward; no production test endpoint exists.
+
+## Szerepkörök egyszerűsítése — v41
+- Külön raktáros nincs: a raktárt, a leltárt (könyvelés nélkül) és a beszerzést a konyha végzi. A „warehouse” szerepkör új fióknak már nem adható; a meglévő ilyen fiókok mindenben konyhaként működnek.
+- A konyha menüje: Áttekintés, Rendelések, Konyhai terv, Csomagolás, Kiszállítás, Receptúrák, Raktár, Beszerzés, Beállítások (HACCP, Leltár).
+- A konyha az Áttekintésben szereplő rendelési adatokat teljesen látja (ügyfélnév, tételek, összeg, fizetés, futár, cím, telefon), a beszállítókat és a készletet is; az ügyféltörzset, az ismétlődő rendeléseket és a naplót nem.
+- Írni a konyha továbbra is csak a gyártási állapotot, a csomagolást, a HACCP-naplót, a raktár és a beszerzés műveleteit, valamint a leltár rögzítését tudja (a leltár könyvelése és sztornója admin). Rendelést felvenni, futárt kiosztani, fizetést állítani nem tud; az „Új rendelés” gomb nála nem jelenik meg.

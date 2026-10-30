@@ -25,7 +25,6 @@ import {
   Truck,
   UtensilsCrossed,
   Users,
-  Blocks,
   Settings,
   History,
   Plus,
@@ -77,6 +76,8 @@ import {
   portions,
   orderCode,
   kitchenSummary,
+  orderStage,
+  overviewCards,
   readyPortions,
   normalizeSearch,
   type Language,
@@ -133,6 +134,26 @@ const allergenKeys = [
   "molluscs",
 ];
 const UiContext = createContext({ lang: "hu" as Language, busy: false });
+/** Állapot a lépéssorral együtt, ahogy az ügyfél is látja a portálon (v38). */
+function StageBadge({ order }: { order: Order }) {
+  const { lang } = useContext(UiContext);
+  const s = orderStage(order);
+  return (
+    <span className="stage-cell">
+      <span className={"badge " + s.badge}>
+        <i />
+        {messages[lang][s.key] ?? s.key}
+      </span>
+      {s.step > 0 && (
+        <span className="stage-steps" aria-hidden="true">
+          {Array.from({ length: s.steps }, (_, n) => (
+            <span key={n} className={n < s.step ? "done" : ""} />
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
 function Badge({ state,label }: { state: string;label?:string }) {
   const { lang } = useContext(UiContext);
   return (
@@ -231,6 +252,22 @@ export default function KitchenApp() {
   useEffect(() => {
     void load();
   }, [load]);
+  const refreshQuietly = useCallback(async () => {
+    try {
+      const r = await fetch("/api/data", { cache: "no-store" });
+      if (!r.ok) return;
+      setData((await r.json()) as AppData);
+    } catch {
+      // Hálózati hiba: a következő körben újra próbálja.
+    }
+  }, []);
+  useEffect(() => {
+    if (!session || !isMember(session.role) || !["overview", "orders"].includes(tab) || modal) return;
+    const timer = setInterval(() => void refreshQuietly(), 30000);
+    const onVisible = () => { if (document.visibilityState === "visible") void refreshQuietly(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
+  }, [session, tab, modal, refreshQuietly]);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(""), 4000);
@@ -336,13 +373,13 @@ export default function KitchenApp() {
       <ClipboardList size={28} />
       <h3>{t(query || filter !== "all" ? "noResults" : "noOrders")}</h3>
       <p>{t("emptyHint")}</p>
-      <Button
+      {can("orders") && <Button
         onClick={() => open("order")}
         disabled={!data.products.length || !data.customers.length}
       >
         <Plus size={16} />
         {t("newOrder")}
-      </Button>
+      </Button>}
     </div>
   );
   function orderTable(list: Order[]) {
@@ -365,10 +402,11 @@ export default function KitchenApp() {
             {list.map((o, i) => (
               <tr
                 key={o.id}
-                className={o.status === "cancelled" ? "cancelled-row" : ""}
+                className={"order-row" + (o.status === "cancelled" ? " cancelled-row" : "")}
+                onClick={() => detail(o)}
               >
                 <td>
-                  <button className="customer-cell" onClick={() => detail(o)}>
+                  <button className="customer-cell">
                     <span className={"avatar avatar-" + (i % 4)}>
                       {o.customerName.slice(0, 1)}
                     </span>
@@ -398,23 +436,15 @@ export default function KitchenApp() {
                   </span>
                 </td>
                 <td>
-                  <Badge
-                    state={
-                      o.status !== "confirmed" ? o.status : o.production
-                    }
-                  />
+                  <StageBadge order={o} />
                 </td>
                 <td className="number">
                   <strong>{money(total(o))}</strong>
                   <small>{t(o.payment)}</small>
                 </td>
                 <td>
-                  <button
-                    className="icon-button"
-                    aria-label={t("open")}
-                    onClick={() => detail(o)}
-                  >
-                    <ArrowUpRight size={18} />
+                  <button className="icon-button order-row-open" aria-label={t("open")}>
+                    <ArrowUpRight size={22} />
                   </button>
                 </td>
               </tr>
@@ -604,14 +634,14 @@ export default function KitchenApp() {
             >
               <Menu size={22} />
             </button>
-            <div className="breadcrumb">
-              {isSettingsTab(tab) && (
-                <>
-                  {t("settings")} <ChevronRight size={14} />
-                </>
-              )}
-              <strong>{t(tab)}</strong>
-            </div>
+            {tab !== "overview" && !!session && tabsFor(session.role).includes("overview") ? (
+              <button type="button" className="back-to-overview" onClick={() => navigate("overview")}>
+                <ArrowLeft size={20} />
+                {t("backToOverview")}
+              </button>
+            ) : (
+              <span />
+            )}
             <div className="topbar-right">
               <span className="private-label">
                 <span className="green-dot" />
@@ -634,9 +664,7 @@ export default function KitchenApp() {
           <main>
             <div className="page-heading">
               <div>
-                <p className="eyebrow">
-                  {t(tab === "overview" ? "daily" : isSettingsTab(tab) ? "settings" : tab)}
-                </p>
+                {tab === "overview" && <p className="eyebrow">{t("daily")}</p>}
                 <h1>
                   {t(
                     tab === "overview"
@@ -688,7 +716,7 @@ export default function KitchenApp() {
                     <ArrowLeft size={17} />
                     {t("backToSettings")}
                   </Button>
-                ) : ["overview", "orders"].includes(tab) ? (
+                ) : ["overview", "orders"].includes(tab) && can("orders") ? (
                   <Button
                     onClick={() => open("order")}
                     disabled={!data.products.length || !data.customers.length}
@@ -812,53 +840,33 @@ export default function KitchenApp() {
                 )}
                 {tab === "overview" && (
                   <>
-                    <div className="metrics">
-                      {[
-                        [ClipboardList, "ordersCount", active.length, "orders"],
-                        [UtensilsCrossed, "portions", count, "kitchen"],
-                        [CheckCircle2, "ready", readyCount, "kitchen"],
-                        [
-                          Wallet,
-                          "revenue",
-                          money(active.reduce((s, o) => s + total(o), 0)),
-                          "orders",
-                        ],
-                      ].map(([Icon, label, value, dest], i) => {
-                        const I = Icon as typeof ClipboardList;
+                    {/* v39: négy állapotkártya – narancs: még semmi sincs kész, sárga: folyamatban, zöld: kész. */}
+                    <div className="status-cards">
+                      {overviewCards(daily).map((c) => {
+                        const meta = {
+                          orders: { Icon: ClipboardList, dest: "orders", unit: "ordersCount", extra: "statusAwaitingConfirm" },
+                          kitchen: { Icon: ChefHat, dest: "kitchen", unit: "units", extra: "statusToCook" },
+                          packing: { Icon: Package, dest: "packing", unit: "ordersCount", extra: "statusToPack" },
+                          delivery: { Icon: Truck, dest: "delivery", unit: "ordersCount", extra: "statusInTransit" },
+                        }[c.key];
+                        const I = meta.Icon;
+                        const pct = c.total ? Math.round((c.done / c.total) * 100) : 0;
                         return (
-                          <button
-                            key={String(label)}
-                            className={"metric metric-" + i}
-                            onClick={() => navigate(String(dest))}
-                          >
-                            <div>
-                              <span>{t(String(label))}</span>
-                              <I size={18} />
-                            </div>
-                            <strong>{value as ReactNode}</strong>
-                            <small>
-                              {i === 2 ? (
-                                <>
-                                  <span className="green-dot" />
-                                  {count
-                                    ? Math.round((readyCount / count) * 100)
-                                    : 0}
-                                  % {t("readyOf")}
-                                </>
-                              ) : i === 3 ? (
-                                t("gross")
-                              ) : (
-                                <>
-                                  {i === 0
-                                    ? active.filter(
-                                        (o) => o.fulfillmentMode!=="pickup" && o.delivery === "pending",
-                                      ).length
-                                    : summary.length}{" "}
-                                  {t(
-                                    i === 0 ? "pending" : "items",
-                                  ).toLowerCase()}
-                                </>
-                              )}
+                          <button key={c.key} className={"status-card level-" + c.level} onClick={() => navigate(meta.dest)}>
+                            <span className="status-card-head">
+                              <I size={22} />
+                              <span>{t("statusCard_" + c.key)}</span>
+                              <span className="status-pill">{t("level_" + c.level)}</span>
+                            </span>
+                            <strong>
+                              {c.done}
+                              <small> / {c.total}</small>
+                            </strong>
+                            <span className="status-bar">
+                              <span style={{ width: pct + "%" }} />
+                            </span>
+                            <small className="status-card-foot">
+                              {c.extra > 0 ? c.extra + " " + t(meta.extra) : c.done < c.total ? c.total - c.done + " " + t("statusRemaining") : t("statusCardDone_" + c.key)}
                             </small>
                           </button>
                         );
@@ -902,7 +910,15 @@ export default function KitchenApp() {
                                     <Leaf size={18} />
                                   )}
                                 </span>
-                                <strong>{title(r)}</strong>
+                                <strong>
+                                  {title(r)}
+                                  <small className="production-meta">
+                                    {t("packingPrepared")}: {r.ready} · {t("packingPacked")}: {r.packed}
+                                    {" · "}
+                                    {t("allergens")}:{" "}
+                                    {r.allergens ? r.allergens.split(",").map(t).join(", ") : t("packingNoAllergenData")}
+                                  </small>
+                                </strong>
                                 <span>
                                   {r.quantity}
                                   <small> {t("units")}</small>
@@ -960,6 +976,17 @@ export default function KitchenApp() {
                           <span />
                         </div>
                       </section>
+                    </div>
+                    <div className="revenue-strip">
+                      <Wallet size={18} />
+                      <span>{t("revenue")}</span>
+                      <strong>{money(active.reduce((s, o) => s + total(o), 0))}</strong>
+                      <span className="revenue-split">
+                        {t("paid")}: {money(active.filter((o) => o.payment === "paid").reduce((s, o) => s + total(o), 0))}
+                        {" · "}
+                        {t("unpaid")}: {money(active.filter((o) => o.payment !== "paid").reduce((s, o) => s + total(o), 0))}
+                      </span>
+                      <small>{t("gross")}</small>
                     </div>
                   </>
                 )}
@@ -1260,39 +1287,9 @@ export default function KitchenApp() {
                         <ChevronRight size={18} className="settings-card-arrow" />
                       </a>
                     </div>
-                    {isAdmin(session.role) && (
-                      <>
-                        <h2 className="settings-section-title">{t("settingsModules")}</h2>
-                        <div className="settings-grid settings-module-grid">
-                          {[
-                            ...nav.filter(([key]) => !["overview", "settings"].includes(key) && !isSettingsTab(String(key))),
-                            ["billing", Wallet],
-                          ].map(([key, Icon]) => {
-                            const I = Icon as typeof Blocks;
-                            const available = nav.some(([keyName]) => keyName === key);
-                            return (
-                              <button
-                                type="button"
-                                className="panel settings-card compact"
-                                key={String(key)}
-                                disabled={!available}
-                                onClick={() => navigate(String(key))}
-                              >
-                                <I size={20} />
-                                <span>
-                                  <strong>{t(String(key))}</strong>
-                                  {!available && <small>{t("planned")}</small>}
-                                </span>
-                                {available && <ChevronRight size={18} className="settings-card-arrow" />}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </>
-                    )}
                   </>
                 )}
-                {tab === "packing" && <PackingWorkspace lang={lang} refresh={load} initialDate={packingTarget?.date??day} initialOrderId={packingTarget?.id??""} canEditLabels={isAdmin(session.role)}/>}
+                {tab === "packing" && <PackingWorkspace lang={lang} refresh={load} initialDate={packingTarget?.date??day} initialOrderId={packingTarget?.id??""} canEditLabels={isAdmin(session.role)} canAssign={canWrite(session.role,"/api/delivery/assign",{})}/>}
                 {tab === "fulfillment" && <FulfillmentWorkspace lang={lang} role={session.role}/>}
                 {tab === "labels" && <LabelsWorkspace lang={lang}/>}
                 {tab === "stocktake" && <StocktakeWorkspace ops={data.operations} lang={lang} role={session.role} refresh={load}/>}

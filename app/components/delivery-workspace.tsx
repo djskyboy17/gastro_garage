@@ -10,6 +10,8 @@ export default function DeliveryWorkspace({data,lang,busy,mutate,day,onOrder}: P
   const [courier,setCourier] = useState("all"), [state,setState] = useState("open"), [showForm,setShowForm] = useState(false);
   const [requestId,setRequestId] = useState("");
   const rows = deliveryList(data.orders,day,courier,state);
+  // Napi beosztás (v36): a csomagolásnál csak az aznap bejelölt futárok választhatók.
+  const onShift = new Set((data.logistics.shifts ?? []).filter(s=>s.date===day).map(s=>s.courierId));
   const money = (n:number) => new Intl.NumberFormat(lang === "hu" ? "hu-HU":"ro-RO",{style:"currency",currency:"RON"}).format(n/100);
   async function create(e:FormEvent<HTMLFormElement>) {
     e.preventDefault(); const f = new FormData(e.currentTarget);
@@ -25,7 +27,8 @@ export default function DeliveryWorkspace({data,lang,busy,mutate,day,onOrder}: P
         <label>{t("note")}<input name="note" maxLength={500}/></label>
         <button className="button" disabled={busy} type="submit">{t(busy?"saving":"save")}</button>
       </form>}
-      <div className="courier-roster">{data.logistics.couriers.length ? data.logistics.couriers.map(c=><div key={c.id}><Truck size={16}/><strong>{c.name}</strong><span>{[c.vehicle,c.phone].filter(Boolean).join(" · ")}</span>{c.note && <small>{c.note}</small>}</div>) : <p>{t("noCouriers")}</p>}</div>
+      <p className="courier-shift-title"><strong>{t("courierShiftTitle")} · {day}</strong> {t("courierShiftHint")}</p>
+      <div className="courier-roster">{data.logistics.couriers.length ? data.logistics.couriers.map(c=><div key={c.id} className={onShift.has(c.id)?"on-shift":""}><Truck size={16}/><strong>{c.name}</strong><span>{[c.vehicle,c.phone].filter(Boolean).join(" · ")}</span>{c.note && <small>{c.note}</small>}<label className="courier-shift-toggle"><input type="checkbox" checked={onShift.has(c.id)} disabled={busy} onChange={e=>void mutate("delivery/shift",{date:day,courierId:c.id,onShift:e.target.checked})}/>{t("courierOnShift")}</label></div>) : <p>{t("noCouriers")}</p>}</div>
     </section>
     <section className="panel manifest-toolbar">
       <div><h2>{t("manifest")}</h2><p>{t("manifestHint")}</p></div>

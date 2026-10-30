@@ -124,7 +124,7 @@ async function handle(req: Request, write: boolean) {
       return json({...(await loadPolicy()),bookedSlotIds:await bookedSlotIds()});
     }
     if (!write && path === "/api/stocktake") {
-      if (!["owner","admin","warehouse"].includes(session.role)) return json({error:"FORBIDDEN"},403);
+      if (!["owner","admin","kitchen","warehouse"].includes(session.role)) return json({error:"FORBIDDEN"},403);
       return json(await loadStocktakes());
     }
     if (!write && path === "/api/menu") {

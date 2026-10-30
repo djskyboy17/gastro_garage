@@ -30,3 +30,7 @@ The public menu (GET /api/portal/menu) and the public catalog also return `info`
 
 ## Rendelés mentése csak étlap alapján — v35 (hibajavítás)
 A v27 óta a portálon az étlap teszi rendelhetővé az ételt, a „közzétéve” jelző nem kell. A rendelés mentésekor futó tranzakciós ellenőrzés viszont még megkövetelte a `portal_visible=1`-et, ezért a csak étlapon szereplő ételekre a rendelés „Közben megváltozott a rendelés” (CONFLICT) hibával elbukott. Javítva: a tranzakció az étel aktív állapotát, a `portal_revision`-t (ár/adat változása), az étlap-változatot és a határidőt ellenőrzi, a közzétételt nem.
+
+## Ügyfélportál oldal: kereső a kérések helyett — v37
+A belső Ügyfélportál oldalról kikerült a „Visszaigazolásra váró kérések” lista. A kérések a Rendelések oldalon a „Visszaigazolásra vár” szűrővel érhetők el, és a rendelés részleteiben ugyanúgy visszaigazolhatók vagy elutasíthatók. Helyette ügyfélkereső van a fiókok fölött: név, cím vagy telefon alapján, kis-nagybetű és ékezet nélkül.
+Az oldal a főmenü helyett a Beállítások alól nyílik (settingsTabs), a jogosultság változatlan.

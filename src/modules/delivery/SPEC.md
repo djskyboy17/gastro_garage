@@ -20,3 +20,10 @@ Acceptance:
 V12: existing dispatcher assignment and state actions remain unchanged. The dedicated courier API applies the same shared transitions with per-account ownership checks. Assigning a courier still does not create a user account or membership.
 
 V14: shared departure and pickup guards additionally require confirmed packing. The daily packing module owns checking/reopening; couriers cannot bypass it. In-transit historical orders can finish without backfilled checks.
+
+V36 — napi beosztás és átvételre váltás:
+- `courier_shifts` (dátum + futár): a Kiszállítás oldalon a futártörzsben naponta bejelölhető, ki dolgozik. `POST /api/delivery/shift {date, courierId, onShift}` idempotens; napló: `courier_shift_added` / `courier_shift_removed`. Tartomány: −7…+90 nap.
+- A csomagolás csak a beosztott futárokat ajánlja; a javasolt az, akinek aznap a legkevesebb nyitott (nem kézbesített) kiszállítása van.
+- `POST /api/delivery/to-pickup {id, revision, removeFee}`: csak visszaigazolt, kiszállításos, függő/sikertelen kézbesítésű rendelés. Mód → átvétel, futár törlése, idősáv-hivatkozás törlése, cím → az átvételi cím (fulfillment beállítás), a pillanatkép frissül. A díj `removeFee` szerint 0 vagy változatlan. Esemény (`to_pickup`), napló (`fulfillment_switched_pickup`, régi és új díjjal) és revizió-növelés egy kötegben; elavult revizió → 409.
+- [FELTÉTELEZÉS] Az átvételre váltás szerveroldalon akkor is engedélyezett, ha van beosztott futár (pl. az ügyfél kéri); a felület csak beosztott futár hiányában kínálja fel.
+- Jogosultság: tulajdonos, admin, diszpécser.

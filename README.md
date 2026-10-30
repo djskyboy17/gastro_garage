@@ -245,3 +245,20 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 ## Hiányzó címkeadat pótlása — v34
 
 - A Termékcímkék hiánylistájában az ételre kattintva felugró ablakban pótolható a fogyaszthatósági idő, a tárolás és a gyártói adat (tulajdonos/admin).
+
+## Csomagolás külön, futár a csomagellenőrzésből — v36
+
+- A „Napi munkaterv és csomagolás” helyett „Csomagolás”: csak Csomagellenőrzés és Termékcímkék. A munkacímke megszűnt; az adagterv (kész és csomagolt adag, allergének) az Áttekintésben van.
+- Kiszállítás → Napi beosztás: naponta bejelölhető, melyik futár dolgozik.
+- Csomagellenőrzés: ha hiányzik a futár, a beosztottak közül egy kattintással kiosztható (a legkevésbé leterhelt a javasolt); ha aznap nincs beosztott futár, a rendelés helyszíni átvételre váltható, a kiszállítási díj törléséről jelölőnégyzet dönt.
+- Új migráció: `0019_courier_shifts`.
+
+## Ügyfélportál oldal — v37
+
+- A visszaigazolásra váró kérések listája kikerült (a Rendelések oldalon, a „Visszaigazolásra vár” szűrővel érhetők el); helyette ügyfélkereső van.
+- Az Ügyfélportál kikerült a főmenüből; a Beállítások között érhető el (tulajdonos, admin, diszpécser).
+- Rendelések: az egész sor kattintható; nagyobb gombok, mezők és sorok (konyhai, „zsíros ujjas” használatra).
+- Áttekintés és Rendelések: az állapot az ügyfélportálhoz hasonló lépéssor (Rendelés elfogadva → Készül → Elkészült → Futárra vár / Átvehető → Úton → Teljesítve), kis lépésjelzővel; a lista 30 másodpercenként és az ablakba visszatéréskor magától frissül.
+- Áttekintés: négy állapotkártya – Rendelés, Konyhai terv, Csomagolás, Futár – narancs (még nem kezdődött), sárga (folyamatban), zöld (kész) színnel; a rendelési érték lent, visszafogott sávban (fizetve / fizetésre vár).
+- Fejléc: a modul neve már nem ismétlődik háromszor; a fejlécben minden modulból nagy „Vissza az Áttekintéshez” gomb van (annak, akinek van Áttekintés oldala).
+- Szerepkörök: nincs külön raktáros; a konyha látja az Áttekintés összes részét (rendelések, konyha, csomagolás, kiszállítás), és kezeli a raktárt, a leltárt és a beszerzést.

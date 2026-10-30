@@ -120,7 +120,7 @@ const settingsInput = z
 export async function handleLabels(path: string, body: unknown, session: Session, write: boolean, req: Request) {
   const db = getDb();
   if (!write && path === "/api/labels") {
-    if (!["owner", "admin", "kitchen", "dispatcher"].includes(session.role)) throw new LabelError("FORBIDDEN", 403);
+    if (!["owner", "admin", "kitchen", "warehouse", "dispatcher"].includes(session.role)) throw new LabelError("FORBIDDEN", 403);
     const params = new URL(req.url).searchParams;
     const date = params.get("date") ?? today(),
       orderId = params.get("orderId") ?? "";

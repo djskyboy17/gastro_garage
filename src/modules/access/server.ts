@@ -3,7 +3,7 @@ import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
 import { members, workspaceOwners } from "@/db/schema";
-import { staffRoles, isAdmin, type Role, type Session } from "./domain";
+import { assignableRoles, isAdmin, type Role, type Session } from "./domain";
 export class AccessError extends Error {
   constructor(public code:string,public status=403){super(code);}
 }
@@ -27,7 +27,7 @@ export async function handleAccess(path:string,body:unknown,user:Identity,sessio
   }
   if(path!=="/api/access/role") return null;
   if(!isAdmin(session.role)) throw new AccessError("FORBIDDEN");
-  const d=z.object({userId:z.string().min(1).max(200),revision:z.number().int().min(0),role:z.enum(staffRoles)}).parse(body);
+  const d=z.object({userId:z.string().min(1).max(200),revision:z.number().int().min(0),role:z.enum(assignableRoles)}).parse(body);
   if(d.userId===user.userId) throw new AccessError("SELF_ROLE_LOCKED",400);
   const [owner]=await getDb().select().from(workspaceOwners).where(eq(workspaceOwners.id,1));
   if(d.userId===owner?.userId) throw new AccessError("OWNER_ROLE_LOCKED",400);

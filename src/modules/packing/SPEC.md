@@ -23,3 +23,9 @@ Acceptance:
 A csomagolási nézet (terv, rendelések, címkék) csak azokat a rendeléseket mutatja, amelyeket még csomagolni kell: a kiszállítás állapota „függőben” vagy „sikertelen” (újra kell küldeni). Ami már úton van, kézbesítve lett vagy amit az ügyfél átvett, kimarad (`needsPacking`).
 
 A fogyasztói címke (fogyaszthatósági idő, tárolás, QR-kód) külön modul: ../labels/SPEC.md (v32). Az itteni munkacímke továbbra is belső címke.
+
+## Csomagolás külön modulként — v36
+- A modul neve „Csomagolás”; két nézete van: Csomagellenőrzés és Termékcímkék. Az adagterv (Adagterv fül) és a belső munkacímke (Címkék fül) megszűnt. Az adagterv tartalma az Áttekintés „Mi készül ma?” paneljébe került: ételenként összes, elkészült és ellenőrzötten csomagolt adag, valamint az allergének.
+- Futár a csomagellenőrzésből: kiszállításos, még nem indult rendelésnél a kártya alján látszik a futár. Ha nincs, a napra beosztott futárok közül lehet választani (javasolt: akinek aznap a legkevesebb nyitott kiszállítása van); a kiosztás ugyanaz a `POST /api/delivery/assign`, mint a Kiszállítás oldalon.
+- Ha a napra nincs beosztott futár, a rendelés helyszíni átvételre váltható (`POST /api/delivery/to-pickup`). A kiszállítási díj törléséről a felhasználó dönt egy jelölőnégyzettel; megerősítést kér.
+- Futárt kiosztani és átvételre váltani tulajdonos, admin és diszpécser tud; a konyha csak látja, hogy hiányzik a futár.
