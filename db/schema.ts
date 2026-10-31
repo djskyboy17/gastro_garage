@@ -72,7 +72,7 @@ export const orders = sqliteTable("orders", {
   status: text("status").notNull().default("confirmed"),
   revision: integer("revision").notNull().default(0),
   createdAt: text("created_at").notNull(),
-});
+}, (t) => [index("orders_date_status").on(t.date, t.status)]);
 export const orderItems = sqliteTable("order_items", {
   recipeId: text("recipe_id").references(() => recipes.id),
   id: text("id").primaryKey(),
@@ -88,7 +88,7 @@ export const orderItems = sqliteTable("order_items", {
   quantity: integer("quantity").notNull(),
   price: integer("price").notNull(),
   ready: integer("ready").notNull().default(0),
-});
+}, (t) => [index("order_items_order").on(t.orderId)]);
 export const audit = sqliteTable("audit", {
   id: text("id").primaryKey(),
   actor: text("actor").notNull(),

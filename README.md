@@ -265,3 +265,16 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 - Álló képernyőn (magasabb, mint széles) és 900 px alatt mobil elrendezés: a bal oldali menü elrejtve, a ☰ gombbal nyílik. Kiszállítás: az egész kártya megnyitja a rendelést, a külön Megnyitás gomb megszűnt.
 - Futár munkatér: sötétzöld, fix fejléc a logóval és a nagy „Futár munkatér” címmel (alatta a futár neve), nagyobb betűk, nagy gombok (indulás, kézbesítve teljes szélességben), kiemelt napi összesítő.
 - Ügyfélportál: modern, mobilbarát étlap – nagy képes kártyák, „i” gomb az allergénekhez és összetevőkhöz (felugró ablak), jól látható narancs „Kosárba” gomb, darabszámláló, telefonon alsó kosársáv, görgethető nap- és kategóriaválasztó.
+
+## Ügyfélportál: csak a nyitott rendelések — v45
+
+- A kiszállított és átvett rendelések eltűnnek az ügyfél „Saját rendeléseim” listájáról; a lemondott és elutasított kérések a lezárás után 1 napig még látszanak. Új migráció: `0020_audit_entity_index`.
+
+## Konyhai kijelző régi eszközre (IE11) — v47
+
+- Új, különálló oldal: `https://konyha.veres.no/kijelzo`. Szerveren renderelt HTML és ES5 script, ezért első generációs Surface RT-n (Windows RT 8.1, Internet Explorer 11) is fut. A fő alkalmazás nem változik.
+- Belépés űrlappal, a meglévő dolgozói fiókkal (konyha vagy admin); a belépés 30 napig érvényes, és használat közben megújul.
+- Mai és késésben lévő rendelések nagy kártyákon, nagy „Folyamatban” / „Elkészült” gombokkal; villogás nélküli frissítés 20 mp-enként (változatlan adatnál a szerver üres választ ad); új rendelés kiemelése és csengő; „Nincs kapcsolat” jelzés és automatikus újrapróbálás. HU/RO.
+- Új migráció: `0021_order_lookup_indexes` (`orders(date,status)`, `order_items(order_id)`).
+- A Surface RT beállítása (külön Konyha fiók, automatikus bejelentkezés, IE11 kioszk mód): `scripts/surface-rt/LEIRAS.md`.
+- Részletek: `src/modules/display/SPEC.md`.

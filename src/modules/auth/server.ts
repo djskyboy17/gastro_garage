@@ -161,35 +161,9 @@ export async function handleAuth(
     return json({ ok: true }, 201, [sessionCookie(session.token, secure)]);
   }
   if (path === "/api/auth/login") {
-    const d = credentials.parse(body),
-      email = normalizeEmail(d.email),
-      ip = clientIp(req);
-    const failures = await env.DB!.prepare(
-      "SELECT (SELECT COUNT(*) FROM auth_failures WHERE email=? AND created_at>?) AS byEmail, (SELECT COUNT(*) FROM auth_failures WHERE ip<>'' AND ip=? AND created_at>?) AS byIp",
-    )
-      .bind(email, minutesAgo(FAILURE_WINDOW_MINUTES), ip, minutesAgo(FAILURE_WINDOW_MINUTES))
-      .first<{ byEmail: number; byIp: number }>();
-    if ((failures?.byEmail ?? 0) >= MAX_FAILURES || (failures?.byIp ?? 0) >= MAX_IP_FAILURES) throw new AuthError("TOO_MANY_ATTEMPTS", 429);
-    const user = await env.DB!.prepare("SELECT id,password_hash,must_change_password AS must FROM auth_users WHERE email=?")
-      .bind(email)
-      .first<{ id: string; password_hash: string; must: number }>();
-    // Csak Google-lel belépő fióknál nincs jelszó: ugyanúgy elutasítjuk, mint a rossz jelszót.
-    const ok = await verifyPassword(d.password, user?.password_hash || DUMMY_HASH);
-    if (!user || !user.password_hash || !ok) {
-      await env.DB!.batch([
-        env.DB!.prepare("DELETE FROM auth_failures WHERE created_at<?").bind(minutesAgo(24 * 60)),
-        env.DB!.prepare("INSERT INTO auth_failures (id,email,ip,created_at) VALUES (?,?,?,?)").bind(crypto.randomUUID(), email, ip, now),
-      ]);
-      throw new AuthError("INVALID_LOGIN", 401);
-    }
-    const session = await startSession(user.id);
-    await env.DB!.batch([
-      env.DB!.prepare("DELETE FROM auth_failures WHERE email=?").bind(email),
-      env.DB!.prepare("DELETE FROM auth_sessions WHERE user_id=? AND expires_at<?").bind(user.id, now),
-      session.statement,
-      audit(user.id, "login", user.id, "password", now),
-    ]);
-    return json({ ok: true, mustChangePassword: user.must === 1 }, 200, [sessionCookie(session.token, secure)]);
+    const d = credentials.parse(body);
+    const login = await passwordLogin(d.email, d.password, req);
+    return json({ ok: true, mustChangePassword: login.mustChangePassword }, 200, [sessionCookie(login.token, secure)]);
   }
   if (path === "/api/auth/logout") {
     const token = readCookie(req.headers.get("cookie"), SESSION_COOKIE);
@@ -235,6 +209,67 @@ export async function handleAuth(
     return json({ ok: true, password });
   }
   return json({ error: "NOT_FOUND" }, 404);
+}
+
+/**
+ * Jelszavas belépés, a korlátozással és a naplóval együtt. A JSON-os `/api/auth/login` és a konyhai kijelző
+ * űrlapos belépése (`/kijelzo`) is ezt használja, így a kettő ugyanazokat a szabályokat követi.
+ */
+export async function passwordLogin(rawEmail: string, password: string, req: Request) {
+  const email = normalizeEmail(rawEmail.slice(0, 254)),
+    ip = clientIp(req),
+    now = new Date().toISOString();
+  if (!password || password.length > PASSWORD_MAX) throw new AuthError("INVALID_LOGIN", 401);
+  const failures = await env.DB!.prepare(
+    "SELECT (SELECT COUNT(*) FROM auth_failures WHERE email=? AND created_at>?) AS byEmail, (SELECT COUNT(*) FROM auth_failures WHERE ip<>'' AND ip=? AND created_at>?) AS byIp",
+  )
+    .bind(email, minutesAgo(FAILURE_WINDOW_MINUTES), ip, minutesAgo(FAILURE_WINDOW_MINUTES))
+    .first<{ byEmail: number; byIp: number }>();
+  if ((failures?.byEmail ?? 0) >= MAX_FAILURES || (failures?.byIp ?? 0) >= MAX_IP_FAILURES) throw new AuthError("TOO_MANY_ATTEMPTS", 429);
+  const user = await env.DB!.prepare("SELECT id,password_hash,must_change_password AS must FROM auth_users WHERE email=?")
+    .bind(email)
+    .first<{ id: string; password_hash: string; must: number }>();
+  // Csak Google-lel belépő fióknál nincs jelszó: ugyanúgy elutasítjuk, mint a rossz jelszót.
+  const ok = await verifyPassword(password, user?.password_hash || DUMMY_HASH);
+  if (!user || !user.password_hash || !ok) {
+    await env.DB!.batch([
+      env.DB!.prepare("DELETE FROM auth_failures WHERE created_at<?").bind(minutesAgo(24 * 60)),
+      env.DB!.prepare("INSERT INTO auth_failures (id,email,ip,created_at) VALUES (?,?,?,?)").bind(crypto.randomUUID(), email, ip, now),
+    ]);
+    throw new AuthError("INVALID_LOGIN", 401);
+  }
+  const session = await startSession(user.id);
+  await env.DB!.batch([
+    env.DB!.prepare("DELETE FROM auth_failures WHERE email=?").bind(email),
+    env.DB!.prepare("DELETE FROM auth_sessions WHERE user_id=? AND expires_at<?").bind(user.id, now),
+    session.statement,
+    audit(user.id, "login", user.id, "password", now),
+  ]);
+  return { token: session.token, userId: user.id, mustChangePassword: user.must === 1 };
+}
+
+/** Kilépés: a munkamenet törlése az adatbázisból és a süti törlése. */
+export async function endSession(req: Request) {
+  const token = readCookie(req.headers.get("cookie"), SESSION_COOKIE);
+  if (token && token.length <= 100) await env.DB!.prepare("DELETE FROM auth_sessions WHERE id=?").bind(await tokenDigest(token)).run();
+  return clearedCookie(isSecure(req));
+}
+
+/**
+ * Folyamatosan használt eszköz (konyhai kijelző) munkamenetének megújítása: ha a süti 20 napon belül lejárna,
+ * új munkamenet indul (újabb 30 nap), a régi törlődik. Érvénytelen sütinél nem csinál semmit.
+ */
+export async function renewSession(req: Request): Promise<string | null> {
+  const token = readCookie(req.headers.get("cookie"), SESSION_COOKIE);
+  if (!token || token.length > 100) return null;
+  const digest = await tokenDigest(token);
+  const row = await env.DB!.prepare("SELECT user_id,expires_at FROM auth_sessions WHERE id=? AND expires_at>?")
+    .bind(digest, new Date().toISOString())
+    .first<{ user_id: string; expires_at: string }>();
+  if (!row || row.expires_at > new Date(Date.now() + 20 * 86400_000).toISOString()) return null;
+  const session = await startSession(row.user_id);
+  await env.DB!.batch([session.statement, env.DB!.prepare("DELETE FROM auth_sessions WHERE id=?").bind(digest)]);
+  return sessionCookie(session.token, isSecure(req));
 }
 
 function signinError(code: string, returnTo: string) {

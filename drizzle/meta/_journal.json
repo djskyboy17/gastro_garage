@@ -148,6 +148,13 @@
       "when": 1793441134887,
       "tag": "0020_audit_entity_index",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1793482056157,
+      "tag": "0021_order_lookup_indexes",
+      "breakpoints": true
     }
   ]
 }

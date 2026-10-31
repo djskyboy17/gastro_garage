@@ -74,10 +74,12 @@ export function readCookie(header: string | null, name: string) {
   return null;
 }
 export function sessionCookie(token: string, secure: boolean) {
-  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}${secure ? "; Secure" : ""}`;
+  // Az Expires az Internet Explorer 11 miatt kell (a Max-Age-et nem ismeri, nélküle bezáráskor elveszne a süti).
+  const expires = new Date(Date.now() + SESSION_DAYS * 86400_000).toUTCString();
+  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}; Expires=${expires}${secure ? "; Secure" : ""}`;
 }
 export function clearedCookie(secure: boolean) {
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure ? "; Secure" : ""}`;
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT${secure ? "; Secure" : ""}`;
 }
 /** Csak a saját oldalra lehet visszairányítani (nyílt átirányítás ellen). */
 export function safeReturn(value: string | null) {
