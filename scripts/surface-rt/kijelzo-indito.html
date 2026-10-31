@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<!-- saved from url=(0014)about:internet -->
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<!-- Tartalek: ha az IE megsem futtatja a scriptet, 20 mp utan magatol atvalt a kijelzore. -->
+<meta http-equiv="refresh" content="20;url=https://konyha.veres.no/kijelzo">
+<title>Konyhai kijelzo</title>
+<style>
+html,body{margin:0;height:100%;background:#1f3b2f;color:#fff;font-family:"Segoe UI",Arial,sans-serif;-ms-user-select:none}
+.k{position:absolute;top:50%;left:0;right:0;margin-top:-80px;text-align:center}
+h1{font-size:40px;margin:0 0 16px}
+p{font-size:24px;margin:0;color:#c3d4b8}
+</style>
+</head>
+<body>
+<div class="k">
+  <h1>Konyhai kijelz&#337; &middot; Ecran buc&#259;t&#259;rie</h1>
+  <p id="u">Kapcsol&oacute;d&aacute;s&hellip; &middot; Conectare&hellip;</p>
+</div>
+<script>
+/* Helyi indito oldal (Surface RT, IE11). Ha mar elerheto a szerver, atvalt a kijelzore;
+   kulonben 3 masodpercenkent ujraprobalja. Igy nem marad az IE sajat hibaoldalan. */
+(function () {
+  var CIM = 'https://konyha.veres.no/kijelzo';
+  var KEP = 'https://konyha.veres.no/favicon-32.png';
+  var probak = 0;
+  function proba() {
+    probak++;
+    var img = new Image();
+    var kesz = false;
+    img.onload = function () { if (!kesz) { kesz = true; window.location.replace(CIM); } };
+    img.onerror = function () { if (!kesz) { kesz = true; ujra(); } };
+    setTimeout(function () { if (!kesz) { kesz = true; ujra(); } }, 8000);
+    img.src = KEP + '?t=' + new Date().getTime();
+  }
+  function ujra() {
+    document.getElementById('u').innerHTML = 'Nincs kapcsolat, &uacute;jrapr&oacute;b&aacute;lkoz&aacute;s&hellip; (' + probak + ') &middot; F&#259;r&#259; conexiune&hellip;';
+    setTimeout(proba, 3000);
+  }
+  proba();
+})();
+</script>
+</body>
+</html>

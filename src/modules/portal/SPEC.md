@@ -40,3 +40,6 @@ Az ételkártyán nagy kép (vagy kategóriaszínű helykitöltő), a jobb fels�
 
 ## Teljesített rendelések elrejtése — v45
 A „Saját rendeléseim” listában csak a még nem teljesített rendelések szerepelnek. Amint egy rendelés kiszállítva vagy átvéve (`delivery = delivered`), a `GET /api/portal/me` már nem adja vissza (a tételeit sem kérdezi le), így a következő frissítéskor eltűnik az ügyfél oldaláról. A rendelés a konyhai rendszerben, a számlázásban és a változásnaplóban változatlanul megmarad. Az elutasított és lemondott kérések még 1 napig látszanak (hogy az ügyfél lássa az okot), utána ezek is eltűnnek. A lezárás időpontja a rendelés utolsó változásnapló-bejegyzése (`audit.entity` = rendelés-azonosító; lezárt rendelés később nem változik), ennek hiányában a létrehozás ideje. Ehhez az `audit (entity, created_at)` index tartozik (0020-as migráció).
+
+## Visszaigazolás a konyhai kijelzőn — v48
+A konyhai kijelzőn (`/kijelzo`) a konyha is visszaigazolhat egy portálos kérést az „Elfogadom” gombbal; ez egyben a főzést is elindítja. Elutasítani továbbra is csak az admin és a diszpécser tud, a fő alkalmazásban. A visszaigazolás ugyanazokkal az állapotszabályokkal és változat-ellenőrzéssel (revision) történik, így az ügyfél egyidejű lemondásával nem ütközhet. Lásd `../display/SPEC.md`.

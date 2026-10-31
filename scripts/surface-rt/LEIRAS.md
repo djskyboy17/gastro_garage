@@ -16,7 +16,8 @@ Windows RT 8.1-en a PowerShell korlátozott módban fut, ezért a beállítás e
 1. Másold a `scripts/surface-rt` mappa tartalmát pendrive-ra, majd a Surface-en egy mappába, például `C:\Telepites`:
    - `konyha-kijelzo-beallitas.bat`
    - `kijelzo-indito.bat`
-   - `kijelzo-indito.vbs`
+   - `kijelzo-indito.html`
+   - `kijelzo-feladat.xml`
    - `kijelzo-visszaallitas.bat`
 2. Lépj be a saját rendszergazdai fiókoddal.
 3. A `konyha-kijelzo-beallitas.bat` fájlon: hosszan nyomva (vagy jobb klikk) → **Futtatás rendszergazdaként**.
@@ -34,9 +35,9 @@ Ezután a kijelző magától fut. A belépés 30 napig érvényes, és amíg a k
 |---|---|
 | Külön „Konyha” helyi fiók (normál felhasználó, nem rendszergazda) | `net user` |
 | Automatikus bejelentkezés | `Winlogon` rendszerleíró kulcsok (`AutoAdminLogon`, `DefaultUserName`, `DefaultPassword`) |
-| IE11 kioszk módban, bejelentkezéskor | `HKLM\…\Run` → `C:\Konyha\kijelzo-indito.vbs`; csak a Konyha fiókban fut |
+| IE11 kioszk módban, bejelentkezéskor | Feladatütemező: „GastroGarage Kijelzo” (`kijelzo-feladat.xml`), a Konyha fiók bejelentkezése után 10 mp-cel indítja a `C:\Konyha\kijelzo-indito.bat` fájlt. VBScript nincs, mert Windows RT-n a `WScript.Shell` nem hozható létre. |
+| Ha még nincs hálózat | Az IE előbb a helyi `kijelzo-indito.html` oldalt nyitja meg, ami átvált a kijelzőre, amint a szerver elérhető (legkésőbb 20 mp után) |
 | Az IE újraindítása, ha bezáródik vagy összeomlik | `kijelzo-indito.bat` ciklusa (10 mp-enként ellenőriz) |
-| Indításkor megvárja a hálózatot | `ping konyha.veres.no`, legfeljebb kb. 3 percig |
 | Képernyő soha ne kapcsoljon ki, a gép ne aludjon el | `powercfg` (hálózatról és akkuról is) |
 | Ébredéskor ne kérjen jelszót, ne legyen zárolási képernyő | `CONSOLELOCK 0`, `NoLockScreen` |
 | Frissítés után ne induljon újra magától, amíg valaki be van jelentkezve | `NoAutoRebootWithLoggedOnUsers` |

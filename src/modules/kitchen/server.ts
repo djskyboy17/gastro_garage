@@ -43,6 +43,37 @@ export async function markOrderReady(orderId:string,session:Session){
  return markItemsReady(ids,session);
 }
 /**
+ * Konyhai kijelző „Elfogadom” gombja: ha a rendelés még visszaigazolásra vár (portálos kérés), visszaigazolja,
+ * és a gyártást is elindítja (requested/queued → confirmed/cooking); ha már visszaigazolt, csak a gyártást indítja.
+ * Ugyanazok az állapotszabályok (`nextState`) és naplóbejegyzések, mint a fő alkalmazásban. Ismételve is biztonságos.
+ * Elutasítani a konyha nem tud; az továbbra is az admin és a diszpécser dolga.
+ */
+export async function acceptOrder(orderId:string,session:Session){
+ if(!kitchenRoles.includes(session.role))throw new KitchenError('FORBIDDEN',403);
+ const row=await env.DB!.prepare("SELECT id,status,production,delivery,payment,revision,fulfillment_mode AS fulfillmentMode,courier_id AS courierId,packing_ready AS packingReady,courier_name AS courierName FROM orders WHERE id=?").bind(orderId).first<Order&{courierName:string}>();
+ if(!row)throw new KitchenError('NOT_FOUND',404);
+ if(row.status!=='requested')return startCooking(orderId,session);
+ let confirmed:Order,cooking:Order;
+ try{
+  confirmed=nextState({...row,items:[]},'status','confirmed');
+  cooking=nextState(confirmed,'production','cooking');
+ }catch(e){throw new KitchenError(e instanceof Error?e.message:'INVALID_TRANSITION');}
+ const now=new Date().toISOString(),guard="WHERE EXISTS (SELECT 1 FROM orders WHERE id=? AND revision=? AND status='requested')";
+ const result=await env.DB!.batch([
+  env.DB!.prepare(`INSERT INTO audit (id,actor,action,entity,detail,created_at) SELECT ?,?,'state_changed',?,?,? ${guard}`).bind(crypto.randomUUID(),session.userId,orderId,JSON.stringify({field:'status',from:'requested',to:'confirmed',note:'',courier:row.courierName,via:'kitchen_display'}),now,orderId,row.revision),
+  env.DB!.prepare(`INSERT INTO audit (id,actor,action,entity,detail,created_at) SELECT ?,?,'state_changed',?,?,? ${guard}`).bind(crypto.randomUUID(),session.userId,orderId,JSON.stringify({field:'production',from:row.production,to:'cooking',note:'',courier:row.courierName,via:'kitchen_display'}),now,orderId,row.revision),
+  env.DB!.prepare("UPDATE orders SET status='confirmed',production='cooking',revision=? WHERE id=? AND revision=? AND status='requested' AND production='queued'").bind(cooking.revision,orderId,row.revision),
+ ]);
+ if(result[2]!.meta.changes!==1){
+  // Közben más is módosította: ha azóta már visszaigazolt és készül vagy kész, az is jó eredmény.
+  const now2=await env.DB!.prepare("SELECT status,production FROM orders WHERE id=?").bind(orderId).first<{status:string;production:string}>();
+  if(now2&&now2.status==='confirmed'&&now2.production!=='queued')return {changed:false};
+  if(now2&&now2.status==='confirmed')return startCooking(orderId,session);
+  throw new KitchenError(now2?.status==='cancelled'?'CANCELLED':now2?.status==='rejected'?'REJECTED':'CONFLICT',409);
+ }
+ return {changed:true};
+}
+/**
  * „Folyamatban”: a gyártás megkezdése (queued → cooking), ugyanazzal a naplóbejegyzéssel, mint a rendelés állapotváltása.
  * Ismételve is biztonságos: ha a rendelés már készül vagy kész, nem változtat semmit.
  */

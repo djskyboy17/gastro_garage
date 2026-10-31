@@ -12,6 +12,8 @@ export type DisplayOrder = {
   time: string;
   customerName: string;
   note: string;
+  /** "requested" (visszaigazolásra vár) vagy "confirmed". */
+  status: string;
   production: string;
   fulfillmentMode: string;
   items: { id: string; hu: string; ro: string; allergens: string; quantity: number; ready: number }[];
@@ -93,19 +95,23 @@ function card(o: DisplayOrder, lang: DisplayLang, today: string, compact: boolea
       );
     })
     .join("");
+  // Még el nem kezdett (vagy visszaigazolásra váró) rendelés: egy zöld „Elfogadom” gomb, ami visszaigazol és a főzést is elindítja.
+  // Készülő rendelés: csak „Elkészült”. Kész rendelés: nincs gomb.
+  const requested = o.status === "requested";
   const buttons =
     o.production === "ready"
       ? ""
-      : "<div class=\"gombok\">" +
-        "<button type=\"button\" class=\"gomb nagy folyamatban" + (o.production === "cooking" ? " aktiv" : "") + "\" data-muvelet=\"cooking\"" +
-        (o.production === "cooking" ? " disabled" : "") + ">" + esc(t.startCooking) + "</button>" +
-        "<button type=\"button\" class=\"gomb nagy elkeszult\" data-muvelet=\"ready\">" + esc(t.markReady) + "</button></div>";
+      : o.production === "queued"
+        ? "<div class=\"gombok\"><button type=\"button\" class=\"gomb nagy elfogad\" data-muvelet=\"accept\">" + esc(t.accept) +
+          "<small>" + esc(requested ? t.acceptHint : t.acceptStart) + "</small></button></div>"
+        : "<div class=\"gombok\"><button type=\"button\" class=\"gomb nagy elkeszult\" data-muvelet=\"ready\">" + esc(t.markReady) + "</button></div>";
+  const stateLabel = requested ? t.requested : t[o.production as "queued" | "cooking" | "ready"] ?? o.production;
   return (
-    "<div class=\"kartya all-" + o.production + (late ? " keso" : "") + "\" data-id=\"" + esc(o.id) + "\">" +
+    "<div class=\"kartya all-" + o.production + (requested ? " keres" : "") + (late ? " keso" : "") + "\" data-id=\"" + esc(o.id) + "\">" +
     "<div class=\"kfej\"><span class=\"ido\">" + esc(o.time) + "</span><span class=\"kod\">#" + esc(code(o.id)) + "</span>" +
     "<span class=\"cimke\">" + esc(o.fulfillmentMode === "pickup" ? t.pickup : t.delivery) + "</span>" +
     (late ? "<span class=\"cimke piros\">" + esc(t.late + " · " + o.date.slice(5).replace("-", ".")) + "</span>" : "") +
-    "<span class=\"allapot\">" + esc(t[o.production as "queued" | "cooking" | "ready"] ?? o.production) + "</span></div>" +
+    "<span class=\"allapot\">" + esc(stateLabel) + "</span></div>" +
     "<div class=\"nev\">" + esc(o.customerName) + "</div><table class=\"tetelek\">" + items + "</table>" +
     (o.note && !compact ? "<div class=\"megj\">" + esc(o.note) + "</div>" : "") + buttons + "</div>"
   );

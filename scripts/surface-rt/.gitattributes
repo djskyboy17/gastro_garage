@@ -1,2 +1,4 @@
 *.bat text eol=crlf
 *.vbs text eol=crlf
+*.html text eol=crlf
+*.xml binary

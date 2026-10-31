@@ -16,6 +16,7 @@ const order = (over: Record<string, unknown> = {}) => ({
   time: "11:30",
   customerName: "Atelier Studio",
   note: "",
+  status: "confirmed",
   production: "queued",
   fulfillmentMode: "delivery",
   items: [{ id: "i1", hu: "Gulyásleves", ro: "Supă gulaș", allergens: "celery", quantity: 18, ready: 0 }],
@@ -71,7 +72,23 @@ test("lista: nyitott rendelések gombokkal, a kész rendelések külön, gomb n�
   const readyCard = html.slice(html.indexOf('data-id="x-ready"'));
   assert.equal(readyCard.includes("data-muvelet"), false);
   const cookingCard = html.slice(html.indexOf('data-id="x-cooking"'), html.indexOf('data-id="x-ready"'));
-  assert.ok(cookingCard.includes("aktiv"));
+  // Készülő rendelésen csak az „Elkészült” gomb van.
+  assert.deepEqual([...cookingCard.matchAll(/data-muvelet="(\w+)"/g)].map((m) => m[1]), ["ready"]);
+});
+
+test("új rendelés: csak a zöld „Elfogadom” gomb; visszaigazolásra váró kérésnél jelölve", () => {
+  const html = renderList(
+    [order({ id: "x-req", status: "requested" }), order({ id: "x-queued" })],
+    "hu",
+    "2026-10-31",
+  );
+  const req = html.slice(html.indexOf('data-id="x-req"'), html.indexOf('data-id="x-queued"'));
+  const queued = html.slice(html.indexOf('data-id="x-queued"'));
+  for (const card of [req, queued]) assert.deepEqual([...card.matchAll(/data-muvelet="(\w+)"/g)].map((m) => m[1]), ["accept"]);
+  assert.ok(req.includes(displayMessages.hu.requested));
+  assert.ok(req.includes(displayMessages.hu.acceptHint));
+  assert.ok(html.includes('class="kartya all-queued keres" data-id="x-req"'));
+  assert.equal(queued.includes(displayMessages.hu.acceptHint), false);
 });
 
 test("késésben lévő (tegnapi, még nem kész) rendelés jelölve", () => {

@@ -12,18 +12,26 @@ set "FIOK=Konyha"
 set "MAPPA=C:\Konyha"
 set "WINLOGON=HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
 
-net session >nul 2>&1
-if errorlevel 1 (
+rem Rendszergazdai jog ellenorzese. A "net session" Windows RT-n nem megbizhato (a Kiszolgalo
+rem szolgaltatas gyakran nem fut), ezert olyat nezunk, ami csak emelt joggal sikerul.
+set "ADMIN="
+reg query "HKU\S-1-5-19" >nul 2>&1 && set "ADMIN=1"
+if not defined ADMIN fsutil dirty query %SystemDrive% >nul 2>&1 && set "ADMIN=1"
+if not defined ADMIN (
   echo.
   echo HIBA: rendszergazdakent kell futtatni.
   echo Jobb klikk a fajlon ^(erinto: hosszan nyomva^) - Futtatas rendszergazdakent.
+  echo Ha a Windows jelszot ker, a bejelentkezett fiok nem rendszergazda:
+  echo add meg egy rendszergazdai fiok jelszavat, vagy lepj be azzal.
   echo.
   pause
   exit /b 1
 )
 
-if not exist "%~dp0kijelzo-indito.bat" (
-  echo HIBA: a kijelzo-indito.bat nincs ebben a mappaban: %~dp0
+set "HIANYZIK="
+for %%F in (kijelzo-indito.bat kijelzo-indito.html kijelzo-feladat.xml) do if not exist "%~dp0%%F" set "HIANYZIK=%%F"
+if defined HIANYZIK (
+  echo HIBA: a %HIANYZIK% nincs ebben a mappaban: %~dp0
   pause
   exit /b 1
 )
@@ -71,13 +79,26 @@ wmic useraccount where "name='%FIOK%'" set PasswordExpires=false >nul 2>&1
 echo [2/7] Indito fajlok masolasa: %MAPPA%
 if not exist "%MAPPA%" mkdir "%MAPPA%"
 copy /y "%~dp0kijelzo-indito.bat" "%MAPPA%\kijelzo-indito.bat" >nul
-copy /y "%~dp0kijelzo-indito.vbs" "%MAPPA%\kijelzo-indito.vbs" >nul
+copy /y "%~dp0kijelzo-indito.html" "%MAPPA%\kijelzo-indito.html" >nul
+rem Korabbi valtozatok VBScript-es inditoi: Windows RT-n a WScript.Shell nem hozhato letre,
+rem ezek csak hibaablakot dobnanak fel, ezert torljuk oket.
+del /q "%MAPPA%\kijelzo-indito.vbs" "%MAPPA%\kijelzo-ie.vbs" >nul 2>&1
+del /q "%ProgramData%\Microsoft\Windows\Start Menu\Programs\StartUp\GastroGarageKijelzo.vbs" >nul 2>&1
+reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v GastroGarageKijelzo /f >nul 2>&1
 rem A Konyha fiok olvashatja, de nem modosithatja. SID-ekkel, mert a csoportnevek nyelvfuggok
 rem (Administrators / Rendszergazdak, Users / Felhasznalok).
 icacls "%MAPPA%" /inheritance:r /grant:r "*S-1-5-32-544:(OI)(CI)F" "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-545:(OI)(CI)RX" >nul 2>&1
 
 echo [3/7] Inditas bejelentkezeskor (csak a %FIOK% fiokban fut)...
-reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v GastroGarageKijelzo /t REG_SZ /d "wscript.exe \"%MAPPA%\kijelzo-indito.vbs\"" /f >nul
+rem Feladatutemezo: a Konyha fiok bejelentkezesekor (10 mp kesleltetessel) inditja a kijelzo-indito.bat-ot.
+rem Elsodlegesen XML-bol: csak a bejelentkezett Konyha fiokban fut, jelszot nem tarol,
+rem es nem kell hozza kotegelt bejelentkezesi jog.
+schtasks /create /tn "GastroGarage Kijelzo" /xml "%~dp0kijelzo-feladat.xml" /f
+if errorlevel 1 schtasks /create /tn "GastroGarage Kijelzo" /tr "cmd.exe /c \"%MAPPA%\kijelzo-indito.bat\"" /sc onlogon /delay 0000:10 /ru "%COMPUTERNAME%\%FIOK%" /rp "%JELSZO%" /it /f
+if errorlevel 1 (
+  echo HIBA: az utemezett feladat letrehozasa nem sikerult. Fenykepezd le ezt az ablakot.
+  pause
+)
 
 echo [4/7] Automatikus bejelentkezes...
 reg add "%WINLOGON%" /v AutoAdminLogon /t REG_SZ /d 1 /f >nul

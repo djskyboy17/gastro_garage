@@ -7,8 +7,11 @@ rem ======================================================================
 set "FIOK=Konyha"
 set "WINLOGON=HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
 
-net session >nul 2>&1
-if errorlevel 1 (
+rem Rendszergazdai jog ellenorzese (a "net session" Windows RT-n nem megbizhato).
+set "ADMIN="
+reg query "HKU\S-1-5-19" >nul 2>&1 && set "ADMIN=1"
+if not defined ADMIN fsutil dirty query %SystemDrive% >nul 2>&1 && set "ADMIN=1"
+if not defined ADMIN (
   echo HIBA: rendszergazdakent kell futtatni.
   pause
   exit /b 1
@@ -20,6 +23,8 @@ reg delete "%WINLOGON%" /v DefaultPassword /f >nul 2>&1
 
 echo Inditas bejelentkezeskor torlese...
 reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v GastroGarageKijelzo /f >nul 2>&1
+schtasks /delete /tn "GastroGarage Kijelzo" /f >nul 2>&1
+if exist "%ProgramData%\Microsoft\Windows\Start Menu\Programs\StartUp\GastroGarageKijelzo.vbs" del /q "%ProgramData%\Microsoft\Windows\Start Menu\Programs\StartUp\GastroGarageKijelzo.vbs"
 
 echo Szabalyzatok visszaallitasa...
 reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\Personalization" /v NoLockScreen /f >nul 2>&1

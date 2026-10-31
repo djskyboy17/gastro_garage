@@ -1,13 +1,31 @@
 @echo off
 setlocal EnableExtensions
+title Konyhai kijelzo inditoja - NE ZARD BE
+echo Konyhai kijelzo inditoja. Ezt az ablakot ne zard be: ha az IE bezarodik, ujrainditja.
 rem ======================================================================
-rem  Gastro-Garage konyhai kijelzo inditasa (a Konyha fiok bejelentkezesekor
-rem  fut, rejtett ablakban). Az IE11-et kioszk modban nyitja meg, es ha
-rem  bezarodik vagy osszeomlik, ujrainditja.
+rem  Gastro-Garage konyhai kijelzo inditasa. A Konyha fiok bejelentkezesekor
+rem  a Feladatutemezo inditja (normal ablakban; a kioszk modu IE eltakarja).
+rem  VBScript nincs: Windows RT-n a WScript.Shell nem hozhato letre.
+rem  Az IE11-et kioszk modban nyitja meg, es ha bezarodik vagy osszeomlik,
+rem  ujrainditja.
+rem  Az IE eloszor a helyi kijelzo-indito.html oldalt nyitja meg: az addig
+rem  probalkozik, amig a szerver el nem erheto, utana atvalt a kijelzore.
+rem  Igy nem kell a halozatra varni, es nem marad az IE hibaoldalan.
 rem ======================================================================
-set "CIM=https://konyha.veres.no/kijelzo"
-set "GEP=konyha.veres.no"
+set "INDITO=C:\Konyha\kijelzo-indito.html"
 set "IE=%ProgramFiles%\Internet Explorer\iexplore.exe"
+rem Naplo hibakereseshez: %TEMP%\kijelzo-indito.log (a Konyha fiok TEMP mappajaban).
+set "NAPLO=%TEMP%\kijelzo-indito.log"
+echo %DATE% %TIME% bat indul, felhasznalo=%USERNAME% >> "%NAPLO%"
+if not exist "%IE%" echo %DATE% %TIME% HIBA: nincs meg az IE: %IE% >> "%NAPLO%"
+if not exist "%INDITO%" echo %DATE% %TIME% HIBA: nincs meg: %INDITO% >> "%NAPLO%"
+
+rem Egyszerre csak egy peldany fusson (pl. ha kezzel is elinditjak a feladat mellett):
+rem a zarfajlt a futo peldany nyitva tartja, a masodik nem tudja megnyitni, es kilep.
+2>nul (9>"%TEMP%\kijelzo-indito.lock" call :fo) || echo %DATE% %TIME% mar fut egy peldany, kilep >> "%NAPLO%"
+exit /b
+
+:fo
 
 rem --- Felhasznaloi beallitasok (minden bejelentkezeskor, igy biztosan ervenyesek) ---
 rem Kepernyovedo ki.
@@ -25,43 +43,32 @@ rem osszeomlas utan ne kerdezze, visszaallitsa-e a lapokat.
 reg add "HKCU\Software\Microsoft\Internet Explorer\Main" /v "FormSuggest PW Ask" /t REG_SZ /d no /f >nul
 reg add "HKCU\Software\Microsoft\Internet Explorer\Main" /v Check_Associations /t REG_SZ /d no /f >nul
 reg add "HKCU\Software\Microsoft\Internet Explorer\Recovery" /v AutoRecover /t REG_DWORD /d 2 /f >nul
-reg add "HKCU\Software\Microsoft\Internet Explorer\Main" /v "Start Page" /t REG_SZ /d "%CIM%" /f >nul
+reg add "HKCU\Software\Microsoft\Internet Explorer\Main" /v "Start Page" /t REG_SZ /d "https://konyha.veres.no/kijelzo" /f >nul
 
 rem Ha a tasklist nem erheto el, az IE bezarasara varunk (start /wait).
 set "FIGYEL=tasklist"
 where tasklist >nul 2>&1
 if errorlevel 1 set "FIGYEL=wait"
+echo %DATE% %TIME% figyeles=%FIGYEL% >> "%NAPLO%"
 
 rem --- Vegtelen ciklus: ha nem fut az IE, elinditja ---
 :ciklus
-if "%FIGYEL%"=="wait" goto halozat_elo
+if "%FIGYEL%"=="wait" goto indit
 tasklist /fi "imagename eq iexplore.exe" 2>nul | find /i "iexplore.exe" >nul
 if not errorlevel 1 goto var
 
-:halozat_elo
-
-rem Bekapcsolas utan megvarja a halozatot (legfeljebb kb. 3 percig),
-rem kulonben az IE sajat hibaoldala maradna a kepernyon.
-set /a PROBA=0
-:halozat
-ping -n 1 -w 2000 %GEP% >nul 2>&1
-if not errorlevel 1 goto indit
-set /a PROBA+=1
-if %PROBA% geq 60 goto indit
-ping -n 4 127.0.0.1 >nul
-goto halozat
-
 :indit
+echo %DATE% %TIME% IE inditasa >> "%NAPLO%"
 if "%FIGYEL%"=="wait" (
-  start "" /wait "%IE%" -k "%CIM%"
+  start "" /wait /max "%IE%" -k "%INDITO%"
   ping -n 4 127.0.0.1 >nul
   goto ciklus
 )
-start "" "%IE%" -k "%CIM%"
+start "" /max "%IE%" -k "%INDITO%"
 ping -n 21 127.0.0.1 >nul
 goto ciklus
 
 :var
-rem 10 masodperc varakozas (a ping minden Windowson elerheto, a timeout nem mindig).
+rem 10 masodperc varakozas (a ping a helyi gepre minden Windowson mukodik, a timeout nem mindig).
 ping -n 11 127.0.0.1 >nul
 goto ciklus

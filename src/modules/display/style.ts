@@ -69,6 +69,11 @@ h2 .szam{display:inline-block;background:#24402d;color:#fff;border-radius:16px;p
 .gombok .gomb{-ms-flex:1 1 0px;flex:1 1 0px;margin:0 4px}
 .gomb.folyamatban.aktiv{background:#e3b400;border-color:#e3b400;color:#1d2b20}
 .gomb.elkeszult{background:#2f7a2b;border-color:#2f7a2b;color:#fff}
+.gomb.elfogad{background:#1f9d3a;border-color:#1f9d3a;color:#fff;font-size:28px;min-height:84px;padding:12px}
+.gomb.elfogad small{display:block;font-size:17px;font-weight:600;line-height:22px;color:#dff5e3}
+.kartya.keres{border-color:#1f9d3a;border-left-color:#1f9d3a}
+.kartya.keres .allapot{color:#1a7f30}
+.kartya.elfogad-kuld .gomb.elfogad{background:#14702a;border-color:#14702a}
 .kartya.folyamatban-kuld .gomb.folyamatban{background:#e3b400;border-color:#e3b400;color:#1d2b20}
 .kartya.kesz-kuld{opacity:.6}
 .kartya.kesz-kuld .gomb.elkeszult{background:#1e5a1b}

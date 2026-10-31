@@ -128,8 +128,18 @@ export const DISPLAY_SCRIPT = String.raw`
   }
 
   function vanFuggo() { var k; for (k in fuggo) if (fuggo.hasOwnProperty(k)) return true; return false; }
+  function allapotFelirat(k, szoveg) {
+    var s = k.getElementsByTagName('span'), i;
+    for (i = 0; i < s.length; i++) if (vanOsztaly(s[i], 'allapot')) s[i].innerHTML = szoveg;
+  }
   function optimista(k, a) {
-    if (a === 'cooking') {
+    if (a === 'accept') {
+      // Elfogadás: a kártya azonnal „Folyamatban” lesz; az Elkészült gomb a mentés után, a frissítéssel jön.
+      osztaly(k, 'all-queued', false); osztaly(k, 'keres', false); osztaly(k, 'all-cooking', true); osztaly(k, 'elfogad-kuld', true);
+      allapotFelirat(k, t.cooking);
+      var eg = k.getElementsByTagName('button'), j;
+      for (j = 0; j < eg.length; j++) { eg[j].disabled = true; eg[j].innerHTML = t.saving; }
+    } else if (a === 'cooking') {
       osztaly(k, 'all-queued', false); osztaly(k, 'all-cooking', true); osztaly(k, 'folyamatban-kuld', true);
     } else {
       osztaly(k, 'kesz-kuld', true);
@@ -183,8 +193,9 @@ export const DISPLAY_SCRIPT = String.raw`
     if (friss[id]) { delete friss[id]; osztaly(k, 'uj', false); allapotVissza(); }
     if (!gomb || gomb.disabled) return;
     var a = gomb.getAttribute('data-muvelet');
-    if (a !== 'cooking' && a !== 'ready') return;
-    if (fuggo[id] && fuggo[id].a === 'ready') return;
+    if (a !== 'accept' && a !== 'cooking' && a !== 'ready') return;
+    // Egy rendelésre egyszerre csak egy művelet lehet úton.
+    if (fuggo[id]) return;
     fuggo[id] = { a: a, probak: 0 };
     optimista(k, a);
     kuld(id);

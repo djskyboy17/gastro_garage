@@ -3,7 +3,7 @@ import { currentUser, passwordLogin, endSession, renewSession, AuthError } from 
 import { sessionCookie } from "../auth/domain";
 import { sessionFor } from "../access/server";
 import { isAdmin, isKitchenStaff, type Session } from "../access/domain";
-import { markOrderReady, startCooking, KitchenError } from "../kitchen/server";
+import { acceptOrder, markOrderReady, startCooking, KitchenError } from "../kitchen/server";
 import { today } from "../shared/domain";
 import { messages } from "../shared/i18n";
 import { displayMessages, type DisplayLang } from "./i18n";
@@ -63,14 +63,18 @@ function daysBefore(day: string, n: number) {
   d.setUTCDate(d.getUTCDate() - n);
   return d.toISOString().slice(0, 10);
 }
-/** A kijelző rendelései: visszaigazolt, mai (bármilyen gyártási állapot) vagy legfeljebb 2 napos, még nem kész. */
-const ORDER_FILTER = "o.date BETWEEN ?1 AND ?2 AND o.status='confirmed' AND (o.date=?2 OR o.production IN ('queued','cooking'))";
+/**
+ * A kijelző rendelései: visszaigazolt vagy visszaigazolásra váró, mai (bármilyen gyártási állapot)
+ * vagy legfeljebb 2 napos, még nem kész.
+ */
+const ORDER_FILTER =
+  "o.date BETWEEN ?1 AND ?2 AND o.status IN ('requested','confirmed') AND (o.date=?2 OR o.production IN ('queued','cooking'))";
 
 export async function loadDisplayOrders(day: string): Promise<DisplayOrder[]> {
   const from = daysBefore(day, LATE_DAYS);
   const [orders, items] = await env.DB!.batch([
     env.DB!.prepare(
-      `SELECT o.id,o.date,o.time,o.customer_name AS customerName,o.note,o.production,o.fulfillment_mode AS fulfillmentMode FROM orders o WHERE ${ORDER_FILTER} ORDER BY o.date,o.time,o.created_at`,
+      `SELECT o.id,o.date,o.time,o.customer_name AS customerName,o.note,o.status,o.production,o.fulfillment_mode AS fulfillmentMode FROM orders o WHERE ${ORDER_FILTER} ORDER BY o.date,o.time,o.created_at`,
     ).bind(from, day),
     env.DB!.prepare(
       `SELECT i.id,i.order_id AS orderId,i.hu,i.ro,i.allergens,i.quantity,i.ready FROM order_items i WHERE i.order_id IN (SELECT o.id FROM orders o WHERE ${ORDER_FILTER}) ORDER BY i.rowid`,
@@ -182,9 +186,11 @@ export async function handleDisplay(req: Request, action: string): Promise<Respo
     const form = new URLSearchParams(raw);
     const id = form.get("id") ?? "",
       a = form.get("a");
-    if (!id || id.length > 200 || (a !== "cooking" && a !== "ready")) return json({ error: "VALIDATION" }, 400);
+    // A "cooking" csak a régi, még újra nem töltött oldalak miatt maradt; az új oldal "accept"-et küld.
+    if (!id || id.length > 200 || (a !== "accept" && a !== "cooking" && a !== "ready")) return json({ error: "VALIDATION" }, 400);
     try {
-      if (a === "cooking") await startCooking(id, w.session);
+      if (a === "accept") await acceptOrder(id, w.session);
+      else if (a === "cooking") await startCooking(id, w.session);
       else await markOrderReady(id, w.session);
       return json({ ok: true });
     } catch (e) {

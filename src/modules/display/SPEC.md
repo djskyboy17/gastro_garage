@@ -1,4 +1,4 @@
-# Konyhai kijelző (display) — v47
+# Konyhai kijelző (display) — v47, v48
 
 ## Cél
 Régi eszközön (első generációs Surface RT, Windows RT 8.1, csak Internet Explorer 11) is használható konyhai nézet. A fő alkalmazás React kliense IE11-ben nem fut (`type="module"`, modern szintaxis), ezért ez egy külön, szerveren renderelt oldal: `/kijelzo`. A fő alkalmazás viselkedése nem változik.
@@ -23,15 +23,17 @@ Régi eszközön (első generációs Surface RT, Windows RT 8.1, csak Internet E
 - Belépési űrlap: csak azonos eredetről (Origin, ennek hiányában Referer). Művelet: `X-Kijelzo: 1` fejléc kell (más oldal CORS nélkül nem küldhet ilyet), és ha van Origin, egyezzen.
 
 ## Mit mutat
-- Visszaigazolt rendelések: a mai nap összes rendelése, valamint a legfeljebb 2 napos, még nem kész („Késésben”) rendelések.
+- Visszaigazolt és visszaigazolásra váró rendelések: a mai nap összes rendelése, valamint a legfeljebb 2 napos, még nem kész („Késésben”) rendelések. A visszaigazolásra váró kártya zöld keretes, „Visszaigazolásra vár” felirattal.
 - Felül ételenként a még elkészítendő adagok összesítése.
-- Nyitott rendelések kártyán: idő, kód, kiszállítás / helyszíni átvétel, ügyfél, tételek (darab, név, allergének, kész-jelölés), megjegyzés, két nagy gomb: **Folyamatban** és **Elkészült**.
+- Nyitott rendelések kártyán: idő, kód, kiszállítás / helyszíni átvétel, ügyfél, tételek (darab, név, allergének, kész-jelölés), megjegyzés, és egy nagy gomb: még el nem kezdett rendelésen **Elfogadom ✓**, készülő rendelésen **Elkészült**.
 - Alul a ma elkészült rendelések kisebb kártyán, gomb nélkül.
 - A konyha a v41 óta a rendelési adatokat teljes egészében látja; a kijelző ennél kevesebbet mutat (ár, cím, telefon nincs).
 
 ## Műveletek
-- **Folyamatban**: gyártás megkezdése (queued → cooking), `kitchen.startCooking`. Ugyanaz az állapotszabály (`nextState`) és naplóbejegyzés (`state_changed`), mint a fő alkalmazásban. Ha már készül vagy kész, nem változtat (ismételve is biztonságos).
-- **Elkészült**: a rendelés minden még nem kész tétele kész, a rendelés `ready` lesz (`kitchen.markOrderReady` → `markItemsReady`, ugyanaz, mint a fő alkalmazás „Kész” gombja). Ismételve is biztonságos.
+- **Elfogadom ✓** (v48, zöld gomb a még el nem kezdett rendelésen): `kitchen.acceptOrder`. Ha a rendelés visszaigazolásra vár (portálos kérés), visszaigazolja **és** elindítja a főzést (requested/queued → confirmed/cooking), két `state_changed` naplóbejegyzéssel (`via: kitchen_display`). Ha már visszaigazolt, csak a főzést indítja (queued → cooking, `kitchen.startCooking`). Ugyanazok az állapotszabályok (`nextState`), mint a fő alkalmazásban; ismételve is biztonságos. Lemondott vagy elutasított rendelésnél hibát ad.
+  - Jogosultság: a konyha a kijelzőn visszaigazolhat kérést. Elutasítani nem tud, az továbbra is az admin és a diszpécser dolga a fő alkalmazásban.
+- A külön „Folyamatban” gomb megszűnt; a `cooking` művelet csak a régi, még újra nem töltött oldalak miatt maradt a szerveren.
+- **Elkészült** (csak készülő rendelésen): a rendelés minden még nem kész tétele kész, a rendelés `ready` lesz (`kitchen.markOrderReady` → `markItemsReady`, ugyanaz, mint a fő alkalmazás „Kész” gombja). Ismételve is biztonságos.
 
 ## Kliens (IE11)
 - Csak ES5: `XMLHttpRequest`, `var`, `function`; nincs `fetch`, Promise, nyílfüggvény, `let`/`const`, modul. CSS: flexbox (`-ms-` előtaggal is), nincs grid és CSS-változó. A teszt az acornnal ES5-ként elemzi a scriptet.

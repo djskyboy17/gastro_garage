@@ -278,3 +278,8 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 - Új migráció: `0021_order_lookup_indexes` (`orders(date,status)`, `order_items(order_id)`).
 - A Surface RT beállítása (külön Konyha fiók, automatikus bejelentkezés, IE11 kioszk mód): `scripts/surface-rt/LEIRAS.md`.
 - Részletek: `src/modules/display/SPEC.md`.
+
+## Konyhai kijelző: egy gombos elfogadás — v48
+
+- A még el nem kezdett rendelésen egyetlen nagy zöld „Elfogadom ✓” gomb van („Kérés visszaigazolása, főzés indul”): visszaigazolja a portálos kérést, és a főzést is elindítja. Utána csak az „Elkészült” gomb marad; a külön „Folyamatban” gomb megszűnt.
+- A kijelző a visszaigazolásra váró mai kéréseket is mutatja (zöld keret). A konyha a kijelzőn visszaigazolhat, elutasítani nem tud.
