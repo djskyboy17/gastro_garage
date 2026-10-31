@@ -2,7 +2,7 @@
  * A konyhai kijelző kliens-scriptje. Szándékosan ES5 (Internet Explorer 11): XMLHttpRequest, var, function;
  * nincs fetch, Promise, nyílfüggvény, let/const, modul. A tests/display.test.mts ES5-ként elemzi.
  *
- * - 20 mp-enként a /kijelzo/lista?v=<változat> címet kérdezi; ha nincs változás, a szerver 204-et ad, és nem cserél semmit.
+ * - Nappal (07–19, román idő) 5, éjjel 30 mp-enként a /kijelzo/lista?v=<változat> címet kérdezi; ha nincs változás, a szerver 204-et ad, és nem cserél semmit.
  * - Gombnyomásra azonnal átállítja a kártyát (optimista), a kérést kapcsolat nélkül is újrapróbálja.
  * - Új rendelést kiemel, és ha be van kapcsolva, hangjelzést ad.
  */
@@ -15,8 +15,9 @@ export const DISPLAY_SCRIPT = String.raw`
   var kapcsolat = document.getElementById('kapcsolat');
   var version = C.v;
   var hang = C.sound;
-  var POLL = 20000;
-  var kesleltetes = POLL, idozito = null, folyamatban = false, offline = false;
+  // Frissítési időköz: a szerver adja meg román idő szerint (07–19 óra: 5 mp, éjjel: 30 mp).
+  var POLL = C.p || 5000;
+  var kesleltetes = 0, idozito = null, folyamatban = false, offline = false; // kesleltetes: 0 = nincs hiba
   var fuggo = {};      // rendelés-azonosító -> {a: muvelet, probak: n}
   var ismert = {};     // már látott rendelések
   var friss = {};      // kiemelt új rendelések -> megjelenés ideje
@@ -104,12 +105,15 @@ export const DISPLAY_SCRIPT = String.raw`
   function frissit() {
     if (folyamatban) return;
     folyamatban = true;
-    keres('GET', '/kijelzo/lista?v=' + encodeURIComponent(version) + '&_=' + new Date().getTime(), null, function (s, szoveg, x) {
+    // k: a kliens-script változata; ha a szerveren már újabb van, 403-at kapunk, és az oldal újratölt.
+    keres('GET', '/kijelzo/lista?v=' + encodeURIComponent(version) + '&k=' + encodeURIComponent(C.k) + '&_=' + new Date().getTime(), null, function (s, szoveg, x) {
       folyamatban = false;
       if (s === 401 || s === 403) { window.location.reload(); return; }
       if (s === 200 || s === 204) {
+        var kov = parseInt(x.getResponseHeader('X-Kijelzo-Kovetkezo') || '', 10);
+        if (kov >= 1000 && kov <= 300000) POLL = kov;
         kapcsolatJelzes(true);
-        kesleltetes = POLL;
+        kesleltetes = 0;
         if (s === 200) {
           version = x.getResponseHeader('X-Kijelzo-Verzio') || '';
           lista.innerHTML = szoveg;
@@ -119,7 +123,8 @@ export const DISPLAY_SCRIPT = String.raw`
         fuggoKuldese();
       } else {
         kapcsolatJelzes(false);
-        kesleltetes = Math.min(kesleltetes === POLL ? 5000 : kesleltetes * 2, 30000);
+        // Kapcsolatvesztéskor egyre ritkábban próbálkozik: 5 → 10 → 20 → 30 mp.
+        kesleltetes = Math.min(kesleltetes ? kesleltetes * 2 : 5000, 30000);
       }
       utemez(offline ? kesleltetes : POLL);
       // 6 óránként teljes újratöltés (munkamenet-megújítás, friss script), ha nincs függő művelet.
@@ -223,3 +228,17 @@ export const DISPLAY_SCRIPT = String.raw`
   utemez(POLL);
 })();
 `;
+
+/**
+ * A kliens változata (a script lenyomata, FNV-1a). A kliens minden frissítéskor elküldi; ha a szerveren már
+ * újabb script van, a lista 403-at ad, és a régi oldal újratölt. Így élesítés után nem maradhat fenn elavult
+ * script új listával (pl. ismeretlen gomb, ami nem csinál semmit).
+ */
+export function clientVersion(...parts: string[]) {
+  let h = 0x811c9dc5;
+  for (const ch of parts.join("|")) {
+    h ^= ch.charCodeAt(0);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0");
+}

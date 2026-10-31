@@ -37,14 +37,15 @@ Régi eszközön (első generációs Surface RT, Windows RT 8.1, csak Internet E
 
 ## Kliens (IE11)
 - Csak ES5: `XMLHttpRequest`, `var`, `function`; nincs `fetch`, Promise, nyílfüggvény, `let`/`const`, modul. CSS: flexbox (`-ms-` előtaggal is), nincs grid és CSS-változó. A teszt az acornnal ES5-ként elemzi a scriptet.
-- Frissítés 20 mp-enként, csak a lista rész cseréje; változatlan adatnál a szerver `204`-et ad. A „változott-e?” ellenőrzés ugyanazokat a rendeléseket olvassa indexen (`orders_date_status`), a tételekből csak összesítést (`order_items_order`).
+- Elavult oldal (v48): az oldal a saját kliens-változatát (`k`, a script, a stílus és a feliratok lenyomata) küldi a lista kérésekor. Ha a szerveren már újabb van (élesítés után), a lista 403-at ad, és az oldal újratölt. Így nem fordulhat elő, hogy a régi script az új listán egy számára ismeretlen gombot kap, ami nem csinál semmit.
+- Frissítés román idő szerint 07:00–19:00 között 5 mp-enként, 19:00–07:00 között 30 mp-enként (v48 óta; előtte mindig 20). Az időközt a szerver adja meg minden lista-válaszban (`X-Kijelzo-Kovetkezo`), így a kijelző órájától független. Csak a lista rész cseréje; változatlan adatnál a szerver `204`-et ad. A „változott-e?” ellenőrzés ugyanazokat a rendeléseket olvassa indexen (`orders_date_status`), a tételekből csak összesítést (`order_items_order`).
 - Gombnyomásra a kártya azonnal átáll (optimista). Kapcsolati hibánál a művelet megmarad, „Nincs kapcsolat” sáv jelenik meg, és helyreálláskor magától elküldi. Végleges hibánál (pl. lemondott rendelés) a valós állapot visszaáll, és üzenet jelenik meg.
 - Kapcsolatvesztéskor a frissítés 5 → 10 → 20 → 30 mp-es várakozással próbálkozik újra.
 - Új rendelés: villogó keret és „Új rendelés!” sáv (érintésre vagy 15 perc után eltűnik), bekapcsolt hangnál csengő. A hang ki-be kapcsolható (süti: `kijelzo_hang`).
 
 ## Adatbázis
 - Új indexek (0021): `orders (date, status)`, `order_items (order_id)`. Az utóbbi a fő alkalmazás tétel-lekérdezéseit is gyorsítja.
-- Terhelés: 1–2 kijelző, 20 mp-es frissítés mellett kérésenként néhány tucat sor olvasása; kényelmesen belefér a Workers/D1 ingyenes keretébe.
+- Terhelés: kijelzőnként napi kb. 10 100 kérés (12 óra × 5 mp = 8 640, plusz 12 óra × 30 mp = 1 440; két kijelzővel kb. 20 000), kérésenként néhány tucat sor olvasása; kényelmesen belefér a Workers (100 000 kérés/nap) és a D1 (5 millió olvasott sor/nap) ingyenes keretébe.
 
 ## Eszköz beállítása
 A Surface RT beállítását a `scripts/surface-rt/` mappa scriptjei és a `LEIRAS.md` írják le (külön „Konyha” fiók, automatikus bejelentkezés, IE11 kioszk mód).

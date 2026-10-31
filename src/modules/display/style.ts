@@ -41,9 +41,11 @@ h2 .szam{display:inline-block;background:#24402d;color:#fff;border-radius:16px;p
 .ossz-tetel b{font-size:24px}
 .kartyak{display:-ms-flexbox;display:flex;-ms-flex-wrap:wrap;flex-wrap:wrap;margin:0 -6px}
 .kartya{width:32.2%;margin:0 0.55% 12px;background:#fff;border:3px solid #d6dfcb;border-left-width:12px;border-radius:12px;padding:12px 14px;position:relative}
-.kartya.all-queued{border-left-color:#e07a1f}
+.kartya.all-queued{border-color:#e07a1f;border-left-color:#e07a1f;background:#fff7ef;animation:villan-narancs 1.1s ease-in-out infinite alternate}
+@keyframes villan-narancs{from{box-shadow:0 0 0 0 rgba(224,122,31,.95)}to{box-shadow:0 0 0 12px rgba(224,122,31,.12)}}
+.kartya.all-queued .allapot{color:#b35a00}
 .kartya.all-cooking{border-left-color:#e3b400;background:#fffbea}
-.kartya.all-ready{border-left-color:#3f8f3a}
+.kartya.all-ready{border-color:#3f8f3a;border-left-color:#3f8f3a;background:#f1f8ee}
 .kartya.keso{border-color:#d0453a;border-left-color:#d0453a}
 .kartya.uj{border-color:#f2a900;-ms-animation:villan 1.2s ease-in-out infinite alternate;animation:villan 1.2s ease-in-out infinite alternate}
 @keyframes villan{from{box-shadow:0 0 0 0 rgba(242,169,0,.9)}to{box-shadow:0 0 0 10px rgba(242,169,0,.15)}}
@@ -69,11 +71,12 @@ h2 .szam{display:inline-block;background:#24402d;color:#fff;border-radius:16px;p
 .gombok .gomb{-ms-flex:1 1 0px;flex:1 1 0px;margin:0 4px}
 .gomb.folyamatban.aktiv{background:#e3b400;border-color:#e3b400;color:#1d2b20}
 .gomb.elkeszult{background:#2f7a2b;border-color:#2f7a2b;color:#fff}
-.gomb.elfogad{background:#1f9d3a;border-color:#1f9d3a;color:#fff;font-size:28px;min-height:84px;padding:12px}
-.gomb.elfogad small{display:block;font-size:17px;font-weight:600;line-height:22px;color:#dff5e3}
-.kartya.keres{border-color:#1f9d3a;border-left-color:#1f9d3a}
-.kartya.keres .allapot{color:#1a7f30}
-.kartya.elfogad-kuld .gomb.elfogad{background:#14702a;border-color:#14702a}
+/* Elfogadásra vár: narancs, villogó kártya és narancs gomb. Zöld csak a kész rendelés. */
+.gomb.elfogad{background:#e07a1f;border-color:#e07a1f;color:#fff;font-size:28px;min-height:84px;padding:12px}
+.gomb.elfogad small{display:block;font-size:17px;font-weight:600;line-height:22px;color:#fff1e3}
+.kartya.keres .allapot{color:#b35a00}
+.kartya.elfogad-kuld{animation:none}
+.kartya.elfogad-kuld .gomb.elfogad{background:#a8560f;border-color:#a8560f}
 .kartya.folyamatban-kuld .gomb.folyamatban{background:#e3b400;border-color:#e3b400;color:#1d2b20}
 .kartya.kesz-kuld{opacity:.6}
 .kartya.kesz-kuld .gomb.elkeszult{background:#1e5a1b}

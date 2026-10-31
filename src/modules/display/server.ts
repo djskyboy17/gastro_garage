@@ -7,7 +7,7 @@ import { acceptOrder, markOrderReady, startCooking, KitchenError } from "../kitc
 import { today } from "../shared/domain";
 import { messages } from "../shared/i18n";
 import { displayMessages, type DisplayLang } from "./i18n";
-import { renderList, renderLogin, renderMessage, renderPage, type DisplayOrder } from "./view";
+import { CLIENT_VERSION, pollInterval, renderList, renderLogin, renderMessage, renderPage, type DisplayOrder } from "./view";
 import { DISPLAY_SOUND_MP3 } from "./sound";
 
 /** Késésben lévő (régebbi, még nem kész) rendelést ennyi napra visszamenőleg mutat. */
@@ -166,13 +166,19 @@ export async function handleDisplay(req: Request, action: string): Promise<Respo
     const w = await who(req);
     if (!w || w.user.mustChangePassword) return new Response(null, { status: 401, headers: { "Cache-Control": "no-store" } });
     if (!canUseDisplay(w.session)) return new Response(null, { status: 403, headers: { "Cache-Control": "no-store" } });
+    // Elavult oldal (élesítés előtt betöltött script): a régi és az új kliens is 403-ra újratölti az oldalt.
+    if (new URL(req.url).searchParams.get("k") !== CLIENT_VERSION)
+      return new Response(null, { status: 403, headers: { "Cache-Control": "no-store", "X-Kijelzo-Ok": "uj-verzio" } });
     const day = today();
     const version = await displayVersion(day, lang);
     // Nem változott: üres válasz, a kliens nem cserél semmit.
-    if (new URL(req.url).searchParams.get("v") === version) return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
+    // A következő lekérdezés ideje (nappal 5 mp, éjjel 30 mp) minden válaszban.
+    const next = String(pollInterval());
+    if (new URL(req.url).searchParams.get("v") === version)
+      return new Response(null, { status: 204, headers: { "Cache-Control": "no-store", "X-Kijelzo-Kovetkezo": next } });
     const body = renderList(await loadDisplayOrders(day), lang, day, messages[lang]);
     return new Response(body, {
-      headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Kijelzo-Verzio": version },
+      headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Kijelzo-Verzio": version, "X-Kijelzo-Kovetkezo": next },
     });
   }
 

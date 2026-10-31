@@ -274,7 +274,7 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 
 - Új, különálló oldal: `https://konyha.veres.no/kijelzo`. Szerveren renderelt HTML és ES5 script, ezért első generációs Surface RT-n (Windows RT 8.1, Internet Explorer 11) is fut. A fő alkalmazás nem változik.
 - Belépés űrlappal, a meglévő dolgozói fiókkal (konyha vagy admin); a belépés 30 napig érvényes, és használat közben megújul.
-- Mai és késésben lévő rendelések nagy kártyákon, nagy „Folyamatban” / „Elkészült” gombokkal; villogás nélküli frissítés 20 mp-enként (változatlan adatnál a szerver üres választ ad); új rendelés kiemelése és csengő; „Nincs kapcsolat” jelzés és automatikus újrapróbálás. HU/RO.
+- Mai és késésben lévő rendelések nagy kártyákon, nagy „Folyamatban” / „Elkészült” gombokkal; villogás nélküli frissítés 07–19 óra között 5, éjjel 30 mp-enként (változatlan adatnál a szerver üres választ ad); új rendelés kiemelése és csengő; „Nincs kapcsolat” jelzés és automatikus újrapróbálás. HU/RO.
 - Új migráció: `0021_order_lookup_indexes` (`orders(date,status)`, `order_items(order_id)`).
 - A Surface RT beállítása (külön Konyha fiók, automatikus bejelentkezés, IE11 kioszk mód): `scripts/surface-rt/LEIRAS.md`.
 - Részletek: `src/modules/display/SPEC.md`.

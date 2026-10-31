@@ -6,7 +6,7 @@ import { DISPLAY_SCRIPT } from "../src/modules/display/client.ts";
 // @ts-ignore Node native type stripping
 import { DISPLAY_CSS } from "../src/modules/display/style.ts";
 // @ts-ignore Node native type stripping
-import { renderList, renderLogin, renderPage, esc } from "../src/modules/display/view.ts";
+import { renderList, renderLogin, renderPage, esc, CLIENT_VERSION, pollInterval } from "../src/modules/display/view.ts";
 // @ts-ignore Node native type stripping
 import { displayMessages } from "../src/modules/display/i18n.ts";
 
@@ -36,6 +36,9 @@ test("a teljes oldal minden inline scriptje ES5", () => {
   assert.equal(scripts.length, 2);
   for (const s of scripts) assert.doesNotThrow(() => parse(s, { ecmaVersion: 5 }));
   assert.equal(page.includes('type="module"'), false);
+  // Az oldal a saját kliens-változatát kapja, ezzel kérdezi a listát (elavult oldal → újratöltés).
+  assert.ok(page.includes('"k":"' + CLIENT_VERSION + '"'));
+  assert.match(CLIENT_VERSION, /^[0-9a-f]{8}$/);
   assert.ok(page.includes('content="IE=edge"'));
 });
 
@@ -104,4 +107,14 @@ test("üres lista és belépési űrlap mindkét nyelven", () => {
   assert.ok(form.includes("Eroare &lt;x&gt;"));
   assert.ok(form.includes('value="a&quot;b@c.ro"'));
   for (const l of ["hu", "ro"] as const) assert.deepEqual(Object.keys(displayMessages[l]).sort(), Object.keys(displayMessages.hu).sort());
+});
+
+test("frissítési időköz román idő szerint: 07:00–19:00 között 5 mp, egyébként 30 mp", () => {
+  // Bukarest télen UTC+2, nyáron UTC+3.
+  assert.equal(pollInterval(new Date("2026-11-01T04:59:00Z")), 30000); // 06:59
+  assert.equal(pollInterval(new Date("2026-11-01T05:00:00Z")), 5000); // 07:00
+  assert.equal(pollInterval(new Date("2026-11-01T16:59:00Z")), 5000); // 18:59
+  assert.equal(pollInterval(new Date("2026-11-01T17:00:00Z")), 30000); // 19:00
+  assert.equal(pollInterval(new Date("2026-07-01T04:00:00Z")), 5000); // nyáron 07:00
+  assert.equal(pollInterval(new Date("2026-07-01T22:30:00Z")), 30000); // nyáron 01:30
 });

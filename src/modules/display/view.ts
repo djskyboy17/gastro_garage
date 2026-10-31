@@ -1,6 +1,20 @@
 import { displayMessages, type DisplayLang } from "./i18n.ts";
-import { DISPLAY_SCRIPT } from "./client.ts";
+import { DISPLAY_SCRIPT, clientVersion } from "./client.ts";
 import { DISPLAY_CSS } from "./style.ts";
+
+/**
+ * Frissítési időköz (ms) román idő szerint: nyitvatartás alatt (07:00–19:00) 5 mp, éjjel 30 mp.
+ * A szerver minden lista-válaszban elküldi (`X-Kijelzo-Kovetkezo`), így a kijelző órájától független.
+ */
+export const DAY_POLL_MS = 5000;
+export const NIGHT_POLL_MS = 30000;
+export function pollInterval(now = new Date()) {
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Bucharest", hour: "2-digit", hourCycle: "h23" }).format(now));
+  return hour >= 7 && hour < 19 ? DAY_POLL_MS : NIGHT_POLL_MS;
+}
+
+/** A kliens (script + stílus + feliratok) változata; ha eltér a futó oldalétól, az oldal újratölt. */
+export const CLIENT_VERSION = clientVersion(DISPLAY_SCRIPT, DISPLAY_CSS, JSON.stringify(displayMessages));
 
 /** Allergénkód → név (a közös fordításból; a szerver adja át, így ez a fájl tiszta marad és tesztelhető). */
 export type AllergenNames = Record<string, string>;
@@ -150,7 +164,7 @@ export function renderList(orders: DisplayOrder[], lang: DisplayLang, today: str
 export function renderPage(o: { lang: DisplayLang; orders: DisplayOrder[]; today: string; version: string; userName: string; sound: boolean; allergenNames: AllergenNames }) {
   const t = displayMessages[o.lang];
   // A kliens a feliratokat és a kezdő változatot innen kapja; a < jelet kódoljuk, hogy a script-blokkot ne zárhassa le adat.
-  const config = JSON.stringify({ v: o.version, t, sound: o.sound }).replace(/</g, "\\u003c");
+  const config = JSON.stringify({ v: o.version, k: CLIENT_VERSION, p: pollInterval(), t, sound: o.sound }).replace(/</g, "\\u003c");
   return shell(
     o.lang,
     t.title,
