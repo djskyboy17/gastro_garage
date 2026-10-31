@@ -50,3 +50,15 @@
 .courier-signout{display:inline-flex;align-items:center;gap:7px}
 .courier-task h3{font-weight:800;font-family:Manrope,sans-serif;color:#1f3b2f}
 @media(max-width:600px){.courier-header{flex-wrap:nowrap}.courier-title{flex:1}.courier-header .language-switch{margin-left:0}.courier-header .language-switch button{padding:7px 8px;font-size:14px}.courier-signout span{display:none}.courier-header>a.courier-signout{padding:9px;min-height:44px;min-width:44px;justify-content:center}}
+/* v46: keskeny telefonon a cím ne csússzon a nyelvváltó alá – rács: logó | cím | nyelv | kilépés */
+@media(max-width:600px){
+.courier-header{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:10px 12px}
+.courier-brand img{width:52px;height:52px}
+.courier-title{min-width:0}
+.courier-title h1{font-size:clamp(19px,5.6vw,24px);letter-spacing:-.5px;line-height:1.08;overflow-wrap:anywhere}
+.courier-title p{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.courier-role{display:none}
+.courier-header .language-switch{margin-left:0;padding:2px}
+.courier-header .language-switch button{font-size:13px;padding:7px 7px;min-height:38px}
+.courier-header>a:last-child:not(:first-child),.courier-signout{width:42px;height:42px;padding:0!important;display:inline-grid;place-items:center}
+}
