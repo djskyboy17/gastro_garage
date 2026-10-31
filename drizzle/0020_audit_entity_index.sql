@@ -1,0 +1,1 @@
+CREATE INDEX `audit_entity_created` ON `audit` (`entity`,`created_at`);

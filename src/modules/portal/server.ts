@@ -4,7 +4,7 @@ import {cutoffInstant} from "../menu/domain";
 import {menuDays} from '@/db/schema';
 import {publicMenu} from '../menu/server';
 import {env} from "cloudflare:workers";
-import {and,eq,desc,gte,sql} from "drizzle-orm";
+import {and,eq,ne,desc,gte,sql} from "drizzle-orm";
 import {z} from "zod";
 import {getDb} from "@/db";
 import {products,customers,orders,orderItems,portalProfiles,portalSubmissions,recipes} from "@/db/schema";
@@ -59,8 +59,12 @@ export async function handlePortal(path:string,body:unknown|undefined,user:Ident
   const audit=(action:string,entity:string,detail:string)=>env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,?,?,?,?,?)").bind(crypto.randomUUID(),user.userId,action,entity,detail,now);
   if(!write&&path==="/api/portal/me"){
     const p=await account(user.userId);if(p&&!p.active)throw new PortalError("PORTAL_BLOCKED",403);
-    const mine=await db.select().from(orders).where(eq(orders.portalUserId,user.userId)).orderBy(desc(orders.createdAt));
-    const items=mine.length?(await db.select({item:orderItems}).from(orderItems).innerJoin(orders,eq(orders.id,orderItems.orderId)).where(eq(orders.portalUserId,user.userId))).map(r=>r.item):[];
+    // v45: a kiszállított / átvett rendelés eltűnik az ügyfél listájáról, a lemondott / elutasított 1 nap múlva; le sem kérdezzük.
+    // A lezárás időpontja a rendelés utolsó naplóbejegyzése (lezárt rendelés később nem változik); napló nélkül a létrehozás ideje.
+    const dayAgo=new Date(Date.now()-86400000).toISOString();
+    const open=and(eq(orders.portalUserId,user.userId),ne(orders.delivery,"delivered"),sql`(${orders.status} NOT IN ('cancelled','rejected') OR ${orders.createdAt}>=${dayAgo} OR EXISTS (SELECT 1 FROM audit a WHERE a.entity=${orders.id} AND a.created_at>=${dayAgo}))`);
+    const mine=await db.select().from(orders).where(open).orderBy(desc(orders.createdAt));
+    const items=mine.length?(await db.select({item:orderItems}).from(orderItems).innerJoin(orders,eq(orders.id,orderItems.orderId)).where(open)).map(r=>r.item):[];
     const data:PortalData={profile:p?profile(p):null,orders:mine.map(o=>publicOrder({...o,items:items.filter(i=>i.orderId===o.id)}))};return json(data);
   }
   if(!write&&path==="/api/portal/accounts"){

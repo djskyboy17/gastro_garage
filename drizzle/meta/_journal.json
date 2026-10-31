@@ -141,6 +141,13 @@
       "when": 1793373276804,
       "tag": "0019_courier_shifts",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1793441134887,
+      "tag": "0020_audit_entity_index",
+      "breakpoints": true
     }
   ]
 }

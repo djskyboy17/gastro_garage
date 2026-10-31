@@ -96,7 +96,7 @@ export const audit = sqliteTable("audit", {
   entity: text("entity").notNull(),
   detail: text("detail").notNull(),
   createdAt: text("created_at").notNull(),
-});
+}, (t) => [index("audit_entity_created").on(t.entity, t.createdAt)]);
 export const couriers = sqliteTable("couriers", {
   userId:text("user_id").references(()=>members.userId),
   bindingRevision:integer("binding_revision").notNull().default(0),
