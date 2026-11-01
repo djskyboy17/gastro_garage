@@ -105,14 +105,14 @@ test("Kitchen shows remaining portions per item and lists only unfinished item i
 test("Staff status follows the customer journey: accepted → cooking → ready → awaiting courier → transit → completed", async () => {
   // @ts-ignore Node native type stripping
   const { orderStage } = await import("../src/modules/shared/domain.ts");
-  const base = { status: "confirmed", production: "queued", delivery: "pending", fulfillmentMode: "delivery", packingReady: 0 };
+  const base = { status: "confirmed", production: "queued", delivery: "pending", fulfillmentMode: "delivery" };
   const key = (o: object) => orderStage({ ...base, ...o }).key;
   assert.equal(key({ status: "requested" }), "stageRequested");
   assert.equal(key({}), "stageAccepted");
   assert.equal(key({ production: "cooking" }), "stageCooking");
-  assert.equal(key({ production: "ready" }), "stageReady");
-  assert.equal(key({ production: "ready", packingReady: 1 }), "stageAwaitingCourier");
-  assert.equal(key({ production: "ready", packingReady: 1, delivery: "transit" }), "stageTransit");
+  // v53: nincs csomagellenőrzés – az elkészült rendelés egyből futárra vár.
+  assert.equal(key({ production: "ready" }), "stageAwaitingCourier");
+  assert.equal(key({ production: "ready", delivery: "transit" }), "stageTransit");
   assert.equal(key({ production: "ready", delivery: "failed" }), "stageFailed");
   assert.equal(key({ production: "ready", delivery: "delivered" }), "stageCompleted");
   assert.equal(key({ status: "cancelled" }), "cancelled");
@@ -132,7 +132,7 @@ test("Overview cards: orange when nothing is done, yellow in progress, green whe
   const o = (x: object) => ({ id: "o", customerId: "c", customerName: "n", address: "", phone: "", date: "2026-11-02", time: "12:00", note: "", production: "queued", delivery: "pending", payment: "unpaid", status: "confirmed", revision: 0, createdAt: "", fulfillmentMode: "delivery", packingReady: 0, items: [item(2)], ...x });
   const cards = overviewCards([
     o({ status: "requested" }),
-    o({ production: "ready", packingReady: 1, delivery: "transit" }),
+    o({ production: "ready", delivery: "transit" }),
     o({ production: "cooking" }),
     o({ status: "cancelled" }),
   ]);
@@ -140,6 +140,7 @@ test("Overview cards: orange when nothing is done, yellow in progress, green whe
   const by: Record<string, Card> = Object.fromEntries(cards.map((c: Card) => [c.key, c]));
   assert.deepEqual([by.orders.done, by.orders.total, by.orders.extra, by.orders.level], [2, 3, 1, "progress"]);
   assert.deepEqual([by.kitchen.done, by.kitchen.total, by.kitchen.level], [2, 4, "progress"]);
-  assert.deepEqual([by.packing.done, by.packing.total, by.packing.level], [1, 2, "progress"]);
+  // v53: a csomagolás kártya megszűnt.
+  assert.deepEqual(cards.map((c: Card) => c.key), ["orders", "kitchen", "delivery"]);
   assert.deepEqual([by.delivery.done, by.delivery.total, by.delivery.extra, by.delivery.level], [0, 2, 1, "todo"]);
 });

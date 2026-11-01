@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import { ChefHat, Info, Leaf, Minus, Plus, X } from "lucide-react";
 import { portionUnit, type Language } from "@/src/modules/shared/domain";
+import { isUnlimited } from "@/src/modules/menu/domain";
 import type { PublicProduct } from "@/src/modules/portal/domain";
 import { PublicDishInfoView } from "./dish-info";
 import { ProductImage } from "./product-image";
@@ -51,7 +52,7 @@ export function DishCard({
         <div className="portal-dish-meta">
           <span>{p.portion} {portionUnit(p.category)}</span>
           <span className={"portal-availability" + (p.remaining <= 5 ? " low" : "")}>
-            {soldOut ? t("portalUnavailable") : t("menuRemaining") + ": " + p.remaining}
+            {soldOut ? t("portalUnavailable") : isUnlimited(p.remaining) ? t("portalAvailable") : t("menuRemaining") + ": " + p.remaining}
           </span>
           <button type="button" className="portal-info-link" onClick={showInfo}>
             {t("allergens")} · {t("ingredientList")}
@@ -81,10 +82,10 @@ export function DishCard({
   );
 }
 
-/** A nap menüje a portálon (v49): leves + főétel + desszert egy áron. */
-export type MenuSetOffer = { price: number; priceRevision: number; soup: MenuProduct; main: MenuProduct; dessert: MenuProduct; remaining: number };
+/** A nap menüje a portálon (v49, v54): leves + főétel egy áron. */
+export type MenuSetOffer = { price: number; priceRevision: number; soup: MenuProduct; main: MenuProduct; remaining: number };
 
-/** Napi menü kártya: a három étel (mindegyikhez „i” gomb), a menüár és a kosár gomb vagy darabszámláló. */
+/** Napi menü kártya: a két étel (mindegyikhez „i” gomb), a menüár és a kosár gomb vagy darabszámláló. */
 export function SetCard({
   set,
   lang,
@@ -111,7 +112,6 @@ export function SetCard({
   const parts: [string, MenuProduct][] = [
     ["soup", set.soup],
     ["main", set.main],
-    ["dessert", set.dessert],
   ];
   return (
     <article className={"portal-dish portal-set" + (inCart ? " in-cart" : "")}>
@@ -136,7 +136,7 @@ export function SetCard({
       <div className="portal-dish-body">
         <div className="portal-dish-meta">
           <span className={"portal-availability" + (set.remaining <= 5 ? " low" : "")}>
-            {set.remaining <= 0 ? t("portalUnavailable") : t("menuRemaining") + ": " + set.remaining}
+            {set.remaining <= 0 ? t("portalUnavailable") : isUnlimited(set.remaining) ? t("portalAvailable") : t("menuRemaining") + ": " + set.remaining}
           </span>        </div>
         <div className="portal-dish-buy">
           <strong>{money(set.price)}</strong>

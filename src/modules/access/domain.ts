@@ -26,7 +26,6 @@ export function canWrite(role:Role,path:string,body:unknown): boolean {
   const known = ["/api/demo","/api/products","/api/products/section","/api/customers","/api/orders","/api/orders/state","/api/delivery/to-pickup","/api/operations/demo","/api/operations/ingredients","/api/operations/recipes","/api/operations/ingredient-details","/api/operations/preparations","/api/operations/receive","/api/operations/waste","/api/operations/issue","/api/purchasing/suppliers","/api/purchasing/create","/api/purchasing/update","/api/purchasing/state","/api/purchasing/receive","/api/access/role"];
   if(path==="/api/products/image"||path==="/api/products/image/remove")return ["owner","admin","dispatcher"].includes(role);
   if(path==="/api/kitchen/ready")return isAdmin(role)||isKitchenStaff(role);
-  if(path==="/api/packing/check")return isAdmin(role)||role==="dispatcher"||isKitchenStaff(role);
   if(path==="/api/labels/settings")return isAdmin(role);
   if(path==="/api/fulfillment/save")return isAdmin(role);
   const stocktakePaths=["/api/stocktake/create","/api/stocktake/save","/api/stocktake/refresh-line","/api/stocktake/post","/api/stocktake/reverse","/api/stocktake/cancel"];

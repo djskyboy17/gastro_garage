@@ -43,14 +43,15 @@ async function quote(input:z.infer<typeof orderInput>,userId:string){
   const lines=input.items.filter(i=>i.productId!==SET_CART_ID).map(i=>line(i.productId,i.quantity,null,""));
   const [day]=await db.select().from(menuDays).where(eq(menuDays.date,input.date));
   const menu=await publicMenu(input.date);
-  if(!day||!menu.open)throw new PortalError("MENU_CLOSED");
+  // v54: nem mentett nap is nyitva lehet (Étlap ételei, alapértelmezett határidő).
+  if(!menu.open)throw new PortalError("MENU_CLOSED");
   // Napi menü (v49): egy kosártétel, ami a rendelésben három tételre bomlik (leves, főétel, desszert);
   // a menüár a három tétel között oszlik meg, így a konyha, az adagkorlát és a raktár a valódi ételeket látja.
   const setItem=input.items.find(i=>i.productId===SET_CART_ID);
   if(setItem){
     if(!menu.set)throw new PortalError("MENU_SET_UNAVAILABLE");
     const prices=splitSetPrice(menu.set.price);
-    lines.unshift(...[menu.set.soup,menu.set.main,menu.set.dessert].map((p,i)=>line(p.id,setItem.quantity,prices[i]!,SET_GROUP)));
+    lines.unshift(...[menu.set.soup,menu.set.main].map((p,i)=>line(p.id,setItem.quantity,prices[i]!,SET_GROUP)));
   }
   for(const l of lines)if(!menu.items.some(i=>i.id===l.productId))throw new PortalError("MENU_PRODUCT");
   // Adagkorlát ételenként: a menüben és külön rendelt adagok együtt.
@@ -60,11 +61,11 @@ async function quote(input:z.infer<typeof orderInput>,userId:string){
   let fulfillment;try{fulfillment=quoteFulfillment(policyData.policy,input,subtotal);}catch(e){throw new PortalError((e as Error).message);}
   if(input.mode==='delivery'&&p.address.length<5)throw new PortalError('FULFILLMENT_ADDRESS');
   const available=await fulfillmentOptions(input.date);if(!available.slots.some(s=>s.id===input.slotId))throw new PortalError('FULFILLMENT_SLOT');
-  const canonical={policyRevision:policyData.revision,fulfillment,subtotal,menuRevision:day.revision,setPriceRevision:setItem?menu.set!.priceRevision:null,profile:profile(p),date:input.date,time:input.time,note:input.note,items:lines};
+  const canonical={policyRevision:policyData.revision,fulfillment,subtotal,menuRevision:day?.revision??null,menuAutoCutoff:day?null:menu.cutoffAt,setPriceRevision:setItem?menu.set!.priceRevision:null,profile:profile(p),date:input.date,time:input.time,note:input.note,items:lines};
   const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(JSON.stringify(canonical)));
   const fingerprint=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
   const preview:PortalPreview={...canonical,quote:fingerprint,items:lines.map(({recipeId,portalRevision,...line})=>line),total:subtotal+fulfillment.fee};
-  return {preview,p,lines,day,policyRevision:policyData.revision,setPriceRevision:setItem?menu.set!.priceRevision:null};
+  return {preview,p,lines,day,autoCutoff:day?null:menu.cutoffAt,policyRevision:policyData.revision,setPriceRevision:setItem?menu.set!.priceRevision:null};
 }
 export async function handlePortal(path:string,body:unknown|undefined,user:Identity,session:Session,write:boolean):Promise<Response>{
   const db=getDb(),now=new Date().toISOString();
@@ -141,7 +142,10 @@ export async function handlePortal(path:string,body:unknown|undefined,user:Ident
   try{
     await env.DB!.batch([
       env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM fulfillment_policy WHERE id=1 AND revision=?) AND julianday('now')<julianday(?) THEN ? ELSE NULL END,'fulfillment_order_checked',?,'',?)").bind(crypto.randomUUID(),plan.policyRevision,cutoffInstant(d.date+'T'+d.time),user.userId,orderId,now),
-      env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM menu_days WHERE date=? AND revision=? AND active=1 AND julianday('now')<julianday(cutoff_at)) THEN ? ELSE NULL END,'portal_menu_checked',?,'',?)").bind(crypto.randomUUID(),d.date,plan.day.revision,user.userId,orderId,now),
+      // Mentett nap: a változat, az aktív állapot és a határidő; nem mentett nap (v54): közben sem mentették, és az alapértelmezett határidő még nem járt le.
+      plan.day
+        ?env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM menu_days WHERE date=? AND revision=? AND active=1 AND julianday('now')<julianday(cutoff_at)) THEN ? ELSE NULL END,'portal_menu_checked',?,'',?)").bind(crypto.randomUUID(),d.date,plan.day.revision,user.userId,orderId,now)
+        :env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN NOT EXISTS (SELECT 1 FROM menu_days WHERE date=?) AND julianday('now')<julianday(?) THEN ? ELSE NULL END,'portal_menu_checked',?,'',?)").bind(crypto.randomUUID(),d.date,plan.autoCutoff,user.userId,orderId,now),
       env.DB!.prepare("INSERT INTO orders (id,customer_id,customer_name,address,phone,date,time,note,production,delivery,payment,status,revision,created_at,portal_user_id,fulfillment_mode,fulfillment_slot_id,fulfillment_postal_code,fulfillment_snapshot,delivery_fee) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM portal_profiles WHERE user_id=? AND revision=? AND active=1) AND (SELECT COUNT(*) FROM orders WHERE portal_user_id=? AND status='requested')<10 AND (SELECT COUNT(*) FROM portal_submissions WHERE user_id=? AND created_at>=?)<20 AND NOT EXISTS (SELECT 1 FROM json_each(?) AS i WHERE NOT EXISTS (SELECT 1 FROM products WHERE id=json_extract(i.value,'$.productId') AND active=1 AND portal_revision=json_extract(i.value,'$.portalRevision'))) THEN ? ELSE NULL END,?,?,?,?,?,?,'queued','pending','unpaid','requested',0,?,?,?,?,?,?,?)").bind(orderId,user.userId,plan.p.revision,user.userId,user.userId,since,JSON.stringify(plan.lines),plan.p.customerId,plan.p.name,d.mode==="pickup"?[...new Set([plan.preview.fulfillment.addressHu,plan.preview.fulfillment.addressRo])].join(" / "):plan.p.address,plan.p.phone,d.date,d.time,d.note,now,user.userId,d.mode,d.slotId,d.postalCode,JSON.stringify(plan.preview.fulfillment),plan.preview.fulfillment.fee),
       // A menüár nem változhatott az előnézet óta (v49).
       ...(plan.setPriceRevision===null?[]:[env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM menu_settings WHERE id=1 AND revision=?) THEN ? ELSE NULL END,'portal_menu_price_checked',?,'',?)").bind(crypto.randomUUID(),plan.setPriceRevision,user.userId,orderId,now)]),

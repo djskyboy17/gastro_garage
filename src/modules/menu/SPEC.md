@@ -23,3 +23,11 @@ Deferred: global kitchen capacity, time-slot capacity, fees/zones, minimum order
 - **Megjelenítés:** a portál kosara, előnézete és saját rendelései, valamint a fő alkalmazás rendelés-részletei a menü három tételét egy sorban mutatják („Napi menü ×n”, menüár, az ételek nevei és az allergének uniója) (`groupSetItems`).
 - **Tranzakció:** a portálos rendelés a menüár változatát (`menu_settings.revision`) is ellenőrzi az előnézethez képest; változás esetén `CONFLICT`.
 - Még nincs: menü a belső (diszpécseres) új rendelés űrlapján és az ismétlődő rendeléseknél.
+
+## Napi menü leves + főétel; az Étlap minden nap magától — v54
+- **Napi menü:** csak leves és főétel (desszert nélkül). A Napi menü részbe csak leves vagy főétel kerülhet; a már ott lévő más ételek a `0025_menu_auto_days` migrációval visszakerültek az Étlapra, a napok menüjéből a desszert kikerült (`set_dessert_id` = NULL; az oszlop megmaradt, de nem használjuk). A menüár a két tétel között oszlik meg (`splitSetPrice`: a főétel az ár felét kapja lefelé kerekítve, a leves a maradékot).
+- **Menü adagszáma:** a nap szerkesztőjében egyetlen szám („Hány menü rendelhető”, üresen korlátlan), ami a leves és a főétel napi soraira kerül. A Napi menü ételei nem jelennek meg az „Étlapon” listában, és külön nem rendelhetők.
+- **Nem mentett nap (automatikus):** ha egy napot nem mentettek, magától nyitva van az Étlap összes aktív ételével, korlátlan adagszámmal, az alapértelmezett határidőig; napi menü nincs (`publicMenu` → `auto: true`). A portálos rendelés tranzakciója ilyenkor azt ellenőrzi, hogy a napot közben sem mentették, és az alapértelmezett határidő még nem járt le.
+- **Mentett nap:** a szerkesztő megnyitásakor (még nem mentett napon) az Étlap összes aktív étele be van jelölve, korlátlan adaggal; bármelyik kivehető, adag korlátozható. Mentés után a mentett beállítás érvényes.
+- **Korlátlan adag:** `UNLIMITED` = 100 000 (a megengedett legnagyobb érték). A portál ilyenkor nem mutat számot, csak „Rendelhető” jelzést.
+- **Alapbeállítások:** a napi menü ára mellett az alapértelmezett rendelési határidő (`menu_settings.default_cutoff`, HH:MM, romániai idő, kezdetben 09:00). Mentés: `POST /api/menu/settings {revision, setPrice, defaultCutoff}`.

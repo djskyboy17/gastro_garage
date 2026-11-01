@@ -63,7 +63,7 @@ input[type=checkbox]{min-width:22px;min-height:22px}
 .badge.cancelled{background:#f9e9e6;color:#b2776a}
 
 /* v39: Áttekintés – négy állapotkártya (narancs → sárga → zöld) és visszafogott értéksáv */
-.status-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:19px}
+.status-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:19px}
 .status-card{display:flex;flex-direction:column;gap:10px;text-align:left;padding:16px;border-radius:14px;border:2px solid transparent;background:#f3f4ef;color:#3d4937;min-height:150px;transition:transform .12s}
 .status-card:active{transform:scale(.98)}
 .status-card-head{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px}

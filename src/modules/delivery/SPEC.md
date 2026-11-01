@@ -34,3 +34,6 @@ V36 — napi beosztás és átvételre váltás:
 - A Kiszállítási sor oldal a nap kiszállításait mutatja időrendben, állapotjelzéssel; a rendelés részleteiben a futár neve és a kiszállítási előzmények látszanak.
 - Megmaradt: átvételre váltás (`POST /api/delivery/to-pickup`), a csomagolás oldaláról, szállítási díj megtartásával vagy törlésével.
 - Adatbázis: `0024_remove_courier_registry` – a rendelések táblája újraépül `courier_id` nélkül; a rendelésekre hivatkozó adagkorlát-triggerek és a kézzel létrehozott index ugyanazzal a definícióval visszakerülnek. A régi rendelések futárneve (`courier_name`) megmarad.
+
+## Egyszerűbb Kiszállítási sor — v53
+A kártyákról kikerült a rendelés azonosítója és a futár neve (egy futár van). Nagyobb betűk: idő, ügyfél, cím és telefon ikonnal, tételek, megjegyzés kiemelve, összeg és fizetési állapot; a bal oldali sáv színe az állapotot jelzi (narancs: átadásra vár vagy sikertelen, kék: úton, zöld: kézbesítve). Indulás csomagellenőrzés nélkül, ha az étel elkészült. A rendelés részleteiben a kiszállítási előzmények és az átvételre váltás látszik.

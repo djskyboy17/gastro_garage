@@ -1,37 +1,37 @@
 "use client";
 import {useCallback,useEffect,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {Printer,RefreshCw,ChevronLeft,ChevronRight,PackageCheck,Store} from 'lucide-react';
+import {Printer,RefreshCw,ChevronLeft,ChevronRight} from 'lucide-react';
 import {messages} from '@/src/modules/shared/i18n';
-import {today,orderCode,canCheckPacking,type Language} from '@/src/modules/shared/domain';
+import {today,orderCode,type Language} from '@/src/modules/shared/domain';
 import {addDays,validDay} from '@/src/modules/menu/domain';
-import type {PackingData,PackingOrder} from '@/src/modules/packing/domain';
+import type {PackingData} from '@/src/modules/packing/domain';
 import type {ConsumerLabel} from '@/src/modules/labels/domain';
 import {PrintableLabel} from './consumer-label';
 import {LabelFixDialog} from './label-fix-dialog';
-// Csomagolás (v36): csomagellenőrzés és termékcímkék. Az adagterv az Áttekintésbe került, a munkacímke megszűnt.
-export default function PackingWorkspace({lang,refresh,initialDate,initialOrderId='',canEditLabels=false,canAssign=false}:{lang:Language;refresh:()=>Promise<void>;initialDate?:string;initialOrderId?:string;canEditLabels?:boolean;canAssign?:boolean}){
- const [date,setDate]=useState(()=>initialDate??today()),[data,setData]=useState<PackingData|null>(null),[orderId,setOrderId]=useState(initialOrderId),[view,setView]=useState<'orders'|'consumer'>('orders'),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[success,setSuccess]=useState<string|false>(false),[version,setVersion]=useState(0);
+// Csomagolás (v53): csak termékcímkék. A csomagellenőrzés megszűnt (a futárnak átadó ember ellenőriz).
+export default function PackingWorkspace({lang,refresh,initialDate,initialOrderId='',canEditLabels=false}:{lang:Language;refresh:()=>Promise<void>;initialDate?:string;initialOrderId?:string;canEditLabels?:boolean}){
+ const [date,setDate]=useState(()=>initialDate??today()),[data,setData]=useState<PackingData|null>(null),[orderId,setOrderId]=useState(initialOrderId),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[success,setSuccess]=useState<string|false>(false),[version,setVersion]=useState(0);
  const t=(k:string)=>messages[lang][k]??k;
  const reload=useCallback(()=>{setError('');setSuccess(false);setVersion(v=>v+1);},[]);
  useEffect(()=>{let ignore=false;setLoading(true);setData(previous=>previous?.date===date?previous:null);
   void (async()=>{try{const r=await fetch('/api/packing?date='+encodeURIComponent(date),{cache:'no-store'}),d=await r.json() as PackingData&{error?:string};if(!r.ok)throw Error(d.error??'loadError');if(!ignore)setData(d);}catch(e){if(!ignore){setData(null);setError((e as Error).message);}}finally{if(!ignore)setLoading(false);}})();return ()=>{ignore=true;};
  },[date,version]);
  async function post(path:string,body:unknown,done='packingSaved'){setBusy(true);setError('');setSuccess(false);try{const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),d=await r.json() as {error?:string};if(!r.ok)throw Error(d.error??'saveError');setVersion(v=>v+1);await refresh();setSuccess(done);}catch(e){setError((e as Error).message);setVersion(v=>v+1);}finally{setBusy(false);}}
- const save=(o:PackingOrder,itemIds:string[])=>post('/api/packing/check',{id:o.id,revision:o.revision,itemIds});
  
- const toPickup=(o:PackingOrder,removeFee:boolean)=>post('/api/delivery/to-pickup',{id:o.id,revision:o.revision,removeFee},'packingSwitchedPickup');
- const displayOrders=(data?.orders??[]).filter(o=>!orderId||o.id===orderId);
- return <section className={'packing-workspace packing-view-'+view} aria-label={t('packing')}>
+ 
+ 
+ 
+ return <section className="packing-workspace packing-view-consumer" aria-label={t('packing')}>
   <div className="packing-toolbar packing-no-print"><div className="packing-date"><button className="button secondary" aria-label={t('previous')} disabled={busy||loading||date<=addDays(today(),-90)} onClick={()=>{setError('');setSuccess(false);setOrderId('');setDate(addDays(date,-1));}}><ChevronLeft size={16}/></button><label>{t('date')}<input type="date" min={addDays(today(),-90)} max={addDays(today(),90)} value={date} disabled={busy||loading} onChange={e=>{if(!validDay(e.target.value))return;setError('');setSuccess(false);setOrderId('');setDate(e.target.value);}}/></label><button className="button secondary" aria-label={t('next')} disabled={busy||loading||date>=addDays(today(),90)} onClick={()=>{setError('');setSuccess(false);setOrderId('');setDate(addDays(date,1));}}><ChevronRight size={16}/></button></div><button className="button secondary" disabled={busy||loading} onClick={reload}><RefreshCw size={16}/>{t('refresh')}</button><button className="button secondary" disabled={busy||loading||!data?.orders.length} onClick={()=>window.print()}><Printer size={16}/>{t('packingPrint')}</button></div>
   <p className="packing-intro packing-no-print">{t('packingIntro')}</p>
-  <div className="packing-tabs packing-no-print" role="group" aria-label={t('packing')}>{(['orders','consumer'] as const).map(v=><button className={'button '+(view===v?'':'secondary')} aria-pressed={view===v} disabled={busy} key={v} onClick={()=>setView(v)}>{t(v==='orders'?'packingOrders':'packingConsumerLabels')}</button>)}</div>
+  
   {data&&<label className="packing-filter packing-no-print">{t('packingFilter')}<select disabled={busy||loading} value={orderId} onChange={e=>setOrderId(e.target.value)}><option value="">{t('all')}</option>{data.orders.map(o=><option key={o.id} value={o.id}>#{orderCode(o.id)} · {o.time} · {o.customerName}</option>)}</select></label>}
   {error&&<p role="alert" className="portal-alert packing-no-print">{t(error)}</p>}{success&&<p role="status" className="portal-success packing-no-print">{t(success)}</p>}{loading&&<p role="status">{t('loading')}</p>}
-  {data&&<div className="packing-print-area"><div className="packing-print-heading"><h2>{t(view==='orders'?'packingOrders':'packingConsumerLabels')} · {date}</h2><small>{t('portalTimezone')}</small></div>
+  {data&&<div className="packing-print-area"><div className="packing-print-heading"><h2>{t('packingConsumerLabels')} · {date}</h2><small>{t('portalTimezone')}</small></div>
    {!data.orders.length?<p className="panel packing-empty">{t('packingEmpty')}</p>:<>
-   {view==='orders'&&<><p className="packing-hint packing-no-print">{t('packingHint')}</p><div className="packing-order-list">{displayOrders.map(o=><PackingCard key={o.id+':'+o.revision} order={o} lang={lang} busy={busy||loading} save={save} canAssign={canAssign} toPickup={toPickup}/>)}</div></>}
-   {view==='consumer'&&<ConsumerLabels key={date+':'+orderId+':'+version} date={date} orderId={orderId} lang={lang} canEdit={canEditLabels}/>}
+   
+   {<ConsumerLabels key={date+':'+orderId+':'+version} date={date} orderId={orderId} lang={lang} canEdit={canEditLabels}/>}
    </>}
   </div>}
  </section>;
@@ -61,15 +61,4 @@ function ConsumerLabels({date,orderId,lang,canEdit}:{date:string;orderId:string;
   {/* Nyomtatáskor csak ez látszik: a kijelölt címkék, példányonként egy 62 mm-es oldal. */}
   {createPortal(<div className="consumer-print-root">{selected.flatMap(l=>Array.from({length:chosen[l.itemId]??0},(_,i)=><PrintableLabel key={l.itemId+':'+i} label={l} t={ro}/>))}</div>,document.body)}
  </>;
-}
-function PackingCard({order:o,lang,busy,save,canAssign,toPickup}:{order:PackingOrder;lang:Language;busy:boolean;save:(o:PackingOrder,itemIds:string[])=>Promise<void>;canAssign:boolean;toPickup:(o:PackingOrder,removeFee:boolean)=>Promise<void>}){
- const [selected,setSelected]=useState(o.checkedItemIds),t=(k:string)=>messages[lang][k]??k,editable=canCheckPacking({...o,status:'confirmed'}),changed=JSON.stringify([...selected].sort())!==JSON.stringify([...o.checkedItemIds].sort());
- return <article className="panel packing-order"><div className="packing-order-heading"><strong>#{orderCode(o.id)}</strong><span>{o.time}{o.windowEnd?'–'+o.windowEnd:''} · {t(o.mode==='pickup'?'fulfillPickup':'fulfillDelivery')}</span><span className={'badge '+(o.packingReady===1?'ready':'queued')}>{t(o.packingReady===1?'packingComplete':'packingIncomplete')}</span></div><h3>{o.customerName}</h3><p className="packing-state">{t(o.production)} · {t(o.delivery)}{o.packingCheckedAt?' · '+new Intl.DateTimeFormat(lang==='hu'?'hu-HU':'ro-RO',{timeZone:'Europe/Bucharest',dateStyle:'short',timeStyle:'short'}).format(new Date(o.packingCheckedAt)):''}</p>{o.note&&<p className="packing-order-note">{o.note}</p>}<fieldset disabled={busy||!editable}><legend>{t('packingCheck')}</legend>{o.items.map(i=><label className="packing-check-row" key={i.id}><input type="checkbox" checked={selected.includes(i.id)} onChange={e=>setSelected(s=>e.target.checked?[...s,i.id]:s.filter(id=>id!==i.id))}/><span><strong>{i.quantity} × {i[lang]}</strong><small>{t('allergens')}: {i.allergens?i.allergens.split(',').map(t).join(', '):t('packingNoAllergenData')}</small></span></label>)}</fieldset><footer>{editable?<button className="button packing-no-print" disabled={busy||!changed} onClick={()=>void save(o,selected)}><PackageCheck size={16}/>{t('packingSave')}</button>:<small>{t(o.production!=='ready'?'packingWaiting':'packingLocked')}</small>}{editable&&o.packingReady===1&&!changed&&<strong className="packing-go">{t(o.mode==='pickup'?'packingPickupReady':'packingReadyDispatch')}</strong>}</footer>{o.mode!=='pickup'&&['pending','failed'].includes(o.delivery)&&<PickupSwitch order={o} lang={lang} busy={busy} canSwitch={canAssign} toPickup={toPickup}/>}</article>;
-}
-/** v51: egy futár van, futárválasztás nincs. Ha kell (pl. az ügyfél kéri), a rendelés helyszíni átvételre váltható. */
-function PickupSwitch({order:o,lang,busy,canSwitch,toPickup}:{order:PackingOrder;lang:Language;busy:boolean;canSwitch:boolean;toPickup:(o:PackingOrder,removeFee:boolean)=>Promise<void>}){
- const t=(k:string)=>messages[lang][k]??k,[removeFee,setRemoveFee]=useState(false);
- const money=(n:number)=>new Intl.NumberFormat(lang==='hu'?'hu-HU':'ro-RO',{style:'currency',currency:'RON'}).format(n/100);
- if(!canSwitch)return null;
- return <div className="packing-courier packing-no-print"><Store size={16}/><div>{o.deliveryFee>0&&<label className="packing-fee"><input type="checkbox" checked={removeFee} disabled={busy} onChange={e=>setRemoveFee(e.target.checked)}/>{t('packingRemoveFee')} ({money(o.deliveryFee)})</label>}</div><button className="button secondary" disabled={busy} onClick={()=>{if(window.confirm(t('packingToPickupConfirm')))void toPickup(o,removeFee);}}>{t('packingToPickup')}</button></div>;
 }

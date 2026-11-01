@@ -23,9 +23,9 @@ export type Product = {
   allergens: string;
   active: number;
 };
-/** Katalógus-részek (v49). A Napi menü részben csak leves, főétel és desszert lehet. */
+/** Katalógus-részek (v49). A Napi menü részben csak leves és főétel lehet (v54: desszert nélkül). */
 export const SECTIONS = ["daily", "alacarte"] as const;
-export const DAILY_CATEGORIES = ["soup", "main", "dessert"] as const;
+export const DAILY_CATEGORIES = ["soup", "main"] as const;
 export const CATEGORIES = ["soup", "main", "vegetarian", "dessert"] as const;
 /** Adag mértékegysége: levesnél ml, minden másnál g (v49). */
 export const portionUnit = (category: string) => (category === "soup" ? "ml" : "g");
@@ -33,12 +33,12 @@ export const portionUnit = (category: string) => (category === "soup" ? "ml" : "
 export const SET_GROUP = "napi_menu";
 export const SET_CART_ID = "@napi_menu";
 /**
- * A menüár szétosztása a három tételre (bani, egész): a főétel és a desszert az ár harmadát kapja lefelé kerekítve,
- * a leves a maradékot. Az összeg mindig pontosan a menüár, így a rendelés és a számla végösszege helyes.
+ * A menüár szétosztása a két tételre (v54, bani, egész): a főétel az ár felét kapja lefelé kerekítve, a leves a maradékot.
+ * Az összeg mindig pontosan a menüár, így a rendelés és a számla végösszege helyes.
  */
-export function splitSetPrice(price: number): [soup: number, main: number, dessert: number] {
-  const third = Math.floor(price / 3);
-  return [price - 2 * third, third, third];
+export function splitSetPrice(price: number): [soup: number, main: number] {
+  const half = Math.floor(price / 2);
+  return [price - half, half];
 }
 /** Rendelési tételek megjelenítéshez: a napi menü tételei egy sorba vonva, a többi változatlanul. */
 export type DisplayLine<T extends { setGroup?: string; quantity: number; price: number }> =
@@ -186,7 +186,6 @@ export function kitchenSummary(orders: Order[]) {
   // Ami még hátra van, előre kerül; a teljesen kész ételek a végére.
   return [...result.values()].sort((a, b) => Number(a.remaining === 0) - Number(b.remaining === 0) || b.quantity - a.quantity);
 }
-export function canCheckPacking(order:Pick<Order,'status'|'production'|'delivery'>){return order.status==='confirmed'&&order.production==='ready'&&['pending','failed'].includes(order.delivery);}
 export function nextState(order: Order, field: string, value: string) {
   if (order.status === "cancelled") throw new Error("CANCELLED");
   if (order.status === "rejected") throw new Error("REJECTED");
@@ -214,7 +213,6 @@ export function nextState(order: Order, field: string, value: string) {
     order.production !== "ready"
   )
     throw new Error("NOT_READY");
-  if(field==='delivery'&&(value==='transit'||(order.fulfillmentMode==='pickup'&&value==='delivered'))&&order.packingReady!==1)throw Error('PACKING_REQUIRED');
   if (
     field === "status" &&
     value === "cancelled" &&
@@ -236,7 +234,7 @@ export function normalizeSearch(v: string) {
  * A `step`/`steps` a kis lépésjelzőhöz kell; lezárt (elutasított, lemondott) rendelésnél 0.
  */
 export type OrderStage = { key: string; badge: string; step: number; steps: number };
-export function orderStage(o: Pick<Order, "status" | "production" | "delivery" | "fulfillmentMode" | "packingReady">): OrderStage {
+export function orderStage(o: Pick<Order, "status" | "production" | "delivery" | "fulfillmentMode">): OrderStage {
   const pickup = o.fulfillmentMode === "pickup";
   const steps = pickup ? 5 : 6;
   if (o.status === "requested") return { key: "stageRequested", badge: "pending", step: 0, steps };
@@ -244,20 +242,18 @@ export function orderStage(o: Pick<Order, "status" | "production" | "delivery" |
   if (o.delivery === "delivered") return { key: "stageCompleted", badge: "delivered", step: steps, steps };
   if (!pickup && o.delivery === "transit") return { key: "stageTransit", badge: "transit", step: 5, steps };
   if (!pickup && o.delivery === "failed") return { key: "stageFailed", badge: "failed", step: 4, steps };
-  if (o.production === "ready")
-    return o.packingReady === 1
-      ? { key: pickup ? "stagePickupReady" : "stageAwaitingCourier", badge: "ready", step: 4, steps }
-      : { key: "stageReady", badge: "ready", step: 3, steps };
+  // v53: nincs csomagellenőrzés – az elkészült rendelés egyből futárra vár / átvehető.
+  if (o.production === "ready") return { key: pickup ? "stagePickupReady" : "stageAwaitingCourier", badge: "ready", step: 4, steps };
   if (o.production === "cooking") return { key: "stageCooking", badge: "cooking", step: 2, steps };
   return { key: "stageAccepted", badge: "confirmed", step: 1, steps };
 }
 
 /**
- * Az Áttekintés négy állapotkártyája (v39): rendelés, konyha, csomagolás, futár.
+ * Az Áttekintés állapotkártyái (v39, v53): rendelés, konyha, futár (a csomagolás kártya a csomagellenőrzéssel megszűnt).
  * Szín: nincs kész semmi → narancs (todo), részben → sárga (progress), minden kész → zöld (done); üres nap → semleges.
  */
 export type StatusLevel = "empty" | "todo" | "progress" | "done";
-export type OverviewCard = { key: "orders" | "kitchen" | "packing" | "delivery"; done: number; total: number; level: StatusLevel; extra: number };
+export type OverviewCard = { key: "orders" | "kitchen" | "delivery"; done: number; total: number; level: StatusLevel; extra: number };
 export function statusLevel(done: number, total: number): StatusLevel {
   if (total <= 0) return "empty";
   if (done <= 0) return "todo";
@@ -266,7 +262,6 @@ export function statusLevel(done: number, total: number): StatusLevel {
 export function overviewCards(dayOrders: Order[]): OverviewCard[] {
   const open = dayOrders.filter((o) => o.status !== "rejected" && o.status !== "cancelled");
   const confirmed = open.filter((o) => o.status === "confirmed");
-  const shipped = (o: Order) => o.delivery === "transit" || o.delivery === "delivered";
   const deliveries = confirmed.filter((o) => o.fulfillmentMode !== "pickup");
   const card = (key: OverviewCard["key"], done: number, total: number, extra: number): OverviewCard => ({ key, done, total, level: statusLevel(done, total), extra });
   return [
@@ -274,8 +269,6 @@ export function overviewCards(dayOrders: Order[]): OverviewCard[] {
     card("orders", confirmed.length, open.length, open.length - confirmed.length),
     // Konyha: elkészült adag / összes adag; extra = még elkészítendő adag.
     card("kitchen", confirmed.reduce((s, o) => s + readyPortions(o), 0), confirmed.reduce((s, o) => s + portions(o), 0), confirmed.reduce((s, o) => s + portions(o) - readyPortions(o), 0)),
-    // Csomagolás: ellenőrzötten becsomagolt (vagy már elindult) rendelés / összes; extra = csomagolásra kész, de még nincs ellenőrizve.
-    card("packing", confirmed.filter((o) => o.packingReady === 1 || shipped(o)).length, confirmed.length, confirmed.filter((o) => o.production === "ready" && o.packingReady !== 1 && !shipped(o)).length),
     // Futár: kézbesített / kiszállításos rendelés; extra = úton.
     card("delivery", deliveries.filter((o) => o.delivery === "delivered").length, deliveries.length, deliveries.filter((o) => o.delivery === "transit").length),
   ];

@@ -305,3 +305,16 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 - Megszűnt a futártörzs, a fiók–futár összekötés, a napi futárbeosztás, a rendelésenkénti futár-hozzárendelés és a napi futárlista.
 - Aki futár szerepkört kap, a futár oldalon az összes kiszállítást látja; induláskor az ő neve kerül a rendelésre.
 - Új migráció: `0024_remove_courier_registry` (a rendelések táblája újraépül `courier_id` nélkül; az adatok megmaradnak).
+
+## Csomagellenőrzés nélkül — v53
+
+- A csomagellenőrzés megszűnt; a futár induláshoz és az átvételhez elég, ha az étel elkészült. A Csomagolás menüben a Termékcímkék maradtak, az átvételre váltás a rendelés részleteibe került.
+- Az Áttekintésen három állapotkártya maradt: Rendelés, Konyhai terv, Futár.
+- Kiszállítási sor: egyszerűbb, nagyobb betűs kártyák, rendelésazonosító és futárnév nélkül.
+
+## Napi menü leves + főétel, Étlap minden nap — v54
+
+- A napi menü csak leves + főétel (desszert nélkül); a menü adagszáma egy számmal adható meg (üresen korlátlan).
+- A Napi/heti étlap „Étlapon” listájában csak az Étlap ételei szerepelnek.
+- Az Étlap ételei minden nap maguktól, korlátlan adaggal rendelhetők, mentés nélkül is, az alapértelmezett határidőig (beállítható, kezdetben 09:00). Egy napot csak akkor kell menteni, ha valamit kiveszel, korlátozol, napi menüt állítasz be vagy más határidőt adsz.
+- Új migráció: `0025_menu_auto_days`.

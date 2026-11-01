@@ -857,7 +857,6 @@ export default function KitchenApp() {
                         const meta = {
                           orders: { Icon: ClipboardList, dest: "orders", unit: "ordersCount", extra: "statusAwaitingConfirm" },
                           kitchen: { Icon: ChefHat, dest: "kitchen", unit: "units", extra: "statusToCook" },
-                          packing: { Icon: Package, dest: "packing", unit: "ordersCount", extra: "statusToPack" },
                           delivery: { Icon: Truck, dest: "delivery", unit: "ordersCount", extra: "statusInTransit" },
                         }[c.key];
                         const I = meta.Icon;
@@ -924,7 +923,7 @@ export default function KitchenApp() {
                                 <strong>
                                   {title(r)}
                                   <small className="production-meta">
-                                    {t("packingPrepared")}: {r.ready} · {t("packingPacked")}: {r.packed}
+                                    {t("packingPrepared")}: {r.ready}
                                     {" · "}
                                     {t("allergens")}:{" "}
                                     {r.allergens ? r.allergens.split(",").map(t).join(", ") : t("packingNoAllergenData")}
@@ -1329,7 +1328,7 @@ export default function KitchenApp() {
                     </div>
                   </>
                 )}
-                {tab === "packing" && <PackingWorkspace lang={lang} refresh={load} initialDate={packingTarget?.date??day} initialOrderId={packingTarget?.id??""} canEditLabels={isAdmin(session.role)} canAssign={canWrite(session.role,"/api/delivery/assign",{})}/>}
+                {tab === "packing" && <PackingWorkspace lang={lang} refresh={load} initialDate={packingTarget?.date??day} initialOrderId={packingTarget?.id??""} canEditLabels={isAdmin(session.role)}/>}
                 {tab === "fulfillment" && <FulfillmentWorkspace lang={lang} role={session.role}/>}
                 {tab === "labels" && <LabelsWorkspace lang={lang}/>}
                 {tab === "stocktake" && <StocktakeWorkspace ops={data.operations} lang={lang} role={session.role} refresh={load}/>}
@@ -1487,11 +1486,11 @@ export default function KitchenApp() {
                 {selectedOrder.note && (
                   <p className="detail-note">{selectedOrder.note}</p>
                 )}
-                {selectedOrder.fulfillmentMode!=="pickup" && can("delivery/assign") && selectedOrder.status === "confirmed" && <OrderDeliveryEditor key={selectedOrder.id+":"+selectedOrder.revision} data={data} lang={lang} busy={busy} mutate={mutate} order={selectedOrder}/>}
+                {selectedOrder.fulfillmentMode!=="pickup" && selectedOrder.status === "confirmed" && <OrderDeliveryEditor key={selectedOrder.id+":"+selectedOrder.revision} data={data} lang={lang} busy={busy} mutate={mutate} order={selectedOrder} canSwitch={can("delivery/to-pickup")}/>}
                 {can("orders/state",{field:"delivery"}) && selectedOrder.status === "confirmed" && selectedOrder.delivery !== "delivered" && <div className="detail-delivery-note"><Field label={t("deliveryNote")}><textarea maxLength={500} value={deliveryNote} onChange={e=>setDeliveryNote(e.target.value)}/></Field><small>{t("recordedResult")}</small></div>}
                 {selectedOrder.status==="requested" && can("orders/state",{field:"status"}) && <OrderRequestReview key={selectedOrder.id+":"+selectedOrder.revision} order={selectedOrder} lang={lang} busy={busy} mutate={mutate}/>}
                 {selectedOrder.reviewNote && <p className="portal-review-note">{selectedOrder.reviewNote}</p>}
-                {selectedOrder.status==='confirmed'&&selectedOrder.production==='ready'&&['pending','failed'].includes(selectedOrder.delivery)&&<div className="packing-dispatch-hint"><p>{t(selectedOrder.packingReady===1?'packingComplete':'PACKING_REQUIRED')}</p><button className="text-button" onClick={()=>{setPackingTarget({id:selectedOrder.id,date:selectedOrder.date});setModal(null);navigate('packing');}}>{t('packingOrders')}</button></div>}
+                
                 <div className="state-grid">
                   {[
                     ["production", selectedOrder.production],
@@ -1506,7 +1505,7 @@ export default function KitchenApp() {
                 </div>
                 {selectedOrder.status === "confirmed" && (
                   <div className="detail-actions">
-                    {selectedOrder.fulfillmentMode==='pickup'&&can('orders/state',{field:'delivery'})&&selectedOrder.production==='ready'&&selectedOrder.delivery==='pending'&&selectedOrder.packingReady===1&&<Button onClick={()=>void change(selectedOrder,'delivery','delivered')}>{t('fulfillCollected')}</Button>}
+                    {selectedOrder.fulfillmentMode==='pickup'&&can('orders/state',{field:'delivery'})&&selectedOrder.production==='ready'&&selectedOrder.delivery==='pending'&&<Button onClick={()=>void change(selectedOrder,'delivery','delivered')}>{t('fulfillCollected')}</Button>}
                     {can("orders/state",{field:"production"}) && selectedOrder.production === "queued" && (
                       <Button
                         onClick={() =>
@@ -1527,7 +1526,7 @@ export default function KitchenApp() {
                         {t("markReady")}
                       </Button>
                     )}
-                    {selectedOrder.fulfillmentMode!=="pickup" && can("orders/state",{field:"delivery"}) && selectedOrder.production === "ready" && selectedOrder.packingReady===1 &&
+                    {selectedOrder.fulfillmentMode!=="pickup" && can("orders/state",{field:"delivery"}) && selectedOrder.production === "ready" &&
                       ["pending", "failed"].includes(
                         selectedOrder.delivery,
                       ) && (

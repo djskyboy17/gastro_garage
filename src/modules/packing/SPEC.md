@@ -32,3 +32,10 @@ A fogyasztói címke (fogyaszthatósági idő, tárolás, QR-kód) külön modul
 
 ## Futárválasztás nélkül — v51
 A csomagolásnál megszűnt a futárválasztás és a „Futár hiányzik” jelzés (egy futár van, hozzárendelés nincs). Kész, ellenőrzött kiszállításos rendelésnél „Indulhat” jelzés látszik. A „Helyszíni átvételre váltás” gomb (díj megtartása vagy törlése) a kiszállításos, függő vagy sikertelen kézbesítésű rendeléseknél továbbra is elérhető a tulajdonosnak, adminnak és diszpécsernek.
+
+## Csomagellenőrzés megszűnt — v53
+A tételes csomagellenőrzés teljesen kikerült a rendszerből: a futárnak átadó ember ellenőriz, a kiszállítás részben.
+- Megszűnt: a „Csomagellenőrzés” nézet, a `POST /api/packing/check` végpont és jogosultsága, a csomagolási feltétel az indulásnál és az átvételnél (`PACKING_REQUIRED`), az „Elkészült → Futárra vár” közbülső lépés (az elkészült rendelés egyből futárra vár / átvehető), az Áttekintés „Csomagolás” állapotkártyája és az adagterv „csomagolt” száma, valamint a futár oldalán a „csomagolásra vár” állapot.
+- A Csomagolás menüben csak a **Termékcímkék** maradtak.
+- A „Helyszíni átvételre váltás” a rendelés részleteibe, a kiszállítási részhez került.
+- Adatbázis: a `packing_items`, `packing_ready`, `packing_checked_at` oszlopok megmaradtak (nem kell hozzájuk táblaújraépítés), de a rendszer már nem használja őket.

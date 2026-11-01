@@ -419,6 +419,8 @@ export const menuDays = sqliteTable("menu_days", {
 export const menuSettings = sqliteTable("menu_settings", {
   id: integer("id").primaryKey(),
   setPrice: integer("set_price").notNull().default(0),
+  /** v54: alapértelmezett rendelési határidő (HH:MM, romániai idő) a külön nem mentett napokra. */
+  defaultCutoff: text("default_cutoff").notNull().default("09:00"),
   revision: integer("revision").notNull().default(0),
 }, t=>[check("menu_settings_single",sql`${t.id} = 1`),check("menu_set_price",sql`${t.setPrice}>=0 AND ${t.setPrice}<=10000000`)]);
 export const menuLines = sqliteTable("menu_lines", {
