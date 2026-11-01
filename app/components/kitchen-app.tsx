@@ -1,5 +1,6 @@
 "use client";
 import PackingWorkspace from "./packing-workspace";
+import { CustomerPicker, type CustomerChoice } from "./customer-picker";
 import { TimeInput24 } from "./time-input";
 import { ProductImage, ProductImageControls } from "./product-image";
 import {orderFulfillment} from "@/src/modules/fulfillment/domain";
@@ -204,6 +205,8 @@ export default function KitchenApp() {
   const [productCategory, setProductCategory] = useState("soup");
   // v55: a szerkesztett étel; null = új étel.
   const [editingProduct, setEditingProduct] = useState<AppData["products"][number] | null>(null);
+  // v56: az új rendelés ügyfele (meglévő vagy helyben felvett új).
+  const [customerChoice, setCustomerChoice] = useState<CustomerChoice>(null);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -317,6 +320,7 @@ export default function KitchenApp() {
     setModal(type);
     if (type === "order") {
       setLines([{ productId: data.products.find((p) => p.active === 1)?.id ?? "", quantity: 1 }]);
+      setCustomerChoice(null);
       setOrderId(crypto.randomUUID());
       setNewDate(day);
       setNewTime("12:00");
@@ -387,7 +391,7 @@ export default function KitchenApp() {
       <p>{t("emptyHint")}</p>
       {can("orders") && <Button
         onClick={() => open("order")}
-        disabled={!data.products.length || !data.customers.length}
+        disabled={!data.products.length}
       >
         <Plus size={16} />
         {t("newOrder")}
@@ -545,12 +549,17 @@ export default function KitchenApp() {
     else
       body = {
         id: orderId,
-        customerId: f.get("customerId"),
+        ...(customerChoice?.mode === "existing" ? { customerId: customerChoice.id } : {}),
+        ...(customerChoice?.mode === "new" ? { newCustomer: { name: customerChoice.name, address: customerChoice.address, phone: customerChoice.phone } } : {}),
         date: newDate,
         time: newTime,
         note: f.get("note"),
         items: lines,
       };
+    if (modal === "order" && !customerChoice) {
+      setError("CUSTOMER_MISSING");
+      return;
+    }
     if (
       await mutate(
         modal === "customer"
@@ -733,7 +742,7 @@ export default function KitchenApp() {
                 ) : ["overview", "orders"].includes(tab) && can("orders") ? (
                   <Button
                     onClick={() => open("order")}
-                    disabled={!data.products.length || !data.customers.length}
+                    disabled={!data.products.length}
                   >
                     <Plus size={17} />
                     {t("newOrder")}
@@ -1711,18 +1720,10 @@ export default function KitchenApp() {
                 )}
                 {modal === "order" && (
                   <>
-                    <Field label={t("customer")}>
-                      <select name="customerId" required defaultValue="">
-                        <option value="" disabled>
-                          {t("chooseCustomer")}
-                        </option>
-                        {data.customers.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
+                    <div className="field">
+                      <span className="field-label">{t("customer")}</span>
+                      <CustomerPicker customers={data.customers} t={t} value={customerChoice} onChange={setCustomerChoice} />
+                    </div>
                     <div className="form-grid">
                       <Field label={t("date")}>
                         <input

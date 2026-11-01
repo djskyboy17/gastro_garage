@@ -323,3 +323,9 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 
 - Az Ételkatalógusban minden étel kártyáján Szerkesztés és Törlés gomb van (tulajdonos, admin, diszpécser).
 - A szerkesztés a régi rendeléseket nem változtatja meg. A törölt étel eltűnik a katalógusból, az étlapokról és a portálról, a régi rendelésekben megmarad; foglalt (mai vagy későbbi rendelésben szereplő) étel nem törölhető.
+
+## Ügyfél keresése és felvétele az új rendelésben — v56
+
+- Telefonos rendelésnél az „Új rendelés” ablakban név, cím vagy telefonszám alapján kereshető a meglévő ügyfél; ha nincs meg, ugyanott felvehető (név, cím, telefon), nem kell az Ügyfelek modulba menni.
+- Ha az új ügyfél telefonszáma már szerepel, az ablak felajánlja a meglévő ügyfelet.
+- Migráció nem kell.

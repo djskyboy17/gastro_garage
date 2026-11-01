@@ -13,6 +13,13 @@
 
 GET /api/data returns the owner's workspace data. POST /api/products and /api/customers create master records. POST /api/orders validates item references and snapshots server prices. Request UUID is an idempotency key. POST /api/orders/state uses revision compare-and-swap and a transition allowlist. POST /api/demo inserts explicit, marked, deterministic sample records idempotently.
 
+## Ügyfél az új rendelésben — v56
+
+- Az „Új rendelés” ablakban az ügyfél keresővel választható ki: név vagy cím (ékezet nélkül is), illetve telefonszám (legalább 3 számjegy, szóközök nélkül is egyezik). Legfeljebb 8 találat látszik.
+- Ha nincs meg, ugyanitt felvehető új ügyfél: név és cím kötelező, telefonszám nem. A keresett szöveg előre bekerül a név vagy (ha számnak látszik) a telefon mezőbe. Ha a megadott telefonszám (legalább 6 számjegy) már egy meglévő ügyfélé, az ablak felajánlja őt („Őt választom”).
+- `POST /api/orders`: pontosan egy kell a `customerId` és a `newCustomer {name, address, phone}` közül, különben `CUSTOMER_MISSING` (400). Az új ügyfél (napló: `customer_created`) és a rendelés egy kötegben jön létre; a rendelés azonosítója idempotenciakulcs, így ismételt küldés nem hoz létre második ügyfelet.
+- Új rendelés ügyfél nélkül is indítható (az ügyfél helyben felvehető); az Ügyfelek modul változatlan.
+
 ## Access and persistence
 
 The user made Sites public for testing. API actions require the platform-injected ChatGPT identity header; authenticated testers use the shared test dataset. Staff membership, server authorization and role-based data projections are described in ../access/SPEC.md. Local preview auth is the starter's loopback-only simulation; production never uses the simulation. Records persist in D1, language preference only in localStorage.

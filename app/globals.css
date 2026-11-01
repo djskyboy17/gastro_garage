@@ -109,3 +109,25 @@ input[type=checkbox]{min-width:22px;min-height:22px}
 .product-actions .button{flex:1;min-height:44px}
 .button.danger-text{color:#a3402f;border-color:#ecc9c1}
 .button.danger-text:hover{background:#fcece6}
+
+/* v56: ügyfélkereső és új ügyfél az új rendelésben */
+.field .field-label{font-size:14px;color:#7a8a6b;font-weight:500}
+.customer-search{display:flex;flex-direction:column;gap:8px}
+.customer-search-box{margin:0;max-width:none}
+.customer-search-box input{font-size:16px;min-height:44px}
+.customer-results{display:flex;flex-direction:column;border:1px solid #dfe6d6;border-radius:8px;overflow:hidden;max-height:260px;overflow-y:auto}
+.customer-results button{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;background:#fff;border-bottom:1px solid #eef2e8;padding:10px 12px;min-height:52px}
+.customer-results button:hover,.customer-results button:focus-visible{background:#f3f7ed}
+.customer-results button strong{font-size:16px;color:#2d4933}
+.customer-results button span{font-size:14px;color:#7a8a6b}
+.customer-no-result{padding:10px 12px;color:#8b977e;font-size:14px}
+.customer-add{align-self:flex-start;min-height:44px}
+.customer-picked{display:flex;align-items:center;gap:10px;background:#edf3e5;border:1px solid #d3e0c2;border-radius:8px;padding:10px 12px}
+.customer-picked>svg{color:#4d7a30;flex-shrink:0}
+.customer-picked>div{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.customer-picked strong{font-size:16px}
+.customer-picked span{font-size:14px;color:#6f7f62}
+.customer-new{border:1px solid #dfe6d6;border-radius:8px;padding:12px;background:#fafbf7}
+.customer-new-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.customer-new-head strong{display:inline-flex;align-items:center;gap:6px}
+.customer-duplicate{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:#fff6d6;border-radius:8px;padding:8px 10px;font-size:14px;margin:4px 0 0}

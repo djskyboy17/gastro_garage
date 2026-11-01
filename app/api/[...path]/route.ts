@@ -413,7 +413,12 @@ async function handle(req: Request, write: boolean) {
       const d = z
         .object({
           id: z.string().uuid(),
-          customerId: text(),
+          // v56: meglévő ügyfél, vagy telefonos rendelésnél helyben felvett új ügyfél (pontosan az egyik).
+          customerId: text().optional(),
+          newCustomer: z
+            .object({ name: text(), address: text(500), phone: z.string().trim().max(40) })
+            .strict()
+            .optional(),
           date,
           time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
           note: z.string().max(1500),
@@ -433,10 +438,13 @@ async function handle(req: Request, write: boolean) {
         .from(orders)
         .where(eq(orders.id, d.id));
       if (existing) return json({ ok: true, id: existing.id });
-      const [c] = await db
-        .select()
-        .from(customers)
-        .where(eq(customers.id, d.customerId));
+      if (!!d.customerId === !!d.newCustomer) return json({ error: "CUSTOMER_MISSING" }, 400);
+      // Új ügyfél: a rendeléssel egy tranzakcióban jön létre, így ismételt kérésből sem lesz két ügyfél.
+      const created = d.newCustomer ? { id: crypto.randomUUID(), ...d.newCustomer, note: "" } : null;
+      const [found] = d.customerId
+        ? await db.select().from(customers).where(eq(customers.id, d.customerId))
+        : [];
+      const c = created ?? found;
       if (!c) return json({ error: "CUSTOMER_MISSING" }, 400);
       const catalog = await db.select().from(products);
       const recipeCatalog = (await loadOperations()).recipes;
@@ -457,7 +465,11 @@ async function handle(req: Request, write: boolean) {
           recipeId: latestRecipe(p.id, recipeCatalog)?.id ?? null,
         };
       });
-      await db.batch([
+      // Az ügyfélnek a rendelés előtt kell létrejönnie (a rendelés hivatkozik rá); a köteg egy tranzakció.
+      await db.batch(([
+        ...(created
+          ? [db.insert(customers).values(created), db.insert(audit).values(log("customer_created", created.id, created.name))]
+          : []),
         db.insert(orders).values({
           id: d.id,
           customerId: c.id,
@@ -476,7 +488,7 @@ async function handle(req: Request, write: boolean) {
         }),
         ...items.map((i) => db.insert(orderItems).values(i)),
         db.insert(audit).values(log("order_created", d.id, c.name)),
-      ]);
+      ]) as unknown as Parameters<typeof db.batch>[0]);
       return json({ ok: true, id: d.id }, 201);
     }
     if (path === "/api/orders/state") {
