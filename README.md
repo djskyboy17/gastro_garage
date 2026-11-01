@@ -283,3 +283,12 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 
 - A még el nem kezdett rendelésen egyetlen nagy zöld „Elfogadom ✓” gomb van („Kérés visszaigazolása, főzés indul”): visszaigazolja a portálos kérést, és a főzést is elindítja. Utána csak az „Elkészült” gomb marad; a külön „Folyamatban” gomb megszűnt.
 - A kijelző a visszaigazolásra váró mai kéréseket is mutatja (zöld keret). A konyha a kijelzőn visszaigazolhat, elutasítani nem tud.
+
+## Napi menü és Étlap — v49
+
+- Az Ételkatalógus két fülre oszlik: **Napi menü** (leves, főétel, desszert) és **Étlap**. Új ételnél választható a rész, a meglévők egy gombbal áthelyezhetők.
+- Mértékegység: levesnél ml, minden másnál g (katalógus, portál, címke).
+- Napi / heti étlap: a napi menü állandó ára, és naponta a menü levese, főétele és desszertje.
+- Ügyfélportál: „Napi menü” kártya egy áron. A Napi menü ételei csak a menü részeként rendelhetők, külön csak az Étlap ételei. A rendelésben a menü egy sorként látszik, a konyha viszont a valódi ételeket kapja.
+- Új migráció: `0022_daily_menu_set`.
+- Részletek: `src/modules/menu/SPEC.md`.

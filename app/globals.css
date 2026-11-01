@@ -94,3 +94,12 @@ input[type=checkbox]{min-width:22px;min-height:22px}
 @media (max-width:420px){.back-to-overview{padding:10px 12px;font-size:15px}}
 /* v42: álló képernyőn (magasabb, mint széles) és 900 px alatt is mobil elrendezés: a bal oldali menü elrejtve, a ☰ gombbal nyílik. */
 @media (orientation:portrait) and (min-width:701px),(min-width:701px) and (max-width:900px){.sidebar{transform:translateX(-100%);width:238px;transition:transform .2s}.sidebar.is-open{transform:translateX(0)}.scrim{position:fixed;inset:0;background:#12261d66;z-index:35}.main-shell{margin:0;width:100%}.mobile-menu{display:inline-flex}.topbar{padding:0 16px;justify-content:flex-start;gap:12px}.topbar-right{margin-left:auto}main{padding:22px 18px 0}}
+
+/* v49: ételkatalógus két része (Napi menü / Étlap) és a napi menü sora a rendelésben */
+.catalog-sections{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.catalog-sections button{display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:8px 18px;border-radius:10px;border:1px solid #d9e1cf;background:#fff;color:#42543e;font-size:16px;font-weight:700}
+.catalog-sections button span{background:#eef2e8;border-radius:12px;padding:1px 9px;font-size:13px}
+.catalog-sections button.selected{background:#294b38;border-color:#294b38;color:#fff}
+.catalog-sections button.selected span{background:#ffffff2e;color:#fff}
+.detail-items .detail-set{background:#fffaf0;border-radius:8px;padding-left:8px;padding-right:8px}
+.detail-items .detail-set small{display:block}

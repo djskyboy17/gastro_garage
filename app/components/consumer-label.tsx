@@ -69,7 +69,7 @@ export function LabelBody({ label, lang, t, aside }: { label: ConsumerLabel | Pu
       <dl className="label-facts">
         <div>
           <dt>{t("labelNet")}</dt>
-          <dd>{label.netGrams} g</dd>
+          <dd>{label.netGrams} {label.netUnit ?? "g"}</dd>
         </div>
         <div>
           <dt>{t("labelProduced")}</dt>

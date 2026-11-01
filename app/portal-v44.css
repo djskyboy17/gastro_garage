@@ -105,3 +105,17 @@
 .portal-page .portal-brand img{width:118px;height:118px;filter:drop-shadow(0 3px 6px #1f3b2f33)}
 .portal-page .portal-header{padding-top:6px;padding-bottom:6px}
 @media (max-width:700px){.portal-page .portal-brand img{width:84px;height:84px}.portal-page .portal-header{padding:4px 12px}}
+
+/* v49: napi menü kártya a portálon */
+.portal-page .portal-set{grid-column:1/-1;border:2px solid #e8c56a;background:linear-gradient(135deg,#fffaf0,#fff)}
+.portal-page .portal-set-head{display:flex;align-items:center;gap:12px;padding:16px 18px 6px;position:relative}
+.portal-page .portal-set-head h3{margin:0;font-size:22px}
+.portal-page .portal-set-head .portal-dish-count{position:static;margin-left:auto}
+.portal-page .portal-set-parts{list-style:none;margin:0;padding:4px 18px;display:grid;gap:6px}
+.portal-page .portal-set-parts li{display:flex;align-items:center;gap:10px;border-bottom:1px solid #f0e6c8;padding:6px 0}
+.portal-page .portal-set-parts small{min-width:84px;color:#8a6a1a;font-weight:700;text-transform:uppercase;font-size:12px;letter-spacing:.5px}
+.portal-page .portal-set-parts span{flex:1;font-weight:600}
+.portal-page .portal-set-parts em{font-style:normal;color:#7a8a70;font-weight:400}
+.portal-page .portal-info-button.static{position:static;width:36px;height:36px}
+.portal-page .portal-set-saving{color:#2f7a2b;font-weight:700}
+.portal-page .portal-set-line small{display:block}

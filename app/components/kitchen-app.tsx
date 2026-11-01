@@ -80,6 +80,11 @@ import {
   overviewCards,
   readyPortions,
   normalizeSearch,
+  portionUnit,
+  groupSetItems,
+  CATEGORIES,
+  DAILY_CATEGORIES,
+  SECTIONS,
   type Language,
   type AppData,
   type Order,
@@ -194,6 +199,9 @@ export default function KitchenApp() {
   const [data, setData] = useState<AppData>(empty);
   const [day, setDay] = useState(today);
   const [query, setQuery] = useState("");
+  // Ételkatalógus két része (v49): Napi menü és Étlap; az új étel űrlapja ebből indul.
+  const [catalogSection, setCatalogSection] = useState<"daily" | "alacarte">("daily");
+  const [productCategory, setProductCategory] = useState("soup");
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -524,6 +532,7 @@ export default function KitchenApp() {
         descriptionHu: f.get("descriptionHu"),
         descriptionRo: f.get("descriptionRo"),
         category: f.get("category"),
+        section: f.get("section"),
         price: Math.round(Number(f.get("price")) * 100),
         portion: Number(f.get("portion")),
         allergens: f.getAll("allergens").join(","),
@@ -702,7 +711,7 @@ export default function KitchenApp() {
               </div>
               <div className="heading-actions">
                 {tab === "catalog" ? (
-                  <Button onClick={() => open("product")}>
+                  <Button onClick={() => { setProductCategory("soup"); open("product"); }}>
                     <Plus size={17} />
                     {t("newProduct")}
                   </Button>
@@ -1116,6 +1125,22 @@ export default function KitchenApp() {
                 )}
                 {tab === "catalog" && (
                   <>
+                    <div className="catalog-sections" role="tablist" aria-label={t("catalogSection")}>
+                      {SECTIONS.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          role="tab"
+                          aria-selected={catalogSection === s}
+                          className={catalogSection === s ? "selected" : ""}
+                          onClick={() => setCatalogSection(s)}
+                        >
+                          {t("section_" + s)}
+                          <span>{data.products.filter((p) => (p.section ?? "alacarte") === s).length}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="portal-hint">{t(catalogSection === "daily" ? "sectionDailyHint" : "sectionAlacarteHint")}</p>
                     <label className="search-box standalone">
                       <Search size={17} />
                       <input
@@ -1126,6 +1151,7 @@ export default function KitchenApp() {
                     </label>
                     <div className="catalog-grid">
                       {data.products
+                        .filter((p) => (p.section ?? "alacarte") === catalogSection)
                         .filter((p) =>
                           normalizeSearch(p.hu + " " + p.ro).includes(
                             normalizeSearch(query),
@@ -1160,8 +1186,20 @@ export default function KitchenApp() {
                               </div>
                               <div className="product-bottom">
                                 <strong>{money(p.price)}</strong>
-                                <span>{p.portion} g</span>
+                                <span>{p.portion} {portionUnit(p.category)}</span>
                               </div>
+                              {can("products/section") &&
+                                (catalogSection === "alacarte" ? (
+                                  (DAILY_CATEGORIES as readonly string[]).includes(p.category) && (
+                                    <button type="button" className="text-button" disabled={busy} onClick={() => void mutate("products/section", { id: p.id, section: "daily" })}>
+                                      {t("moveToDaily")}
+                                    </button>
+                                  )
+                                ) : (
+                                  <button type="button" className="text-button" disabled={busy} onClick={() => void mutate("products/section", { id: p.id, section: "alacarte" })}>
+                                    {t("moveToAlacarte")}
+                                  </button>
+                                ))}
                               {can("products/image") && (
                                 <ProductImageControls product={p} t={t} busy={busy} mutate={mutate} onError={setError} />
                               )}
@@ -1407,22 +1445,37 @@ export default function KitchenApp() {
                   {selectedOrder.phone ? " · " + selectedOrder.phone : ""}
                 </p>
                 <div className="detail-items">
-                  {selectedOrder.items.map((i) => (
-                    <div key={i.id}>
-                      <span>
-                        <strong>{title(i)}</strong>
-                        <small>
-                          {i.allergens
-                            .split(",")
-                            .filter(Boolean)
-                            .map(t)
-                            .join(" · ")}
-                        </small>
-                      </span>
-                      <span>×{i.quantity}</span>
-                      <strong>{money(i.quantity * i.price)}</strong>
-                    </div>
-                  ))}
+                  {/* v49: a napi menü három tétele egy sorban, a menüárral. */}
+                  {groupSetItems(selectedOrder.items).map((line) =>
+                    line.kind === "set" ? (
+                      <div key="napi-menu" className="detail-set">
+                        <span>
+                          <strong>{t("dailyMenu")}</strong>
+                          <small>{line.items.map((i) => title(i)).join(" · ")}</small>
+                          <small>
+                            {[...new Set(line.items.flatMap((i) => i.allergens.split(",").filter(Boolean)))].map(t).join(" · ")}
+                          </small>
+                        </span>
+                        <span>×{line.quantity}</span>
+                        <strong>{money(line.total)}</strong>
+                      </div>
+                    ) : (
+                      <div key={line.item.id}>
+                        <span>
+                          <strong>{title(line.item)}</strong>
+                          <small>
+                            {line.item.allergens
+                              .split(",")
+                              .filter(Boolean)
+                              .map(t)
+                              .join(" · ")}
+                          </small>
+                        </span>
+                        <span>×{line.item.quantity}</span>
+                        <strong>{money(line.item.quantity * line.item.price)}</strong>
+                      </div>
+                    ),
+                  )}
                 </div>
                 {orderFulfillment(selectedOrder)&&<div className="fulfill-summary"><p>{t(selectedOrder.fulfillmentMode==='pickup'?'fulfillPickup':'fulfillDelivery')} · {orderFulfillment(selectedOrder)!.start}–{orderFulfillment(selectedOrder)!.end}</p><p>{t('fulfillShipping')}: {money(selectedOrder.deliveryFee??0)}</p></div>}
                 <div className="detail-total">
@@ -1565,18 +1618,33 @@ export default function KitchenApp() {
                       <Field label={t("descriptionRo")}>
                         <textarea name="descriptionRo" maxLength={1500} />
                       </Field>
-                      <Field label={t("category")}>
-                        <select name="category">
-                          {["soup", "main", "vegetarian", "dessert"].map(
-                            (c) => (
-                              <option key={c} value={c}>
-                                {t(c)}
-                              </option>
-                            ),
-                          )}
+                      <Field label={t("catalogSection")}>
+                        <select
+                          name="section"
+                          value={catalogSection}
+                          onChange={(e) => {
+                            const s = e.target.value as "daily" | "alacarte";
+                            setCatalogSection(s);
+                            if (s === "daily" && !(DAILY_CATEGORIES as readonly string[]).includes(productCategory)) setProductCategory("main");
+                          }}
+                        >
+                          {SECTIONS.map((s) => (
+                            <option key={s} value={s}>
+                              {t("section_" + s)}
+                            </option>
+                          ))}
                         </select>
                       </Field>
-                      <Field label={t("portion") + " (g)"}>
+                      <Field label={t("category")}>
+                        <select name="category" value={productCategory} onChange={(e) => setProductCategory(e.target.value)}>
+                          {(catalogSection === "daily" ? DAILY_CATEGORIES : CATEGORIES).map((c) => (
+                            <option key={c} value={c}>
+                              {t(c)}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field label={t("portion") + " (" + portionUnit(productCategory) + ")"}>
                         <input
                           name="portion"
                           type="number"

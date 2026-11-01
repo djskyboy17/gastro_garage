@@ -17,6 +17,8 @@ export const products = sqliteTable("products", {
   descriptionHu: text("description_hu").notNull(),
   descriptionRo: text("description_ro").notNull(),
   category: text("category").notNull(),
+  /** Katalógus-rész (v49): "daily" = Napi menü (leves, főétel, desszert), "alacarte" = Étlap. */
+  section: text("section").notNull().default("alacarte"),
   price: integer("price").notNull(),
   portion: integer("portion").notNull(),
   allergens: text("allergens").notNull(),
@@ -88,6 +90,8 @@ export const orderItems = sqliteTable("order_items", {
   quantity: integer("quantity").notNull(),
   price: integer("price").notNull(),
   ready: integer("ready").notNull().default(0),
+  /** v49: "napi_menu", ha a tétel egy napi menü (leves + főétel + desszert egy áron) része; különben üres. */
+  setGroup: text("set_group").notNull().default(""),
 }, (t) => [index("order_items_order").on(t.orderId)]);
 export const audit = sqliteTable("audit", {
   id: text("id").primaryKey(),
@@ -415,7 +419,17 @@ export const menuDays = sqliteTable("menu_days", {
   cutoffAt: text("cutoff_at").notNull(),
   active: integer("active").notNull().default(1),
   revision: integer("revision").notNull().default(0),
+  /** v49: a nap menüje (leves + főétel + desszert egy áron). Vagy mindhárom meg van adva, vagy egyik sem. */
+  setSoupId: text("set_soup_id").references(()=>products.id),
+  setMainId: text("set_main_id").references(()=>products.id),
+  setDessertId: text("set_dessert_id").references(()=>products.id),
 }, t=>[check("menu_day_active",sql`${t.active} IN (0,1)`)]);
+/** v49: a napi menü állandó ára (bani). Egyetlen sor (id=1); 0 = a menü nem rendelhető. */
+export const menuSettings = sqliteTable("menu_settings", {
+  id: integer("id").primaryKey(),
+  setPrice: integer("set_price").notNull().default(0),
+  revision: integer("revision").notNull().default(0),
+}, t=>[check("menu_settings_single",sql`${t.id} = 1`),check("menu_set_price",sql`${t.setPrice}>=0 AND ${t.setPrice}<=10000000`)]);
 export const menuLines = sqliteTable("menu_lines", {
   date: text("date").notNull().references(()=>menuDays.date),
   productId: text("product_id").notNull().references(()=>products.id),

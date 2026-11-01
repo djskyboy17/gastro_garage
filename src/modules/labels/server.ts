@@ -68,6 +68,7 @@ async function buildLabels(
       orderCode: orderCode(order.id),
       date: order.date,
       netGrams: product?.portion ?? 0,
+      netUnit: product?.category === "soup" ? "ml" : "g",
       info,
       label: labelRows.find((l) => l.productId === item.productId) ?? null,
       settings,

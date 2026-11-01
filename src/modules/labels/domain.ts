@@ -95,6 +95,8 @@ export type ConsumerLabel = {
   copies: number;
   name: { hu: string; ro: string };
   netGrams: number;
+  /** A nettó mennyiség mértékegysége: levesnél ml, egyébként g (v49). */
+  netUnit: "g" | "ml";
   ingredients: LabelNode[];
   allergens: string[];
   nutritionPer100g: Nutrition | null;
@@ -114,6 +116,7 @@ export function consumerLabel(input: {
   orderCode: string;
   date: string;
   netGrams: number;
+  netUnit?: "g" | "ml";
   info: { ingredients: InfoNode[]; allergens: string[]; nutritionPer100g: Nutrition | null } | null;
   label: { shelfLifeDays: number; storageRo: string; storageHu: string } | null;
   settings: LabelSettings;
@@ -140,6 +143,7 @@ export function consumerLabel(input: {
     copies: item.quantity,
     name: { hu: item.hu, ro: item.ro },
     netGrams: input.netGrams,
+    netUnit: input.netUnit ?? "g",
     ingredients,
     allergens,
     nutritionPer100g: info?.nutritionPer100g ?? null,
@@ -159,6 +163,7 @@ export function toPublicLabel(l: ConsumerLabel): PublicLabel {
     itemId: l.itemId,
     name: l.name,
     netGrams: l.netGrams,
+    netUnit: l.netUnit,
     ingredients: l.ingredients,
     allergens: l.allergens,
     nutritionPer100g: l.nutritionPer100g,

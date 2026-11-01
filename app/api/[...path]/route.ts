@@ -5,7 +5,7 @@ import {serveProductImage,handleProductImage,ImageError} from "@/src/modules/ima
 import {handleCourier,CourierError} from "@/src/modules/courier/server";
 import {fulfillmentOptions,loadPolicy,savePolicy,bookedSlotIds,FulfillmentError} from '@/src/modules/fulfillment/server';
 import {loadStocktakes,handleStocktake,StocktakeError} from '@/src/modules/stocktake/server';
-import {loadMenu,publicMenu,saveMenu,MenuError} from '@/src/modules/menu/server';
+import {loadMenu,publicMenu,saveMenu,saveMenuSettings,MenuError} from '@/src/modules/menu/server';
 import { env } from "cloudflare:workers";
 import { currentUser, handleAuth, AuthError } from "@/src/modules/auth/server";
 import { sessionFor, handleAccess, loadMembers, AccessError } from "@/src/modules/access/server";
@@ -17,7 +17,7 @@ import { loadSafety, handleSafety, SafetyError } from "@/src/modules/safety/serv
 import { products, customers, orders, orderItems, audit, workspaceOwners } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { nextState, today, type Order } from "@/src/modules/shared/domain";
+import { nextState, today, CATEGORIES, DAILY_CATEGORIES, SECTIONS, type Order } from "@/src/modules/shared/domain";
 import { demoProducts, demoCustomers } from "@/src/modules/shared/seed";
 import {
   loadOperations,
@@ -171,6 +171,7 @@ async function handle(req: Request, write: boolean) {
     const stocktakeResponse=await handleStocktake(path,body,actor);
     if(stocktakeResponse)return stocktakeResponse;
     if(path==="/api/menu/save") return json(await saveMenu(body,actor));
+    if(path==="/api/menu/settings") return json(await saveMenuSettings(body,actor));
     const recurringResponse = await handleRecurring(path,body,actor);
     if (recurringResponse) return recurringResponse;
     const safetyResponse = await handleSafety(path,body,actor,user.name);
@@ -287,12 +288,16 @@ async function handle(req: Request, write: boolean) {
           ro: text(),
           descriptionHu: z.string().max(1500),
           descriptionRo: z.string().max(1500),
-          category: z.enum(["soup", "main", "vegetarian", "dessert"]),
+          category: z.enum(CATEGORIES),
+          section: z.enum(SECTIONS).default("alacarte"),
           price: z.number().int().min(0).max(1000000),
           portion: z.number().int().min(1).max(10000),
           allergens: z.string().max(200),
         })
         .parse(body);
+      // A Napi menü részben csak leves, főétel és desszert lehet (v49).
+      if (p.section === "daily" && !(DAILY_CATEGORIES as readonly string[]).includes(p.category))
+        return json({ error: "SECTION_CATEGORY" }, 400);
       const allowed = [
         "gluten",
         "crustaceans",
@@ -320,6 +325,27 @@ async function handle(req: Request, write: boolean) {
         db.insert(audit).values(log("product_created", id, p.hu)),
       ]);
       return json({ ok: true, id }, 201);
+    }
+    if (path === "/api/products/section") {
+      // Étel áthelyezése a Napi menü és az Étlap között (v49).
+      const d = z.object({ id: text(), section: z.enum(SECTIONS) }).strict().parse(body);
+      const [p] = await db.select().from(products).where(eq(products.id, d.id));
+      if (!p) return json({ error: "NOT_FOUND" }, 404);
+      if (d.section === "daily" && !(DAILY_CATEGORIES as readonly string[]).includes(p.category))
+        return json({ error: "SECTION_CATEGORY" }, 400);
+      // Ha valamelyik mai vagy későbbi nap menüjében szerepel, nem vehető ki a Napi menü részből.
+      if (d.section !== "daily") {
+        const used = await env.DB!.prepare(
+          "SELECT 1 FROM menu_days WHERE date>=? AND ? IN (set_soup_id,set_main_id,set_dessert_id) LIMIT 1",
+        ).bind(today(), d.id).first();
+        if (used) return json({ error: "SECTION_IN_USE" }, 409);
+      }
+      if (p.section === d.section) return json({ ok: true });
+      await db.batch([
+        db.update(products).set({ section: d.section }).where(eq(products.id, d.id)),
+        db.insert(audit).values(log("product_section_changed", d.id, d.section)),
+      ]);
+      return json({ ok: true });
     }
     if (path === "/api/customers") {
       const c = z

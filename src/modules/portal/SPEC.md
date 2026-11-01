@@ -43,3 +43,6 @@ A „Saját rendeléseim” listában csak a még nem teljesített rendelések s
 
 ## Visszaigazolás a konyhai kijelzőn — v48
 A konyhai kijelzőn (`/kijelzo`) a konyha is visszaigazolhat egy portálos kérést az „Elfogadom” gombbal; ez egyben a főzést is elindítja. Elutasítani továbbra is csak az admin és a diszpécser tud, a fő alkalmazásban. A visszaigazolás ugyanazokkal az állapotszabályokkal és változat-ellenőrzéssel (revision) történik, így az ügyfél egyidejű lemondásával nem ütközhet. Lásd `../display/SPEC.md`.
+
+## Napi menü a portálon — v49
+Az étlap elején „Napi menü” kártya jelenik meg (leves + főétel + desszert, mindegyikhez „i” információs gomb, a menüár, a megtakarítás és a még rendelhető darabszám), ha az adott napra van menü és menüár. A kosárban egy tétel (`@napi_menu`); az előnézetben és a rendelésben három tételre bomlik (lásd `../menu/SPEC.md`). Elküldéskor a kliens a menüt újra egy kosártételként küldi, így a szerver ugyanazt az árat és lenyomatot számolja. Ha a menü közben megszűnik, az előnézet `MENU_SET_UNAVAILABLE` hibát ad. A Napi menü részbe tartozó ételek külön nem jelennek meg és nem rendelhetők (`MENU_SET_ONLY`); a menükártyán az „i” gombbal az összetevőik és allergénjeik megnézhetők.

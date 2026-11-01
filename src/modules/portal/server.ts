@@ -12,7 +12,7 @@ import {isAdmin,type Session} from "../access/domain";
 import type {Identity} from "../access/server";
 import {publicProduct,publicOrder,validPortalSlot,type PortalData,type PortalAccount,type PortalPreview} from "./domain";
 import {publicDishInfos} from "../inventory/server";
-import {today} from "../shared/domain";
+import {today,SET_CART_ID,SET_GROUP,splitSetPrice} from "../shared/domain";
 export class PortalError extends Error {constructor(public code:string,public status=400){super(code);}}
 const json=(v:unknown,status=200)=>Response.json(v,{status,headers:{"Cache-Control":"no-store"}});
 const profileInput=z.object({revision:z.number().int().min(0).optional(),name:z.string().trim().min(1).max(200),address:z.string().trim().max(500).refine(v=>v.length===0||v.length>=5),phone:z.string().trim().regex(/^[+0-9 ()-]{6,40}$/)}).strict();
@@ -36,21 +36,34 @@ async function quote(input:z.infer<typeof orderInput>,userId:string){
   if(new Set(input.items.map(i=>i.productId)).size!==input.items.length)throw new PortalError("VALIDATION");
   const p=await requireAccount(userId),db=getDb();
   const [catalog,recipeList]=await Promise.all([db.select().from(products).where(eq(products.active,1)),db.select().from(recipes)]);
-  const lines=input.items.map(i=>{const product=catalog.find(p=>p.id===i.productId);if(!product)throw new PortalError("PORTAL_PRODUCT_UNAVAILABLE");const recipe=recipeList.filter(r=>r.productId===i.productId).sort((a,b)=>b.version-a.version)[0];return {productId:product.id,hu:product.hu,ro:product.ro,allergens:product.allergens,quantity:i.quantity,price:product.price,recipeId:recipe?.id??null,portalRevision:product.portalRevision};});
+  const line=(productId:string,quantity:number,price:number|null,setGroup:string)=>{const product=catalog.find(p=>p.id===productId);if(!product)throw new PortalError("PORTAL_PRODUCT_UNAVAILABLE");const recipe=recipeList.filter(r=>r.productId===productId).sort((a,b)=>b.version-a.version)[0];return {productId:product.id,hu:product.hu,ro:product.ro,allergens:product.allergens,quantity,price:price??product.price,recipeId:recipe?.id??null,portalRevision:product.portalRevision,setGroup};};
+  // A Napi menü részbe tartozó étel csak a menü részeként rendelhető, külön nem (v49).
+  if(input.items.some(i=>i.productId!==SET_CART_ID&&catalog.find(p=>p.id===i.productId)?.section==="daily"))throw new PortalError("MENU_SET_ONLY");
+  const lines=input.items.filter(i=>i.productId!==SET_CART_ID).map(i=>line(i.productId,i.quantity,null,""));
   const [day]=await db.select().from(menuDays).where(eq(menuDays.date,input.date));
   const menu=await publicMenu(input.date);
   if(!day||!menu.open)throw new PortalError("MENU_CLOSED");
-  for(const line of lines){const offer=menu.items.find(i=>i.id===line.productId);if(!offer)throw new PortalError("MENU_PRODUCT");if(line.quantity>offer.remaining)throw new PortalError("MENU_CAPACITY",409);}
+  // Napi menü (v49): egy kosártétel, ami a rendelésben három tételre bomlik (leves, főétel, desszert);
+  // a menüár a három tétel között oszlik meg, így a konyha, az adagkorlát és a raktár a valódi ételeket látja.
+  const setItem=input.items.find(i=>i.productId===SET_CART_ID);
+  if(setItem){
+    if(!menu.set)throw new PortalError("MENU_SET_UNAVAILABLE");
+    const prices=splitSetPrice(menu.set.price);
+    lines.unshift(...[menu.set.soup,menu.set.main,menu.set.dessert].map((p,i)=>line(p.id,setItem.quantity,prices[i]!,SET_GROUP)));
+  }
+  for(const l of lines)if(!menu.items.some(i=>i.id===l.productId))throw new PortalError("MENU_PRODUCT");
+  // Adagkorlát ételenként: a menüben és külön rendelt adagok együtt.
+  for(const offer of menu.items){const wanted=lines.filter(l=>l.productId===offer.id).reduce((s,l)=>s+l.quantity,0);if(wanted>offer.remaining)throw new PortalError("MENU_CAPACITY",409);}
   const policyData=await loadPolicy();if(policyData.revision===null)throw new PortalError("FULFILLMENT_DISABLED");
   const subtotal=lines.reduce((s,i)=>s+i.quantity*i.price,0);
   let fulfillment;try{fulfillment=quoteFulfillment(policyData.policy,input,subtotal);}catch(e){throw new PortalError((e as Error).message);}
   if(input.mode==='delivery'&&p.address.length<5)throw new PortalError('FULFILLMENT_ADDRESS');
   const available=await fulfillmentOptions(input.date);if(!(available.slots.find(s=>s.id===input.slotId)?.remaining))throw new PortalError('FULFILLMENT_CAPACITY',409);
-  const canonical={policyRevision:policyData.revision,fulfillment,subtotal,menuRevision:day.revision,profile:profile(p),date:input.date,time:input.time,note:input.note,items:lines};
+  const canonical={policyRevision:policyData.revision,fulfillment,subtotal,menuRevision:day.revision,setPriceRevision:setItem?menu.set!.priceRevision:null,profile:profile(p),date:input.date,time:input.time,note:input.note,items:lines};
   const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(JSON.stringify(canonical)));
   const fingerprint=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
   const preview:PortalPreview={...canonical,quote:fingerprint,items:lines.map(({recipeId,portalRevision,...line})=>line),total:subtotal+fulfillment.fee};
-  return {preview,p,lines,day,policyRevision:policyData.revision};
+  return {preview,p,lines,day,policyRevision:policyData.revision,setPriceRevision:setItem?menu.set!.priceRevision:null};
 }
 export async function handlePortal(path:string,body:unknown|undefined,user:Identity,session:Session,write:boolean):Promise<Response>{
   const db=getDb(),now=new Date().toISOString();
@@ -130,7 +143,9 @@ export async function handlePortal(path:string,body:unknown|undefined,user:Ident
       env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM fulfillment_policy WHERE id=1 AND revision=?) AND julianday('now')<julianday(?) THEN ? ELSE NULL END,'fulfillment_order_checked',?,'',?)").bind(crypto.randomUUID(),plan.policyRevision,cutoffInstant(d.date+'T'+d.time),user.userId,orderId,now),
       env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM menu_days WHERE date=? AND revision=? AND active=1 AND julianday('now')<julianday(cutoff_at)) THEN ? ELSE NULL END,'portal_menu_checked',?,'',?)").bind(crypto.randomUUID(),d.date,plan.day.revision,user.userId,orderId,now),
       env.DB!.prepare("INSERT INTO orders (id,customer_id,customer_name,address,phone,date,time,note,production,delivery,payment,status,revision,created_at,portal_user_id,fulfillment_mode,fulfillment_slot_id,fulfillment_postal_code,fulfillment_snapshot,delivery_fee) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM portal_profiles WHERE user_id=? AND revision=? AND active=1) AND (SELECT COUNT(*) FROM orders WHERE portal_user_id=? AND status='requested')<10 AND (SELECT COUNT(*) FROM portal_submissions WHERE user_id=? AND created_at>=?)<20 AND NOT EXISTS (SELECT 1 FROM json_each(?) AS i WHERE NOT EXISTS (SELECT 1 FROM products WHERE id=json_extract(i.value,'$.productId') AND active=1 AND portal_revision=json_extract(i.value,'$.portalRevision'))) THEN ? ELSE NULL END,?,?,?,?,?,?,'queued','pending','unpaid','requested',0,?,?,?,?,?,?,?)").bind(orderId,user.userId,plan.p.revision,user.userId,user.userId,since,JSON.stringify(plan.lines),plan.p.customerId,plan.p.name,d.mode==="pickup"?[...new Set([plan.preview.fulfillment.addressHu,plan.preview.fulfillment.addressRo])].join(" / "):plan.p.address,plan.p.phone,d.date,d.time,d.note,now,user.userId,d.mode,d.slotId,d.postalCode,JSON.stringify(plan.preview.fulfillment),plan.preview.fulfillment.fee),
-      env.DB!.prepare("INSERT INTO order_items (id,order_id,product_id,hu,ro,allergens,quantity,price,recipe_id) SELECT json_extract(value,'$.id'),?,json_extract(value,'$.productId'),json_extract(value,'$.hu'),json_extract(value,'$.ro'),json_extract(value,'$.allergens'),json_extract(value,'$.quantity'),json_extract(value,'$.price'),json_extract(value,'$.recipeId') FROM json_each(?)").bind(orderId,JSON.stringify(itemRows)),
+      // A menüár nem változhatott az előnézet óta (v49).
+      ...(plan.setPriceRevision===null?[]:[env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM menu_settings WHERE id=1 AND revision=?) THEN ? ELSE NULL END,'portal_menu_price_checked',?,'',?)").bind(crypto.randomUUID(),plan.setPriceRevision,user.userId,orderId,now)]),
+      env.DB!.prepare("INSERT INTO order_items (id,order_id,product_id,hu,ro,allergens,quantity,price,recipe_id,set_group) SELECT json_extract(value,'$.id'),?,json_extract(value,'$.productId'),json_extract(value,'$.hu'),json_extract(value,'$.ro'),json_extract(value,'$.allergens'),json_extract(value,'$.quantity'),json_extract(value,'$.price'),json_extract(value,'$.recipeId'),json_extract(value,'$.setGroup') FROM json_each(?)").bind(orderId,JSON.stringify(itemRows)),
       env.DB!.prepare("INSERT INTO portal_submissions (id,user_id,order_id,request,created_at) VALUES (?,?,?,?,?)").bind(key,user.userId,orderId,request,now),
       audit("portal_order_requested",orderId,plan.p.name),
     ]);

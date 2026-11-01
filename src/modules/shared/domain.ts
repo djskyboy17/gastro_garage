@@ -16,11 +16,40 @@ export type Product = {
   descriptionHu: string;
   descriptionRo: string;
   category: string;
+  /** v49: "daily" = Napi menü rész, "alacarte" = Étlap. */
+  section?: string;
   price: number;
   portion: number;
   allergens: string;
   active: number;
 };
+/** Katalógus-részek (v49). A Napi menü részben csak leves, főétel és desszert lehet. */
+export const SECTIONS = ["daily", "alacarte"] as const;
+export const DAILY_CATEGORIES = ["soup", "main", "dessert"] as const;
+export const CATEGORIES = ["soup", "main", "vegetarian", "dessert"] as const;
+/** Adag mértékegysége: levesnél ml, minden másnál g (v49). */
+export const portionUnit = (category: string) => (category === "soup" ? "ml" : "g");
+/** A napi menü tételeinek jelölése a rendelésben, és a kosárban a menü azonosítója. */
+export const SET_GROUP = "napi_menu";
+export const SET_CART_ID = "@napi_menu";
+/**
+ * A menüár szétosztása a három tételre (bani, egész): a főétel és a desszert az ár harmadát kapja lefelé kerekítve,
+ * a leves a maradékot. Az összeg mindig pontosan a menüár, így a rendelés és a számla végösszege helyes.
+ */
+export function splitSetPrice(price: number): [soup: number, main: number, dessert: number] {
+  const third = Math.floor(price / 3);
+  return [price - 2 * third, third, third];
+}
+/** Rendelési tételek megjelenítéshez: a napi menü tételei egy sorba vonva, a többi változatlanul. */
+export type DisplayLine<T extends { setGroup?: string; quantity: number; price: number }> =
+  | { kind: "set"; quantity: number; total: number; items: T[] }
+  | { kind: "item"; item: T };
+export function groupSetItems<T extends { setGroup?: string; quantity: number; price: number }>(items: T[]): DisplayLine<T>[] {
+  const set = items.filter((i) => i.setGroup === SET_GROUP);
+  const rest: DisplayLine<T>[] = items.filter((i) => i.setGroup !== SET_GROUP).map((item) => ({ kind: "item", item }));
+  if (!set.length) return rest;
+  return [{ kind: "set", quantity: set[0]!.quantity, total: set.reduce((s, i) => s + i.quantity * i.price, 0), items: set }, ...rest];
+}
 export type Customer = {
   id: string;
   name: string;
@@ -40,6 +69,8 @@ export type Item = {
   price: number;
   /** 1, ha a konyha ezt a tételt már késznek jelölte (v20). */
   ready?: number;
+  /** v49: "napi_menu", ha a tétel a napi menü része. */
+  setGroup?: string;
 };
 export type Order = {
   packingItems?:string;
