@@ -57,3 +57,6 @@ A Surface RT beállítását a `scripts/surface-rt/` mappa scriptjei és a `LEIR
 - `cooking` és `ready` kétszer küldve is `ok`; ismeretlen rendelés → `NOT_FOUND`.
 - Belépés Referer/Origin nélkül → 403; művelet `X-Kijelzo` fejléc nélkül → 403; idegen Origin → 403; belépés nélkül → 401.
 - Kapcsolat nélkül megnyomott gomb a kapcsolat helyreállása után elküldődik.
+
+## Egyszerűbb fejléc — v52
+A fejléc címe „Konyha” (RO: „Bucătărie”), alatta kicsiben a nap dátuma. A bejelentkezett felhasználó neve és a Kilépés gomb nem jelenik meg: a kijelzőn mindig ugyanaz a konyhai fiók van belépve, és a belépés használat közben magától megújul. Belépési űrlap csak akkor jelenik meg, ha a munkamenet mégis megszűnt (pl. a fiókot letiltották vagy új jelszót kapott); a kilépési végpont a szerveren megmaradt, de a felületen nincs rá gomb.

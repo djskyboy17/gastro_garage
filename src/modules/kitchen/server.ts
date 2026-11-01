@@ -50,7 +50,7 @@ export async function markOrderReady(orderId:string,session:Session){
  */
 export async function acceptOrder(orderId:string,session:Session){
  if(!kitchenRoles.includes(session.role))throw new KitchenError('FORBIDDEN',403);
- const row=await env.DB!.prepare("SELECT id,status,production,delivery,payment,revision,fulfillment_mode AS fulfillmentMode,courier_id AS courierId,packing_ready AS packingReady,courier_name AS courierName FROM orders WHERE id=?").bind(orderId).first<Order&{courierName:string}>();
+ const row=await env.DB!.prepare("SELECT id,status,production,delivery,payment,revision,fulfillment_mode AS fulfillmentMode,packing_ready AS packingReady,courier_name AS courierName FROM orders WHERE id=?").bind(orderId).first<Order&{courierName:string}>();
  if(!row)throw new KitchenError('NOT_FOUND',404);
  if(row.status!=='requested')return startCooking(orderId,session);
  let confirmed:Order,cooking:Order;
@@ -79,7 +79,7 @@ export async function acceptOrder(orderId:string,session:Session){
  */
 export async function startCooking(orderId:string,session:Session){
  if(!kitchenRoles.includes(session.role))throw new KitchenError('FORBIDDEN',403);
- const row=await env.DB!.prepare("SELECT id,status,production,delivery,payment,revision,fulfillment_mode AS fulfillmentMode,courier_id AS courierId,packing_ready AS packingReady,courier_name AS courierName FROM orders WHERE id=?").bind(orderId).first<Order&{courierName:string}>();
+ const row=await env.DB!.prepare("SELECT id,status,production,delivery,payment,revision,fulfillment_mode AS fulfillmentMode,packing_ready AS packingReady,courier_name AS courierName FROM orders WHERE id=?").bind(orderId).first<Order&{courierName:string}>();
  if(!row)throw new KitchenError('NOT_FOUND',404);
  if(row.production!=='queued')return {changed:false};
  let updated:Order;

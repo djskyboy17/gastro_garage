@@ -156,7 +156,7 @@ export async function handleDisplay(req: Request, action: string): Promise<Respo
     const day = today();
     const [orders, version, renewed] = await Promise.all([loadDisplayOrders(day), displayVersion(day, lang), renewSession(req)]);
     return html(
-      renderPage({ lang, orders, today: day, version, userName: w.user.name, sound: cookie(req, "kijelzo_hang") !== "0", allergenNames: messages[lang] }),
+      renderPage({ lang, orders, today: day, version, sound: cookie(req, "kijelzo_hang") !== "0", allergenNames: messages[lang] }),
       200,
       renewed ? [renewed] : [],
     );

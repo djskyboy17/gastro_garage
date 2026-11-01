@@ -13,6 +13,7 @@ import type {Identity} from "../access/server";
 import {publicProduct,publicOrder,validPortalSlot,type PortalData,type PortalAccount,type PortalPreview} from "./domain";
 import {publicDishInfos} from "../inventory/server";
 import {today,SET_CART_ID,SET_GROUP,splitSetPrice} from "../shared/domain";
+import {hardDeleteOrder} from "../shared/order-delete";
 export class PortalError extends Error {constructor(public code:string,public status=400){super(code);}}
 const json=(v:unknown,status=200)=>Response.json(v,{status,headers:{"Cache-Control":"no-store"}});
 const profileInput=z.object({revision:z.number().int().min(0).optional(),name:z.string().trim().min(1).max(200),address:z.string().trim().max(500).refine(v=>v.length===0||v.length>=5),phone:z.string().trim().regex(/^[+0-9 ()-]{6,40}$/)}).strict();
@@ -58,7 +59,7 @@ async function quote(input:z.infer<typeof orderInput>,userId:string){
   const subtotal=lines.reduce((s,i)=>s+i.quantity*i.price,0);
   let fulfillment;try{fulfillment=quoteFulfillment(policyData.policy,input,subtotal);}catch(e){throw new PortalError((e as Error).message);}
   if(input.mode==='delivery'&&p.address.length<5)throw new PortalError('FULFILLMENT_ADDRESS');
-  const available=await fulfillmentOptions(input.date);if(!(available.slots.find(s=>s.id===input.slotId)?.remaining))throw new PortalError('FULFILLMENT_CAPACITY',409);
+  const available=await fulfillmentOptions(input.date);if(!available.slots.some(s=>s.id===input.slotId))throw new PortalError('FULFILLMENT_SLOT');
   const canonical={policyRevision:policyData.revision,fulfillment,subtotal,menuRevision:day.revision,setPriceRevision:setItem?menu.set!.priceRevision:null,profile:profile(p),date:input.date,time:input.time,note:input.note,items:lines};
   const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(JSON.stringify(canonical)));
   const fingerprint=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
@@ -118,14 +119,13 @@ export async function handlePortal(path:string,body:unknown|undefined,user:Ident
     await requireAccount(user.userId);
     const d=z.object({id:z.string().uuid(),revision:z.number().int().min(0)}).strict().parse(body);
     const [o]=await db.select().from(orders).where(and(eq(orders.id,d.id),eq(orders.portalUserId,user.userId)));
-    if(!o)throw new PortalError("NOT_FOUND",404);
-    if(o.status==="cancelled")return json({ok:true});
-    if(o.status!=="requested")throw new PortalError("PORTAL_CANCEL_DENIED");
+    // v50: a lemondott rendelés véglegesen törlődik; ismételt kérésre (már törölve) is ok.
+    if(!o)return json({ok:true});
+    if(o.status!=="requested"&&o.status!=="cancelled")throw new PortalError("PORTAL_CANCEL_DENIED");
     if(o.revision!==d.revision)throw new PortalError("CONFLICT",409);
-    const result=await env.DB!.batch([
-      env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) SELECT ?,?,'portal_request_cancelled',?,'',? WHERE EXISTS (SELECT 1 FROM orders WHERE id=? AND revision=? AND status='requested' AND portal_user_id=?)").bind(crypto.randomUUID(),user.userId,d.id,now,d.id,d.revision,user.userId),
-      env.DB!.prepare("UPDATE orders SET status='cancelled',revision=revision+1 WHERE id=? AND revision=? AND status='requested' AND portal_user_id=?").bind(d.id,d.revision,user.userId),
-    ]);if(result[1].meta.changes!==1)throw new PortalError("CONFLICT",409);return json({ok:true});
+    const deleted=await hardDeleteOrder(d.id,"EXISTS (SELECT 1 FROM orders WHERE id=? AND revision=? AND status IN ('requested','cancelled') AND production='queued' AND portal_user_id=?)",[d.id,d.revision,user.userId]);
+    if(!deleted)throw new PortalError("CONFLICT",409);
+    return json({ok:true});
   }
   if(path!=="/api/portal/orders")return json({error:"NOT_FOUND"},404);
   const d=orderInput.extend({id:z.string().uuid(),quote:z.string().regex(/^[a-f0-9]{64}$/)}).strict().parse(body),request=JSON.stringify(d),key=user.userId+":"+d.id;

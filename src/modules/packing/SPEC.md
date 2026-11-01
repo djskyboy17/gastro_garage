@@ -29,3 +29,6 @@ A fogyasztói címke (fogyaszthatósági idő, tárolás, QR-kód) külön modul
 - Futár a csomagellenőrzésből: kiszállításos, még nem indult rendelésnél a kártya alján látszik a futár. Ha nincs, a napra beosztott futárok közül lehet választani (javasolt: akinek aznap a legkevesebb nyitott kiszállítása van); a kiosztás ugyanaz a `POST /api/delivery/assign`, mint a Kiszállítás oldalon.
 - Ha a napra nincs beosztott futár, a rendelés helyszíni átvételre váltható (`POST /api/delivery/to-pickup`). A kiszállítási díj törléséről a felhasználó dönt egy jelölőnégyzettel; megerősítést kér.
 - Futárt kiosztani és átvételre váltani tulajdonos, admin és diszpécser tud; a konyha csak látja, hogy hiányzik a futár.
+
+## Futárválasztás nélkül — v51
+A csomagolásnál megszűnt a futárválasztás és a „Futár hiányzik” jelzés (egy futár van, hozzárendelés nincs). Kész, ellenőrzött kiszállításos rendelésnél „Indulhat” jelzés látszik. A „Helyszíni átvételre váltás” gomb (díj megtartása vagy törlése) a kiszállításos, függő vagy sikertelen kézbesítésű rendeléseknél továbbra is elérhető a tulajdonosnak, adminnak és diszpécsernek.

@@ -55,7 +55,6 @@ export const orders = sqliteTable("orders", {
   deliveryFee: integer("delivery_fee").notNull().default(0),
   portalUserId: text("portal_user_id").references(() => portalProfiles.userId),
   reviewNote: text("review_note").notNull().default(""),
-  courierId: text("courier_id").references(() => couriers.id),
   courierName: text("courier_name").notNull().default(""),
   courierPhone: text("courier_phone").notNull().default(""),
   id: text("id").primaryKey(),
@@ -101,16 +100,8 @@ export const audit = sqliteTable("audit", {
   detail: text("detail").notNull(),
   createdAt: text("created_at").notNull(),
 }, (t) => [index("audit_entity_created").on(t.entity, t.createdAt)]);
-export const couriers = sqliteTable("couriers", {
-  userId:text("user_id").references(()=>members.userId),
-  bindingRevision:integer("binding_revision").notNull().default(0),
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  phone: text("phone").notNull(),
-  vehicle: text("vehicle").notNull(),
-  note: text("note").notNull(),
-  createdAt: text("created_at").notNull(),
-},t=>[uniqueIndex("courier_account_unique").on(t.userId)]);
+
+
 export const workspaceOwners = sqliteTable("workspace_owners", {
   id: integer("id").primaryKey(),
   userId: text("user_id").notNull().unique(),
@@ -551,15 +542,4 @@ export const labelSettings = sqliteTable(
   },
   (t) => [check("label_settings_singleton", sql`${t.id}=1`)],
 );
-/** Napi futárbeosztás (v36): ki dolgozik aznap. A csomagolásnál csak ők választhatók. */
-export const courierShifts = sqliteTable(
-  "courier_shifts",
-  {
-    date: text("date").notNull(),
-    courierId: text("courier_id")
-      .notNull()
-      .references(() => couriers.id),
-    createdAt: text("created_at").notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.date, t.courierId] })],
-);
+

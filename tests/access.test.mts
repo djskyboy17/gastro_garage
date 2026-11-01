@@ -28,7 +28,7 @@ test("Kitchen (v41) sees overview orders, stock and purchasing, but not the cust
   for(const role of ["kitchen","warehouse"] as Role[]){
     const d=projectData(data,role);
     assert.equal(d.orders[0].customerName,"Private customer",role);assert.equal(d.orders[0].items[0].price,900);assert.equal(d.orders[0].deliveryFee,750);assert.equal(d.orders[0].payment,"paid");assert.equal(d.orders[0].note,"No peanuts");
-    assert.equal(d.operations.ingredients[0].packPrice,500);assert.equal(d.purchasing.suppliers.length,1);assert.equal(d.logistics.couriers.length,1);
+    assert.equal(d.operations.ingredients[0].packPrice,500);assert.equal(d.purchasing.suppliers.length,1);assert.ok(Array.isArray(d.logistics.events));
     assert.deepEqual(d.customers,[]);assert.deepEqual(d.audit,[]);
   }
   assert.equal(data.orders[0].items[0].price,900);
@@ -58,11 +58,14 @@ test("Beállítások: a ritkán használt nézetek a Beállítások alá kerüln
   // Címkeadatokat csak tulajdonos és admin ment (v32).
   for (const role of ["owner", "admin"] as const) assert.equal(canWrite(role, "/api/labels/settings", {}), true);
   for (const role of ["dispatcher", "kitchen", "warehouse", "courier"] as const) assert.equal(canWrite(role, "/api/labels/settings", {}), false);
-  // Napi beosztás és átvételre váltás: admin és diszpécser (v36).
-  for (const path of ["/api/delivery/shift", "/api/delivery/to-pickup"]) {
+  // Átvételre váltás: admin és diszpécser (v36).
+  for (const path of ["/api/delivery/to-pickup"]) {
     for (const role of ["owner", "admin", "dispatcher"] as const) assert.equal(canWrite(role, path, {}), true, role + path);
     for (const role of ["kitchen", "warehouse", "courier", "pending"] as const) assert.equal(canWrite(role, path, {}), false, role + path);
   }
+  // v51: futártörzs, hozzárendelés és napi beosztás megszűnt – a végpontjaik senkinek nem írhatók.
+  for (const path of ["/api/delivery/couriers", "/api/delivery/assign", "/api/delivery/shift"])
+    for (const role of ["owner", "admin", "dispatcher"] as const) assert.equal(canWrite(role, path, {}), false, role + path);
   assert.ok(isSettingsTab("audit") && !isSettingsTab("orders"));
 });
 test("Only the kitchen and administrators can mark dishes ready", () => {

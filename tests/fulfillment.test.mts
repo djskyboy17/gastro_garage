@@ -26,5 +26,5 @@ test('Closed dates/weekdays, disabled modes and overlapping slots fail closed',(
 test('Ready pickups hand over directly without courier assignment or manifests',()=>{
  const o={packingReady:1,id:'p',fulfillmentMode:'pickup',status:'confirmed',production:'queued',delivery:'pending',payment:'unpaid',revision:0,date:'2026-11-02',items:[{price:1000,quantity:2}],deliveryFee:750} as Order;
  assert.throws(()=>nextState(o,'delivery','delivered'),/NOT_READY/);assert.throws(()=>nextState({...o,production:'ready'},'delivery','transit'),/INVALID_TRANSITION/);
- assert.equal(nextState({...o,production:'ready'},'delivery','delivered').delivery,'delivered');assert.equal(canAssign(o),false);assert.deepEqual(deliveryList([o],o.date,'all','all'),[]);assert.equal(total(o),2750);
+ assert.equal(nextState({...o,production:'ready'},'delivery','delivered').delivery,'delivered');assert.equal(canAssign(o),false);assert.deepEqual(deliveryList([o],o.date,'all'),[]);assert.equal(total(o),2750);
 });

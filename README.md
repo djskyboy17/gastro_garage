@@ -292,3 +292,16 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 - Ügyfélportál: „Napi menü” kártya egy áron. A Napi menü ételei csak a menü részeként rendelhetők, külön csak az Étlap ételei. A rendelésben a menü egy sorként látszik, a konyha viszont a valódi ételeket kapja.
 - Új migráció: `0022_daily_menu_set`.
 - Részletek: `src/modules/menu/SPEC.md`.
+
+## Egyszerűbb rendelési szabályok — v50
+
+- A heti idősávoknál megszűnt a „rendelések száma / nap” korlát (mező, ellenőrzés, adatbázis-trigger). A minimális rendelési összeg megmaradt.
+- Ügyfélportál: csak mai napra lehet rendelni; a napválasztó eltűnt.
+- Főzés előtti lemondáskor (ügyfél vagy konyha/diszpécser) a rendelés és minden adata véglegesen törlődik, a naplóból is.
+- Új migráció: `0023_drop_slot_capacity_trigger`.
+
+## Egy futár, egyszerűbb kiszállítás — v51
+
+- Megszűnt a futártörzs, a fiók–futár összekötés, a napi futárbeosztás, a rendelésenkénti futár-hozzárendelés és a napi futárlista.
+- Aki futár szerepkört kap, a futár oldalon az összes kiszállítást látja; induláskor az ő neve kerül a rendelésre.
+- Új migráció: `0024_remove_courier_registry` (a rendelések táblája újraépül `courier_id` nélkül; az adatok megmaradnak).

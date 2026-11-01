@@ -31,7 +31,7 @@ test("a kliens-script ES5 (IE11): az acorn ECMAScript 5-ként hiba nélkül elem
 });
 
 test("a teljes oldal minden inline scriptje ES5", () => {
-  const page = renderPage({ lang: "hu", orders: [order()], today: "2026-10-31", version: "abc", userName: "Konyha", sound: true, allergenNames: {} });
+  const page = renderPage({ lang: "hu", orders: [order()], today: "2026-10-31", version: "abc", sound: true, allergenNames: {} });
   const scripts = [...page.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
   assert.equal(scripts.length, 2);
   for (const s of scripts) assert.doesNotThrow(() => parse(s, { ecmaVersion: 5 }));
@@ -54,7 +54,7 @@ test("a felhasználói adatok kódolva kerülnek a HTML-be", () => {
   assert.ok(html.includes("a &amp; b"));
   assert.equal(esc("'"), "&#39;");
   // A beágyazott beállítás sem zárhatja le a script-blokkot.
-  const page = renderPage({ lang: "hu", orders: [], today: "2026-10-31", version: "</script><b>", userName: "x", sound: false, allergenNames: {} });
+  const page = renderPage({ lang: "hu", orders: [], today: "2026-10-31", version: "</script><b>", sound: false, allergenNames: {} });
   assert.equal(page.includes("</script><b>"), false);
 });
 

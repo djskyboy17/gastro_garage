@@ -7,7 +7,7 @@ import {isMember,tabsFor,canWrite,projectData} from '../src/modules/access/domai
 // @ts-ignore
 import type {Order,AppData} from '../src/modules/shared/domain.ts';
 test('Courier task projection exposes operational details without private/financial fields',()=>{
- const order={id:'o',customerId:'private-id',customerName:'Example',address:'Example address',phone:'0000000000',date:'2026-10-29',time:'12:00',note:'Dietary note',production:'ready',delivery:'pending',revision:2,payment:'paid',deliveryFee:900,fulfillmentPostalCode:'000000',fulfillmentSnapshot:JSON.stringify({end:'13:00',fee:900}),courierId:'secret',portalUserId:'private-user',items:[{hu:'Dish',ro:'Preparat',quantity:2,allergens:'milk',price:1000,recipeId:'private-recipe',productId:'private-product'}]} as Order;
+ const order={id:'o',customerId:'private-id',customerName:'Example',address:'Example address',phone:'0000000000',date:'2026-10-29',time:'12:00',note:'Dietary note',production:'ready',delivery:'pending',revision:2,payment:'paid',deliveryFee:900,fulfillmentPostalCode:'000000',fulfillmentSnapshot:JSON.stringify({end:'13:00',fee:900}),portalUserId:'private-user',items:[{hu:'Dish',ro:'Preparat',quantity:2,allergens:'milk',price:1000,recipeId:'private-recipe',productId:'private-product'}]} as Order;
  const task=courierTask(order);assert.equal(task.windowEnd,'13:00');assert.equal(task.items[0].quantity,2);
  for(const key of ['payment','deliveryFee','customerId','courierId','portalUserId','fulfillmentSnapshot','fulfillmentPostalCode'])assert.equal(key in task,false);
  for(const key of ['price','recipeId','productId'])assert.equal(key in task.items[0],false);

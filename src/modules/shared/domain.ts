@@ -83,7 +83,6 @@ export type Order = {
   deliveryFee?:number;
   portalUserId?:string|null;
   reviewNote?:string;
-  courierId?: string | null;
   courierName?: string;
   courierPhone?: string;
   id: string;
@@ -215,8 +214,6 @@ export function nextState(order: Order, field: string, value: string) {
     order.production !== "ready"
   )
     throw new Error("NOT_READY");
-  if (field === "delivery" && value === "transit" && !order.courierId)
-    throw new Error("COURIER_REQUIRED");
   if(field==='delivery'&&(value==='transit'||(order.fulfillmentMode==='pickup'&&value==='delivered'))&&order.packingReady!==1)throw Error('PACKING_REQUIRED');
   if (
     field === "status" &&

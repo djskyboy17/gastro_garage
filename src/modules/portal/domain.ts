@@ -18,9 +18,9 @@ export function validPortalSlot(date:string,time:string,now=new Date()){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(time))return false;
   const target=new Date(date+"T12:00:00Z");if(isNaN(target.getTime())||target.toISOString().slice(0,10)!==date)return false;
   const localDay=new Intl.DateTimeFormat("sv-SE",{timeZone:"Europe/Bucharest"}).format(now);
-  const max=new Date(localDay+"T12:00:00Z");max.setUTCDate(max.getUTCDate()+30);
+  // v50: a portálon csak mai napra lehet rendelni (Europe/Bucharest szerint), későbbi időpontra.
   const localTime=new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/Bucharest",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(now);
-  return date>=localDay && date<=max.toISOString().slice(0,10) && (date!==localDay||time>localTime);
+  return date===localDay && time>localTime;
 }
 export function portalItemName(item:{hu:string;ro:string},lang:Language){return item[lang];}
 /** Az ügyfélnek mutatott lépéssor; a konyhai állapotokból számolódik (v19). */

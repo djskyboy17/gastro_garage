@@ -2,7 +2,7 @@ export const deliveryMessages = {
   hu: {
     courier: "Futár", couriers: "Futártörzs", newCourier: "Új futár", courierName: "Futár neve", vehicle: "Jármű / rendszám",
     unassigned: "Nincs kijelölt futár", courierFilter: "Futár szűrése", deliveryFilter: "Kézbesítési állapot", openDeliveries: "Nyitott kiszállítások",
-    manifest: "Napi futárlista", manifestHint: "Időrendi lista · a kiválasztott futár és állapot szerint. Nem optimalizált útvonal.",
+    manifest: "Napi futárlista", manifestHint: "A nap kiszállításai időrendben, a kiválasztott állapot szerint. Nem optimalizált útvonal.",
     manifestPrint: "Futárlista nyomtatása", assignment: "Futár kijelölése", assignmentNote: "Kijelölés megjegyzése", deliveryNote: "Átadás megjegyzése / sikertelenség indoka",
     deliveryHistory: "Kiszállítási események", noCouriers: "Még nincs futár. Vegyél fel egyet a futártörzsben.", courierShiftTitle: "Napi beosztás", courierShiftHint: "Jelöld be, ki dolgozik ezen a napon; a csomagolásnál csak ők választhatók.", courierOnShift: "Dolgozik", to_pickup: "Átváltva helyszíni átvételre", courier_shift_added: "Futár beosztva", courier_shift_removed: "Futár beosztása törölve", fulfillment_switched_pickup: "Helyszíni átvételre váltva",
     courierHint: "A futártörzs nem hoz létre bejelentkezési fiókot. Teszteléshez használj kitalált adatokat.",
@@ -14,7 +14,7 @@ export const deliveryMessages = {
   ro: {
     courier: "Curier", couriers: "Registru curieri", newCourier: "Curier nou", courierName: "Nume curier", vehicle: "Vehicul / număr de înmatriculare",
     unassigned: "Fără curier alocat", courierFilter: "Filtrează după curier", deliveryFilter: "Stare livrare", openDeliveries: "Livrări deschise",
-    manifest: "Lista zilnică a curierului", manifestHint: "Listă cronologică · conform curierului și stării selectate. Traseul nu este optimizat.",
+    manifest: "Lista zilnică a curierului", manifestHint: "Livrările zilei în ordine cronologică, după starea selectată. Traseul nu este optimizat.",
     manifestPrint: "Tipărește lista curierului", assignment: "Alocare curier", assignmentNote: "Observații alocare", deliveryNote: "Observații predare / motivul livrării nereușite",
     deliveryHistory: "Evenimente de livrare", noCouriers: "Nu există curieri. Adaugă unul în registru.", courierShiftTitle: "Program zilnic", courierShiftHint: "Bifează cine lucrează în această zi; la ambalare se pot alege doar ei.", courierOnShift: "Lucrează", to_pickup: "Trecută la ridicare personală", courier_shift_added: "Curier programat", courier_shift_removed: "Programarea curierului ștearsă", fulfillment_switched_pickup: "Trecută la ridicare personală",
     courierHint: "Registrul nu creează conturi de autentificare. Folosește date fictive pentru testare.",

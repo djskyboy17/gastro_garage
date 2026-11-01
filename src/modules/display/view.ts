@@ -161,7 +161,7 @@ export function renderList(orders: DisplayOrder[], lang: DisplayLang, today: str
   );
 }
 
-export function renderPage(o: { lang: DisplayLang; orders: DisplayOrder[]; today: string; version: string; userName: string; sound: boolean; allergenNames: AllergenNames }) {
+export function renderPage(o: { lang: DisplayLang; orders: DisplayOrder[]; today: string; version: string; sound: boolean; allergenNames: AllergenNames }) {
   const t = displayMessages[o.lang];
   // A kliens a feliratokat és a kezdő változatot innen kapja; a < jelet kódoljuk, hogy a script-blokkot ne zárhassa le adat.
   const config = JSON.stringify({ v: o.version, k: CLIENT_VERSION, p: pollInterval(), t, sound: o.sound }).replace(/</g, "\\u003c");
@@ -169,10 +169,11 @@ export function renderPage(o: { lang: DisplayLang; orders: DisplayOrder[]; today
     o.lang,
     t.title,
     "<div id=\"fejlec\"><img src=\"/logo-192.png\" alt=\"Gastro-Garage\" width=\"56\" height=\"56\"><div class=\"cim\"><h1>" + esc(t.title) + "</h1>" +
-      "<span class=\"alcim\">" + esc(o.today.replace(/-/g, ".")) + " · " + esc(o.userName) + "</span></div>" +
+      // v52: csak a dátum (felhasználónév nélkül), és nincs Kilépés gomb – a kijelzőn mindig ugyanaz a fiók van belépve.
+      "<span class=\"alcim\">" + esc(o.today.replace(/-/g, ".")) + "</span></div>" +
       "<span id=\"ora\"></span><span id=\"kapcsolat\" class=\"elo\">● " + esc(t.live) + "</span>" +
       "<button type=\"button\" id=\"hang\" class=\"gomb kicsi\">" + esc(o.sound ? t.soundOn : t.soundOff) + "</button>" + langLinks(o.lang) +
-      logoutForm(t.logout, t.logoutConfirm) + "</div>" +
+      "</div>" +
       "<div id=\"sav\" class=\"rejtett\"></div><div id=\"uj-jelzes\" class=\"rejtett\">" + esc(t.newOrder) + "</div>" +
       "<div id=\"lista\">" + renderList(o.orders, o.lang, o.today, o.allergenNames) + "</div>" +
       "<audio id=\"csengo\" preload=\"auto\" src=\"/kijelzo/csengo.mp3\"></audio>" +

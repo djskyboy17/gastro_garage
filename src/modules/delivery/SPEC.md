@@ -27,3 +27,10 @@ V36 — napi beosztás és átvételre váltás:
 - `POST /api/delivery/to-pickup {id, revision, removeFee}`: csak visszaigazolt, kiszállításos, függő/sikertelen kézbesítésű rendelés. Mód → átvétel, futár törlése, idősáv-hivatkozás törlése, cím → az átvételi cím (fulfillment beállítás), a pillanatkép frissül. A díj `removeFee` szerint 0 vagy változatlan. Esemény (`to_pickup`), napló (`fulfillment_switched_pickup`, régi és új díjjal) és revizió-növelés egy kötegben; elavult revizió → 409.
 - [FELTÉTELEZÉS] Az átvételre váltás szerveroldalon akkor is engedélyezett, ha van beosztott futár (pl. az ügyfél kéri); a felület csak beosztott futár hiányában kínálja fel.
 - Jogosultság: tulajdonos, admin, diszpécser.
+
+## Egy futár: futártörzs, hozzárendelés, napi beosztás és napi futárlista nélkül — v51
+- Megszűnt: a futártörzs (`couriers`), a napi beosztás (`courier_shifts`), a rendelésenkénti futár-hozzárendelés (`orders.courier_id`, `POST /api/delivery/assign`), a futár létrehozása (`POST /api/delivery/couriers`), a beosztás (`POST /api/delivery/shift`) és a Kiszállítás oldal „Napi futárlista” panele (futár- és állapotszűrő, nyomtatható összesítő).
+- Indulás (`transit`) futár-hozzárendelés nélkül lehetséges; a többi feltétel (kész étel, ellenőrzött csomagolás) változatlan. Induláskor a rendelésre a futár neve kerül: a futár saját indításánál az ő neve, a fő alkalmazásból indítva a futár szerepkörű felhasználó neve (`courierUserName`, több ilyen fióknál a legrégebbi).
+- A Kiszállítási sor oldal a nap kiszállításait mutatja időrendben, állapotjelzéssel; a rendelés részleteiben a futár neve és a kiszállítási előzmények látszanak.
+- Megmaradt: átvételre váltás (`POST /api/delivery/to-pickup`), a csomagolás oldaláról, szállítási díj megtartásával vagy törlésével.
+- Adatbázis: `0024_remove_courier_registry` – a rendelések táblája újraépül `courier_id` nélkül; a rendelésekre hivatkozó adagkorlát-triggerek és a kézzel létrehozott index ugyanazzal a definícióval visszakerülnek. A régi rendelések futárneve (`courier_name`) megmarad.

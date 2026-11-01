@@ -63,7 +63,7 @@ test("Unprepared food cannot be dispatched", () => {
   assert.throws(() => nextState(base, "delivery", "transit"), /NOT_READY/);
 });
 test("Prepared food goes through dispatch and delivery without changing payment", () => {
-  let o = nextState({ ...base, courierId: "courier-test" }, "production", "cooking");
+  let o = nextState(base, "production", "cooking");
   o = nextState(o, "production", "ready");
   o = nextState(o, "delivery", "transit");
   o = nextState(o, "delivery", "delivered");

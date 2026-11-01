@@ -7,7 +7,6 @@ import type {Session} from '../access/domain';
 import {today,type Order,canCheckPacking} from '../shared/domain';
 import {validDay,addDays} from '../menu/domain';
 import {packingOrder,packingSelection,needsPacking} from './domain';
-import {couriersOnShift} from '../delivery/server';
 export class PackingError extends Error{constructor(message:string,public status=400){super(message);}}
 const json=(v:unknown,status=200)=>Response.json(v,{status,headers:{'Cache-Control':'no-store'}});
 export async function handlePacking(path:string,body:unknown,session:Session,write:boolean,date:string){
@@ -16,8 +15,8 @@ export async function handlePacking(path:string,body:unknown,session:Session,wri
  if(!write&&path==='/api/packing'){
   if(!validDay(date)||date<addDays(today(),-90)||date>addDays(today(),90))throw new PackingError('PACKING_DATE');
   const scope=and(eq(orders.date,date),eq(orders.status,'confirmed'));
-  const [rows,itemRows,shift]=await Promise.all([db.select().from(orders).where(scope).orderBy(asc(orders.time),asc(orders.id)),db.select({item:orderItems}).from(orderItems).innerJoin(orders,eq(orders.id,orderItems.orderId)).where(scope),couriersOnShift(date)]);
-  return json({date,shiftCouriers:shift,orders:rows.filter(needsPacking).map(o=>packingOrder({...o,items:itemRows.filter(r=>r.item.orderId===o.id).map(r=>r.item)} as Order))});
+  const [rows,itemRows]=await Promise.all([db.select().from(orders).where(scope).orderBy(asc(orders.time),asc(orders.id)),db.select({item:orderItems}).from(orderItems).innerJoin(orders,eq(orders.id,orderItems.orderId)).where(scope)]);
+  return json({date,orders:rows.filter(needsPacking).map(o=>packingOrder({...o,items:itemRows.filter(r=>r.item.orderId===o.id).map(r=>r.item)} as Order))});
  }
  if(!write||path!=='/api/packing/check')return json({error:'NOT_FOUND'},404);
  const d=z.object({id:z.string().min(1).max(200),revision:z.number().int().min(0),itemIds:z.array(z.string().min(1).max(200)).max(50)}).strict().parse(body);

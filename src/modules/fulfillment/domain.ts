@@ -1,7 +1,8 @@
 import {validDay,cutoffInstant,kitchenWallTime} from '../menu/domain.ts';
 export type FulfillmentMode='delivery'|'pickup';
 export type Zone={id:string;hu:string;ro:string;postcodes:string[];fee:number;minimum:number;active:boolean};
-export type FulfillmentSlot={id:string;mode:FulfillmentMode;weekdays:number[];start:string;end:string;capacity:number;active:boolean};
+/** v50: a régi `capacity` (rendelések száma / nap) megszűnt; régi mentett szabályokban még szerepelhet, de nincs hatása. */
+export type FulfillmentSlot={id:string;mode:FulfillmentMode;weekdays:number[];start:string;end:string;capacity?:number;active:boolean};
 export type FulfillmentPolicy={deliveryEnabled:boolean;pickupEnabled:boolean;pickupHu:string;pickupRo:string;pickupMinimum:number;closedWeekdays:number[];closedDates:string[];zones:Zone[];slots:FulfillmentSlot[]};
 export type PolicyData={revision:number|null;policy:FulfillmentPolicy;bookedSlotIds?:string[]};
 export type FulfillmentSnapshot={mode:FulfillmentMode;slotId:string;start:string;end:string;weekdays:number[];zoneHu:string;zoneRo:string;postalCode:string;addressHu:string;addressRo:string;minimum:number;fee:number};

@@ -1,7 +1,7 @@
 /** A konyhai kijelző (/kijelzo) szövegei. A kliens-script is ezekből kapja a feliratait. */
 export const displayMessages = {
   hu: {
-    title: "Konyhai kijelző",
+    title: "Konyha",
     loginTitle: "Belépés a konyhai kijelzőre",
     loginIntro: "A dolgozói fiókoddal lépj be (konyha vagy adminisztrátor).",
     email: "E-mail-cím",
@@ -44,7 +44,7 @@ export const displayMessages = {
     tap: "Érintsd meg a jelzés eltüntetéséhez",
   },
   ro: {
-    title: "Ecran bucătărie",
+    title: "Bucătărie",
     loginTitle: "Autentificare pe ecranul bucătăriei",
     loginIntro: "Autentifică-te cu contul de angajat (bucătărie sau administrator).",
     email: "Adresă de e-mail",

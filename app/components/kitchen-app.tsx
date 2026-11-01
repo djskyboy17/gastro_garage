@@ -334,6 +334,8 @@ export default function KitchenApp() {
       note: field === "delivery" ? deliveryNote : "",
     });
     if (saved) setDeliveryNote("");
+    // v50: a lemondott rendelés véglegesen törlődik, ezért a részletek ablaka bezárul.
+    if (saved && field === "status" && value === "cancelled") setModal(null);
   }
   function changeDay(offset: number) {
     const d = new Date(day + "T12:00:00Z");
@@ -1525,7 +1527,7 @@ export default function KitchenApp() {
                         {t("markReady")}
                       </Button>
                     )}
-                    {selectedOrder.fulfillmentMode!=="pickup" && can("orders/state",{field:"delivery"}) && selectedOrder.production === "ready" && selectedOrder.packingReady===1 && !!selectedOrder.courierId &&
+                    {selectedOrder.fulfillmentMode!=="pickup" && can("orders/state",{field:"delivery"}) && selectedOrder.production === "ready" && selectedOrder.packingReady===1 &&
                       ["pending", "failed"].includes(
                         selectedOrder.delivery,
                       ) && (

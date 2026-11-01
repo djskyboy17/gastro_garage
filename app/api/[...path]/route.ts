@@ -18,6 +18,7 @@ import { products, customers, orders, orderItems, audit, workspaceOwners } from 
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { nextState, today, CATEGORIES, DAILY_CATEGORIES, SECTIONS, type Order } from "@/src/modules/shared/domain";
+import { hardDeleteOrder } from "@/src/modules/shared/order-delete";
 import { demoProducts, demoCustomers } from "@/src/modules/shared/seed";
 import {
   loadOperations,
@@ -25,7 +26,7 @@ import {
   OperationError,
 } from "@/src/modules/inventory/server";
 import { latestRecipe } from "@/src/modules/inventory/domain";
-import { loadDelivery, handleDelivery, DeliveryError } from "@/src/modules/delivery/server";
+import { loadDelivery, handleDelivery, courierUserName, DeliveryError } from "@/src/modules/delivery/server";
 import {
   loadPurchasing,
   handlePurchasing,
@@ -455,6 +456,19 @@ async function handle(req: Request, write: boolean) {
         d.field,
         d.value,
       );
+      // v50: főzés előtti lemondás = végleges törlés (rendelés, tételek, kapcsolódó sorok és napló is).
+      // A nextState már ellenőrizte, hogy a főzés és a kiszállítás még nem kezdődött el.
+      if (d.field === "status" && d.value === "cancelled") {
+        const deleted = await hardDeleteOrder(
+          d.id,
+          "EXISTS (SELECT 1 FROM orders WHERE id=? AND revision=? AND status IN ('requested','confirmed') AND production='queued' AND delivery='pending')",
+          [d.id, d.revision],
+        );
+        if (!deleted) return json({ error: "CONFLICT" }, 409);
+        return json({ ok: true, deleted: true });
+      }
+      // v51: egy futár van; induláskor az ő neve (futár szerepkörű felhasználó) kerül a rendelésre.
+      const courierName = d.field === "delivery" && d.value === "transit" ? await courierUserName() : row.courierName;
       const result = await env.DB!.batch([
         env
           .DB!.prepare(
@@ -473,9 +487,9 @@ async function handle(req: Request, write: boolean) {
         ...(d.field === "delivery" ? [env.DB!.prepare("INSERT INTO delivery_events (id,order_id,kind,detail,actor,created_at) SELECT ?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM orders WHERE id=? AND revision=?)").bind(crypto.randomUUID(),d.id,d.value,JSON.stringify({note:d.note,courier:row.courierName}),actor,now,d.id,d.revision)] : []),
         env
           .DB!.prepare(
-            `UPDATE orders SET ${d.field}=?,revision=?,review_note=CASE WHEN ?='status' AND status='requested' AND ? IN ('confirmed','rejected') THEN ? ELSE review_note END WHERE id=? AND revision=?`,
+            `UPDATE orders SET ${d.field}=?,revision=?,courier_name=CASE WHEN ?='delivery' AND ?='transit' THEN ? ELSE courier_name END,review_note=CASE WHEN ?='status' AND status='requested' AND ? IN ('confirmed','rejected') THEN ? ELSE review_note END WHERE id=? AND revision=?`,
           )
-          .bind(d.value, updated.revision, d.field, d.value, d.note, d.id, d.revision),
+          .bind(d.value, updated.revision, d.field, d.value, courierName, d.field, d.value, d.note, d.id, d.revision),
       ]);
       if (result[result.length - 1].meta.changes !== 1) return json({ error: "CONFLICT" }, 409);
       return json({ ok: true });

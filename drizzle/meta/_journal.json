@@ -162,6 +162,20 @@
       "when": 1793550270719,
       "tag": "0022_daily_menu_set",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1793552297327,
+      "tag": "0023_drop_slot_capacity_trigger",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1793552924674,
+      "tag": "0024_remove_courier_registry",
+      "breakpoints": true
     }
   ]
 }

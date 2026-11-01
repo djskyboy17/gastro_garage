@@ -13,3 +13,10 @@ The responsive HU/RO page has date selection, current/finished tasks, overdue ba
 Acceptance: courier A cannot read/change B's tasks, spoof courier/user query parameters, reach /api/data or use staff writes; unbound/disabled users see no tasks; stale revisions and reassignment races reject mutations; identical concurrent retries produce one event; failure note mandatory; queued food cannot depart; ready→transit→delivered survives reload; role revocation unlinks account and blocks old requests; HU/RO mobile UI and original dispatcher workflows remain functional.
 
 V14: task DTO also exposes packingReady, with no checklist details. Departure now requires the kitchen/dispatcher packing confirmation through the shared guard; already in-transit historical orders can still be completed. Couriers cannot check or reopen packing.
+
+## Egy futár, összekötés nélkül — v51
+A futártörzs (`couriers`) és a fiók–futár összekötés megszűnt (a `courier_unlink_role` triggerrel együtt). Egyetlen futár van: aki **futár** szerepkört kap a Hozzáférés oldalon, az a `/courier` oldalon látja az összes kiszállításos feladatot (visszaigazolt, nem átvételes rendelés a kiválasztott napon, valamint az úton lévők és a korábbi napokról maradt, még nem kézbesítettek). Külön hozzárendelés nincs.
+- Induláskor a rendelésre a futár saját neve kerül (`orders.courier_name`, egyszerű szöveg). A kézbesítés és a sikertelen kézbesítés nem írja át.
+- A tranzakció továbbra is ellenőrzi a változatot (revision), a visszaigazolt, nem átvételes rendelést és azt, hogy a felhasználó még futár szerepkörű.
+- Megszűnt végpontok: `GET /api/courier/accounts`, `POST /api/courier/bind`; a felület (Hozzáférés → futárfiókok összekötése) is.
+- Ha több futár szerepkörű fiók lenne, mindegyik ugyanazt a teljes listát látná.
