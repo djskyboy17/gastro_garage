@@ -75,3 +75,10 @@ test("Only the kitchen and administrators can mark dishes ready", () => {
   assert.equal(canWrite("warehouse", "/api/kitchen/ready", {}), true); // v41: a régi raktáros fiók konyhaként működik
   assert.equal(canWrite("courier", "/api/kitchen/ready", {}), false);
 });
+
+test("v55: étel szerkesztése és törlése – tulajdonos, admin, diszpécser; konyha és futár nem", () => {
+  for (const path of ["/api/products/update", "/api/products/delete"]) {
+    for (const role of ["owner", "admin", "dispatcher"] as const) assert.equal(canWrite(role, path, {}), true, role + path);
+    for (const role of ["kitchen", "warehouse", "courier", "pending", "disabled"] as const) assert.equal(canWrite(role, path, {}), false, role + path);
+  }
+});

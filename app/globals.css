@@ -103,3 +103,9 @@ input[type=checkbox]{min-width:22px;min-height:22px}
 .catalog-sections button.selected span{background:#ffffff2e;color:#fff}
 .detail-items .detail-set{background:#fffaf0;border-radius:8px;padding-left:8px;padding-right:8px}
 .detail-items .detail-set small{display:block}
+
+/* v55: étel szerkesztése és törlése a katalógusban */
+.product-actions{display:flex;gap:8px;margin-top:10px}
+.product-actions .button{flex:1;min-height:44px}
+.button.danger-text{color:#a3402f;border-color:#ecc9c1}
+.button.danger-text:hover{background:#fcece6}

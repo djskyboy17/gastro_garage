@@ -318,3 +318,8 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 - A Napi/heti étlap „Étlapon” listájában csak az Étlap ételei szerepelnek.
 - Az Étlap ételei minden nap maguktól, korlátlan adaggal rendelhetők, mentés nélkül is, az alapértelmezett határidőig (beállítható, kezdetben 09:00). Egy napot csak akkor kell menteni, ha valamit kiveszel, korlátozol, napi menüt állítasz be vagy más határidőt adsz.
 - Új migráció: `0025_menu_auto_days`.
+
+## Étel szerkesztése és törlése — v55
+
+- Az Ételkatalógusban minden étel kártyáján Szerkesztés és Törlés gomb van (tulajdonos, admin, diszpécser).
+- A szerkesztés a régi rendeléseket nem változtatja meg. A törölt étel eltűnik a katalógusból, az étlapokról és a portálról, a régi rendelésekben megmarad; foglalt (mai vagy későbbi rendelésben szereplő) étel nem törölhető.

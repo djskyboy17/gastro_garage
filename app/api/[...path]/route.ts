@@ -282,9 +282,11 @@ async function handle(req: Request, write: boolean) {
       ]);
       return json({ ok: true });
     }
-    if (path === "/api/products") {
+    if (path === "/api/products" || path === "/api/products/update") {
+      const editing = path === "/api/products/update";
       const p = z
         .object({
+          ...(editing ? { id: text(), revision: z.number().int().min(0) } : {}),
           hu: text(),
           ro: text(),
           descriptionHu: z.string().max(1500),
@@ -295,8 +297,8 @@ async function handle(req: Request, write: boolean) {
           portion: z.number().int().min(1).max(10000),
           allergens: z.string().max(200),
         })
-        .parse(body);
-      // A Napi menü részben csak leves, főétel és desszert lehet (v49).
+        .parse(body) as { id?: string; revision?: number; hu: string; ro: string; descriptionHu: string; descriptionRo: string; category: string; section: string; price: number; portion: number; allergens: string };
+      // A Napi menü részben csak leves és főétel lehet (v49, v54).
       if (p.section === "daily" && !(DAILY_CATEGORIES as readonly string[]).includes(p.category))
         return json({ error: "SECTION_CATEGORY" }, 400);
       const allowed = [
@@ -320,12 +322,55 @@ async function handle(req: Request, write: boolean) {
         p.allergens.split(",").some((a) => !allowed.includes(a))
       )
         return json({ error: "VALIDATION" }, 400);
+      if (editing) {
+        // v55: étel módosítása. A korábbi rendelések pillanatképe (név, ár, allergén) nem változik;
+        // a portál-változat nő, így a nyitott portálos előnézetek frissítést kérnek.
+        const { id, revision, ...fields } = p;
+        const [old] = await db.select().from(products).where(eq(products.id, id!));
+        if (!old || old.active !== 1) return json({ error: "NOT_FOUND" }, 404);
+        if (old.portalRevision !== revision) return json({ error: "CONFLICT" }, 409);
+        // A Napi menüből csak akkor vihető ki, ha mai vagy későbbi nap menüjében nem szerepel.
+        if (fields.section !== "daily" || !(DAILY_CATEGORIES as readonly string[]).includes(fields.category)) {
+          const used = await env.DB!.prepare(
+            "SELECT 1 FROM menu_days WHERE date>=? AND ? IN (set_soup_id,set_main_id) LIMIT 1",
+          ).bind(today(), id).first();
+          if (used) return json({ error: "SECTION_IN_USE" }, 409);
+        }
+        const result = await env.DB!.batch([
+          env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) SELECT ?,?,'product_updated',?,?,? WHERE EXISTS (SELECT 1 FROM products WHERE id=? AND portal_revision=? AND active=1)").bind(crypto.randomUUID(), actor, id, fields.hu, now, id, revision),
+          env.DB!.prepare("UPDATE products SET hu=?,ro=?,description_hu=?,description_ro=?,category=?,section=?,price=?,portion=?,allergens=?,portal_revision=portal_revision+1 WHERE id=? AND portal_revision=? AND active=1").bind(fields.hu, fields.ro, fields.descriptionHu, fields.descriptionRo, fields.category, fields.section, fields.price, fields.portion, fields.allergens, id, revision),
+        ]);
+        if (result[1]!.meta.changes !== 1) return json({ error: "CONFLICT" }, 409);
+        return json({ ok: true });
+      }
       const id = crypto.randomUUID();
       await db.batch([
         db.insert(products).values({ ...p, id, active: 1 }),
         db.insert(audit).values(log("product_created", id, p.hu)),
       ]);
       return json({ ok: true, id }, 201);
+    }
+    if (path === "/api/products/delete") {
+      // v55: étel törlése. A korábbi rendelések, receptek és címkék hivatkoznak rá, ezért archiváljuk (active=0):
+      // eltűnik a katalógusból, az étlapokról és a portálról; a régi rendelések pillanatképe megmarad.
+      // Mai vagy későbbi foglalás esetén nem törölhető.
+      const d = z.object({ id: text() }).strict().parse(body);
+      const [p] = await db.select().from(products).where(eq(products.id, d.id));
+      if (!p || p.active !== 1) return json({ ok: true });
+      const reserved = await env.DB!.prepare(
+        "SELECT 1 FROM order_items i JOIN orders o ON o.id=i.order_id WHERE i.product_id=? AND o.date>=? AND o.status IN ('requested','confirmed') AND o.delivery<>'delivered' LIMIT 1",
+      ).bind(d.id, today()).first();
+      if (reserved) return json({ error: "PRODUCT_IN_USE" }, 409);
+      await env.DB!.batch([
+        env.DB!.prepare("UPDATE products SET active=0,portal_revision=portal_revision+1 WHERE id=?").bind(d.id),
+        // A jövőbeli étlapokról és napi menükből is lekerül.
+        env.DB!.prepare("DELETE FROM menu_lines WHERE product_id=? AND date>=?").bind(d.id, today()),
+        env.DB!.prepare("UPDATE menu_days SET set_soup_id=CASE WHEN set_soup_id=? THEN NULL ELSE set_soup_id END,set_main_id=CASE WHEN set_main_id=? THEN NULL ELSE set_main_id END,revision=revision+1 WHERE date>=? AND (set_soup_id=? OR set_main_id=?)").bind(d.id, d.id, today(), d.id, d.id),
+        // Ha a menüből csak az egyik étel maradt, a menü megszűnik (leves és főétel együtt kell).
+        env.DB!.prepare("UPDATE menu_days SET set_soup_id=NULL,set_main_id=NULL WHERE date>=? AND ((set_soup_id IS NULL) <> (set_main_id IS NULL))").bind(today()),
+        env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,?,'product_deleted',?,?,?)").bind(crypto.randomUUID(), actor, d.id, p.hu, now),
+      ]);
+      return json({ ok: true });
     }
     if (path === "/api/products/section") {
       // Étel áthelyezése a Napi menü és az Étlap között (v49).

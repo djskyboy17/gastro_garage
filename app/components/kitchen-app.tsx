@@ -202,6 +202,8 @@ export default function KitchenApp() {
   // Ételkatalógus két része (v49): Napi menü és Étlap; az új étel űrlapja ebből indul.
   const [catalogSection, setCatalogSection] = useState<"daily" | "alacarte">("daily");
   const [productCategory, setProductCategory] = useState("soup");
+  // v55: a szerkesztett étel; null = új étel.
+  const [editingProduct, setEditingProduct] = useState<AppData["products"][number] | null>(null);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -314,7 +316,7 @@ export default function KitchenApp() {
     setError("");
     setModal(type);
     if (type === "order") {
-      setLines([{ productId: data.products[0]?.id ?? "", quantity: 1 }]);
+      setLines([{ productId: data.products.find((p) => p.active === 1)?.id ?? "", quantity: 1 }]);
       setOrderId(crypto.randomUUID());
       setNewDate(day);
       setNewTime("12:00");
@@ -538,6 +540,7 @@ export default function KitchenApp() {
         price: Math.round(Number(f.get("price")) * 100),
         portion: Number(f.get("portion")),
         allergens: f.getAll("allergens").join(","),
+        ...(editingProduct ? { id: editingProduct.id, revision: editingProduct.portalRevision ?? 0 } : {}),
       };
     else
       body = {
@@ -553,7 +556,7 @@ export default function KitchenApp() {
         modal === "customer"
           ? "customers"
           : modal === "product"
-            ? "products"
+            ? editingProduct ? "products/update" : "products"
             : "orders",
         body,
       )
@@ -713,7 +716,7 @@ export default function KitchenApp() {
               </div>
               <div className="heading-actions">
                 {tab === "catalog" ? (
-                  <Button onClick={() => { setProductCategory("soup"); open("product"); }}>
+                  <Button onClick={() => { setEditingProduct(null); setProductCategory(catalogSection === "daily" ? "soup" : "main"); open("product"); }}>
                     <Plus size={17} />
                     {t("newProduct")}
                   </Button>
@@ -1137,7 +1140,7 @@ export default function KitchenApp() {
                           onClick={() => setCatalogSection(s)}
                         >
                           {t("section_" + s)}
-                          <span>{data.products.filter((p) => (p.section ?? "alacarte") === s).length}</span>
+                          <span>{data.products.filter((p) => p.active === 1 && (p.section ?? "alacarte") === s).length}</span>
                         </button>
                       ))}
                     </div>
@@ -1152,7 +1155,7 @@ export default function KitchenApp() {
                     </label>
                     <div className="catalog-grid">
                       {data.products
-                        .filter((p) => (p.section ?? "alacarte") === catalogSection)
+                        .filter((p) => p.active === 1 && (p.section ?? "alacarte") === catalogSection)
                         .filter((p) =>
                           normalizeSearch(p.hu + " " + p.ro).includes(
                             normalizeSearch(query),
@@ -1201,6 +1204,33 @@ export default function KitchenApp() {
                                     {t("moveToAlacarte")}
                                   </button>
                                 ))}
+                              {can("products/update") && (
+                                <div className="product-actions">
+                                  <button
+                                    type="button"
+                                    className="button secondary"
+                                    disabled={busy}
+                                    onClick={() => {
+                                      setEditingProduct(p);
+                                      setCatalogSection((p.section ?? "alacarte") as "daily" | "alacarte");
+                                      setProductCategory(p.category);
+                                      open("product");
+                                    }}
+                                  >
+                                    {t("editProduct")}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="button secondary danger-text"
+                                    disabled={busy}
+                                    onClick={() => {
+                                      if (window.confirm(t("deleteProductConfirm").replace("{name}", title(p)))) void mutate("products/delete", { id: p.id });
+                                    }}
+                                  >
+                                    {t("deleteProduct")}
+                                  </button>
+                                </div>
+                              )}
                               {can("products/image") && (
                                 <ProductImageControls product={p} t={t} busy={busy} mutate={mutate} onError={setError} />
                               )}
@@ -1415,7 +1445,7 @@ export default function KitchenApp() {
               modal === "order"
                 ? "newOrder"
                 : modal === "product"
-                  ? "newProduct"
+                  ? editingProduct ? "editProduct" : "newProduct"
                   : modal === "customer"
                     ? "newCustomer"
                     : "orderDetail",
@@ -1587,7 +1617,7 @@ export default function KitchenApp() {
                 )}
               </>
             ) : (
-              <form onSubmit={submit}>
+              <form onSubmit={submit} key={modal + ":" + (editingProduct?.id ?? "new")}>
                 {modal === "customer" && (
                   <>
                     <Field label={t("name")}>
@@ -1608,16 +1638,16 @@ export default function KitchenApp() {
                   <>
                     <div className="form-grid">
                       <Field label={t("huName")}>
-                        <input name="hu" required maxLength={200} />
+                        <input name="hu" required maxLength={200} defaultValue={editingProduct?.hu} />
                       </Field>
                       <Field label={t("roName")}>
-                        <input name="ro" required maxLength={200} />
+                        <input name="ro" required maxLength={200} defaultValue={editingProduct?.ro} />
                       </Field>
                       <Field label={t("descriptionHu")}>
-                        <textarea name="descriptionHu" maxLength={1500} />
+                        <textarea name="descriptionHu" maxLength={1500} defaultValue={editingProduct?.descriptionHu} />
                       </Field>
                       <Field label={t("descriptionRo")}>
-                        <textarea name="descriptionRo" maxLength={1500} />
+                        <textarea name="descriptionRo" maxLength={1500} defaultValue={editingProduct?.descriptionRo} />
                       </Field>
                       <Field label={t("catalogSection")}>
                         <select
@@ -1653,7 +1683,7 @@ export default function KitchenApp() {
                           max="10000"
                           step="1"
                           required
-                          defaultValue="350"
+                          defaultValue={editingProduct ? String(editingProduct.portion) : "350"}
                         />
                       </Field>
                       <Field label={t("price")}>
@@ -1664,6 +1694,7 @@ export default function KitchenApp() {
                           max="10000"
                           step="0.01"
                           required
+                          defaultValue={editingProduct ? (editingProduct.price / 100).toFixed(2) : undefined}
                         />
                       </Field>
                     </div>
@@ -1671,7 +1702,7 @@ export default function KitchenApp() {
                       <legend>{t("allergens")}</legend>
                       {allergenKeys.map((a) => (
                         <label key={a}>
-                          <input type="checkbox" name="allergens" value={a} />
+                          <input type="checkbox" name="allergens" value={a} defaultChecked={!!editingProduct?.allergens.split(",").includes(a)} />
                           {t(a)}
                         </label>
                       ))}
@@ -1733,7 +1764,7 @@ export default function KitchenApp() {
                                 .filter(
                                   (p) =>
                                     p.id === line.productId ||
-                                    !lines.some((l) => l.productId === p.id),
+                                    (p.active === 1 && !lines.some((l) => l.productId === p.id)),
                                 )
                                 .map((p) => (
                                   <option key={p.id} value={p.id}>
