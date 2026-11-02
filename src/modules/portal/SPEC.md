@@ -81,3 +81,7 @@ Az étlap elején „Napi menü” kártya jelenik meg (leves + főétel + dessz
 
 ## Napi menü elöl, Étlap alatta — v63
 - A Rendelés részben a napi menü kártyája teljes szélességben áll elöl (asztali gépen a leves és a főétel egymás mellett), alatta „Étlap” címmel a kategóriák és az ételkártyák (asztali gépen két oszlopban, telefonon egymás alatt).
+
+## Sárga szalag — v64
+- Szavai: „Napi menü csak {ár} lei” (a mai napi menü ára, ha nincs, a hét első menüjéé), majd „Ami a garázsból kigördül”, a kínálat, a rendezvénytípusok és az átvételi módok (`gpMarqueeWords`, „|”-vel elválasztva).
+- Két egyforma félből áll, a sáv a felénél ugrik vissza, így megszakítás és hézag nélkül körbe forog (70 mp / kör). Csökkentett mozgás beállításnál áll.

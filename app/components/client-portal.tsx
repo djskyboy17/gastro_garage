@@ -110,6 +110,9 @@ export default function ClientPortal(){
   const inCart=(id:string)=>cart.find(i=>i.productId===id)?.quantity??0;
   const canAdd=(id:string,remaining:number)=>remaining>inCart(id)&&inCart(id)<100&&(cart.length<10||inCart(id)>0);
   const until=deadline?fill(t("gpUntil"),{time:clock(deadline)}):"—";
+  // A szalag szavai: a menüár (ha van ma napi menü, különben a hét első menüjéé), a kínálat és a rendezvények.
+  const setPrice=menuSet?.price??week.find(d=>d.set)?.set?.price;
+  const marquee=[...(setPrice?[fill(t("gpMarqueePrice"),{price:lei(setPrice)})]:[]),...t("gpMarqueeWords").split("|")];
   const allergenList=(a:string)=>a?a.split(",").filter(Boolean):[];
   // Mi hiányzik még a rendelés ellenőrzéséhez (a kosár ablakában jelezzük).
   const missing=!authenticated?"signin":blocked?"blocked":!data.profile?"profile":mode==="delivery"&&!selectedZone?"zone":!asap&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)?"slot":null;
@@ -143,7 +146,8 @@ export default function ClientPortal(){
       </div>
     </div></div>
 
-    <div className="gp-marquee" aria-hidden="true"><div>{Array.from({length:4},()=>t("gpMarquee")+" • ").join("")}</div></div>
+    {/* v64: két egyforma fél egymás után; a sáv a felénél ugrik vissza, így a körforgásnak nincs vége és hézaga. */}
+    <div className="gp-marquee" aria-hidden="true"><div className="gp-marquee-track">{[0,1].map(half=><span key={half}>{Array.from({length:2},()=>marquee.map(w=>w+" • ").join("")).join("")}</span>)}</div></div>
 
     <main>
       {(error||success)&&<div className="gp-wrap gp-alerts">{error&&<div role="alert" className="gp-alert"><strong>{t(error)}</strong><button type="button" disabled={busy||loading} onClick={refreshAll}><RefreshCw size={15}/>{t("refresh")}</button></div>}{success&&<p role="status" className="gp-success"><CheckCircle2 size={18}/>{t(success)}</p>}</div>}
