@@ -1,6 +1,6 @@
 import {loadPolicy,fulfillmentOptions} from "../fulfillment/server";
 import {quoteFulfillment} from "../fulfillment/domain";
-import {cutoffInstant} from "../menu/domain";
+import {cutoffInstant,kitchenWallTime} from "../menu/domain";
 import {menuDays} from '@/db/schema';
 import {publicMenu} from '../menu/server';
 import {env} from "cloudflare:workers";
@@ -17,7 +17,8 @@ import {hardDeleteOrder} from "../shared/order-delete";
 export class PortalError extends Error {constructor(public code:string,public status=400){super(code);}}
 const json=(v:unknown,status=200)=>Response.json(v,{status,headers:{"Cache-Control":"no-store"}});
 const profileInput=z.object({revision:z.number().int().min(0).optional(),name:z.string().trim().min(1).max(200),address:z.string().trim().max(500).refine(v=>v.length===0||v.length>=5),phone:z.string().trim().regex(/^[+0-9 ()-]{6,40}$/)}).strict();
-const orderInput=z.object({mode:z.enum(["delivery","pickup"]),slotId:z.string().uuid(),postalCode:z.string().max(6),date:z.string(),time:z.string(),note:z.string().trim().max(1500),items:z.array(z.object({productId:z.string().min(1).max(200),quantity:z.number().int().min(1).max(100)}).strict()).min(1).max(10)}).strict();
+// v58: körzet név szerint (zoneId; átvételnél üres), idősáv helyett kívánt időpont (üres = minél előbb).
+const orderInput=z.object({mode:z.enum(["delivery","pickup"]),zoneId:z.string().max(100),date:z.string(),time:z.string().max(5),note:z.string().trim().max(1500),items:z.array(z.object({productId:z.string().min(1).max(200),quantity:z.number().int().min(1).max(100)}).strict()).min(1).max(10)}).strict();
 /** Az ügyfélnek látható kínálat: az aktív ételek, amelyek rajta vannak egy mai vagy későbbi, nyitott étlapon (v27). */
 export async function loadPublicCatalog(){
   const onMenu=await env.DB!.prepare("SELECT DISTINCT l.product_id AS id FROM menu_lines l JOIN menu_days d ON d.date=l.date WHERE d.active=1 AND l.date>=?").bind(today()).all<{id:string}>();
@@ -33,7 +34,7 @@ async function account(userId:string){
 async function requireAccount(userId:string){const p=await account(userId);if(!p)throw new PortalError("PORTAL_PROFILE_REQUIRED");if(!p.active)throw new PortalError("PORTAL_BLOCKED",403);return p;}
 function profile(p:PortalAccount){return {name:p.name,address:p.address,phone:p.phone,revision:p.revision};}
 async function quote(input:z.infer<typeof orderInput>,userId:string){
-  if(!validPortalSlot(input.date,input.time))throw new PortalError("PORTAL_SLOT");
+  if(input.time===""?input.date!==today():!validPortalSlot(input.date,input.time))throw new PortalError("PORTAL_SLOT");
   if(new Set(input.items.map(i=>i.productId)).size!==input.items.length)throw new PortalError("VALIDATION");
   const p=await requireAccount(userId),db=getDb();
   const [catalog,recipeList]=await Promise.all([db.select().from(products).where(eq(products.active,1)),db.select().from(recipes)]);
@@ -60,7 +61,7 @@ async function quote(input:z.infer<typeof orderInput>,userId:string){
   const subtotal=lines.reduce((s,i)=>s+i.quantity*i.price,0);
   let fulfillment;try{fulfillment=quoteFulfillment(policyData.policy,input,subtotal);}catch(e){throw new PortalError((e as Error).message);}
   if(input.mode==='delivery'&&p.address.length<5)throw new PortalError('FULFILLMENT_ADDRESS');
-  const available=await fulfillmentOptions(input.date);if(!available.slots.some(s=>s.id===input.slotId))throw new PortalError('FULFILLMENT_SLOT');
+  if((await fulfillmentOptions(input.date)).closed)throw new PortalError('FULFILLMENT_CLOSED');
   const canonical={policyRevision:policyData.revision,fulfillment,subtotal,menuRevision:day?.revision??null,menuAutoCutoff:day?null:menu.cutoffAt,setPriceRevision:setItem?menu.set!.priceRevision:null,profile:profile(p),date:input.date,time:input.time,note:input.note,items:lines};
   const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(JSON.stringify(canonical)));
   const fingerprint=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
@@ -141,12 +142,12 @@ export async function handlePortal(path:string,body:unknown|undefined,user:Ident
   const orderId=crypto.randomUUID(),itemRows=plan.lines.map(i=>({...i,id:crypto.randomUUID()}));
   try{
     await env.DB!.batch([
-      env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM fulfillment_policy WHERE id=1 AND revision=?) AND julianday('now')<julianday(?) THEN ? ELSE NULL END,'fulfillment_order_checked',?,'',?)").bind(crypto.randomUUID(),plan.policyRevision,cutoffInstant(d.date+'T'+d.time),user.userId,orderId,now),
+      env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM fulfillment_policy WHERE id=1 AND revision=?) AND julianday('now')<julianday(?) THEN ? ELSE NULL END,'fulfillment_order_checked',?,'',?)").bind(crypto.randomUUID(),plan.policyRevision,cutoffInstant(d.date+'T'+(d.time||'23:59')),user.userId,orderId,now),
       // Mentett nap: a változat, az aktív állapot és a határidő; nem mentett nap (v54): közben sem mentették, és az alapértelmezett határidő még nem járt le.
       plan.day
         ?env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM menu_days WHERE date=? AND revision=? AND active=1 AND julianday('now')<julianday(cutoff_at)) THEN ? ELSE NULL END,'portal_menu_checked',?,'',?)").bind(crypto.randomUUID(),d.date,plan.day.revision,user.userId,orderId,now)
         :env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN NOT EXISTS (SELECT 1 FROM menu_days WHERE date=?) AND julianday('now')<julianday(?) THEN ? ELSE NULL END,'portal_menu_checked',?,'',?)").bind(crypto.randomUUID(),d.date,plan.autoCutoff,user.userId,orderId,now),
-      env.DB!.prepare("INSERT INTO orders (id,customer_id,customer_name,address,phone,date,time,note,production,delivery,payment,status,revision,created_at,portal_user_id,fulfillment_mode,fulfillment_slot_id,fulfillment_postal_code,fulfillment_snapshot,delivery_fee) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM portal_profiles WHERE user_id=? AND revision=? AND active=1) AND (SELECT COUNT(*) FROM orders WHERE portal_user_id=? AND status='requested')<10 AND (SELECT COUNT(*) FROM portal_submissions WHERE user_id=? AND created_at>=?)<20 AND NOT EXISTS (SELECT 1 FROM json_each(?) AS i WHERE NOT EXISTS (SELECT 1 FROM products WHERE id=json_extract(i.value,'$.productId') AND active=1 AND portal_revision=json_extract(i.value,'$.portalRevision'))) THEN ? ELSE NULL END,?,?,?,?,?,?,'queued','pending','unpaid','requested',0,?,?,?,?,?,?,?)").bind(orderId,user.userId,plan.p.revision,user.userId,user.userId,since,JSON.stringify(plan.lines),plan.p.customerId,plan.p.name,d.mode==="pickup"?[...new Set([plan.preview.fulfillment.addressHu,plan.preview.fulfillment.addressRo])].join(" / "):plan.p.address,plan.p.phone,d.date,d.time,d.note,now,user.userId,d.mode,d.slotId,d.postalCode,JSON.stringify(plan.preview.fulfillment),plan.preview.fulfillment.fee),
+      env.DB!.prepare("INSERT INTO orders (id,customer_id,customer_name,address,phone,date,time,note,production,delivery,payment,status,revision,created_at,portal_user_id,fulfillment_mode,fulfillment_slot_id,fulfillment_postal_code,fulfillment_snapshot,delivery_fee) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM portal_profiles WHERE user_id=? AND revision=? AND active=1) AND (SELECT COUNT(*) FROM orders WHERE portal_user_id=? AND status='requested')<10 AND (SELECT COUNT(*) FROM portal_submissions WHERE user_id=? AND created_at>=?)<20 AND NOT EXISTS (SELECT 1 FROM json_each(?) AS i WHERE NOT EXISTS (SELECT 1 FROM products WHERE id=json_extract(i.value,'$.productId') AND active=1 AND portal_revision=json_extract(i.value,'$.portalRevision'))) THEN ? ELSE NULL END,?,?,?,?,?,?,'queued','pending','unpaid','requested',0,?,?,?,?,?,?,?)").bind(orderId,user.userId,plan.p.revision,user.userId,user.userId,since,JSON.stringify(plan.lines),plan.p.customerId,plan.p.name,d.mode==="pickup"?[...new Set([plan.preview.fulfillment.addressHu,plan.preview.fulfillment.addressRo])].join(" / "):plan.p.address,plan.p.phone,d.date,d.time||kitchenWallTime().slice(11,16),d.note,now,user.userId,d.mode,null,'',JSON.stringify(plan.preview.fulfillment),plan.preview.fulfillment.fee),
       // A menüár nem változhatott az előnézet óta (v49).
       ...(plan.setPriceRevision===null?[]:[env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM menu_settings WHERE id=1 AND revision=?) THEN ? ELSE NULL END,'portal_menu_price_checked',?,'',?)").bind(crypto.randomUUID(),plan.setPriceRevision,user.userId,orderId,now)]),
       env.DB!.prepare("INSERT INTO order_items (id,order_id,product_id,hu,ro,allergens,quantity,price,recipe_id,set_group) SELECT json_extract(value,'$.id'),?,json_extract(value,'$.productId'),json_extract(value,'$.hu'),json_extract(value,'$.ro'),json_extract(value,'$.allergens'),json_extract(value,'$.quantity'),json_extract(value,'$.price'),json_extract(value,'$.recipeId'),json_extract(value,'$.setGroup') FROM json_each(?)").bind(orderId,JSON.stringify(itemRows)),

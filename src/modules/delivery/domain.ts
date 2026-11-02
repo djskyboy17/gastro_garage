@@ -26,6 +26,6 @@ export function pickupSwitch<S extends Record<string, unknown>>(
   return {
     fee,
     address,
-    snapshot: { ...((snapshot ?? {}) as S), mode: "pickup", slotId: "", zoneHu: "", zoneRo: "", postalCode: "", addressHu: policy.pickupHu, addressRo: policy.pickupRo, fee },
+    snapshot: { ...((snapshot ?? {}) as S), mode: "pickup", slotId: "", zoneId: "", zoneHu: "", zoneRo: "", postalCode: "", addressHu: policy.pickupHu, addressRo: policy.pickupRo, fee },
   };
 }

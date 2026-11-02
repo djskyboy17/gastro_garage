@@ -3,7 +3,7 @@ import {handleLabels,publicLabel,LabelError} from "@/src/modules/labels/server";
 import {handleKitchen,KitchenError} from "@/src/modules/kitchen/server";
 import {serveProductImage,handleProductImage,ImageError} from "@/src/modules/images/server";
 import {handleCourier,CourierError} from "@/src/modules/courier/server";
-import {fulfillmentOptions,loadPolicy,savePolicy,bookedSlotIds,FulfillmentError} from '@/src/modules/fulfillment/server';
+import {fulfillmentOptions,loadPolicy,savePolicy,FulfillmentError} from '@/src/modules/fulfillment/server';
 import {loadStocktakes,handleStocktake,StocktakeError} from '@/src/modules/stocktake/server';
 import {loadMenu,publicMenu,saveMenu,saveMenuSettings,MenuError} from '@/src/modules/menu/server';
 import { env } from "cloudflare:workers";
@@ -122,7 +122,7 @@ async function handle(req: Request, write: boolean) {
     }
     if (!write && path === "/api/fulfillment") {
       if (!["owner","admin","dispatcher"].includes(session.role)) return json({error:"FORBIDDEN"},403);
-      return json({...(await loadPolicy()),bookedSlotIds:await bookedSlotIds()});
+      return json(await loadPolicy());
     }
     if (!write && path === "/api/stocktake") {
       if (!["owner","admin","kitchen","warehouse"].includes(session.role)) return json({error:"FORBIDDEN"},403);

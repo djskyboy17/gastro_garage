@@ -329,3 +329,17 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 - Telefonos rendelésnél az „Új rendelés” ablakban név, cím vagy telefonszám alapján kereshető a meglévő ügyfél; ha nincs meg, ugyanott felvehető (név, cím, telefon), nem kell az Ügyfelek modulba menni.
 - Ha az új ügyfél telefonszáma már szerepel, az ablak felajánlja a meglévő ügyfelet.
 - Migráció nem kell.
+
+## Új rendelési oldal arculat — v57
+
+- A gastrogarage.veres.no rendelési oldala a videóban látott „Gastro Garage” stílust kapta (sötétzöld, mustársárga, krém), a meglévő rendelési logikával.
+- Település-gombok a szállítási zónákból, időpont-gombok, alul sárga kosársáv összesítő ablakkal, heti menü a hét hátralévő napjaira, gyakori kérdések.
+- Migráció nem kell.
+
+## Települések, ingyenes kiszállítás, időpont — v58
+
+- A szállítási körzetek települések (Nyújtód, Lemhény, Kézdimartonos, Kézdivásárhely, Kézdiszentlélek, Bereck, Kézdialmás, Esztelnek); a vásárló név szerint választ, irányítószám nincs.
+- A kiszállítás egyelőre ingyenes; a díj körzetenként később beállítható.
+- A heti idősávok megszűntek: „Minél előbb” vagy kívánt időpont.
+- A portál tetején a „Rendelés nyitva” pont zölden villog, zárva piros.
+- Migráció nem kell; az éles körzeteket a szabály mentése cseréli.

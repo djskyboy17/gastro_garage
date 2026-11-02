@@ -3,7 +3,7 @@ import PackingWorkspace from "./packing-workspace";
 import { CustomerPicker, type CustomerChoice } from "./customer-picker";
 import { TimeInput24 } from "./time-input";
 import { ProductImage, ProductImageControls } from "./product-image";
-import {orderFulfillment} from "@/src/modules/fulfillment/domain";
+import {orderFulfillment,fulfillmentTime} from "@/src/modules/fulfillment/domain";
 import {
   useCallback,
   useEffect,
@@ -1517,7 +1517,7 @@ export default function KitchenApp() {
                     ),
                   )}
                 </div>
-                {orderFulfillment(selectedOrder)&&<div className="fulfill-summary"><p>{t(selectedOrder.fulfillmentMode==='pickup'?'fulfillPickup':'fulfillDelivery')} · {orderFulfillment(selectedOrder)!.start}–{orderFulfillment(selectedOrder)!.end}</p><p>{t('fulfillShipping')}: {money(selectedOrder.deliveryFee??0)}</p></div>}
+                {orderFulfillment(selectedOrder)&&<div className="fulfill-summary"><p>{t(selectedOrder.fulfillmentMode==='pickup'?'fulfillPickup':'fulfillDelivery')} · {(()=>{const f=orderFulfillment(selectedOrder)!;return [lang==='hu'?f.zoneHu:f.zoneRo,fulfillmentTime(f)||t('gpAsap')].filter(Boolean).join(' · ');})()}</p><p>{t('fulfillShipping')}: {money(selectedOrder.deliveryFee??0)}</p></div>}
                 <div className="detail-total">
                   <span>{t("amount")}</span>
                   <strong>{money(total(selectedOrder))}</strong>

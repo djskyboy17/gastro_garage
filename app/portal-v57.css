@@ -1,0 +1,256 @@
+/* v57: ügyfélportál – Gastro Garage arculat (sötétzöld, mustársárga, krém). Minden szabály a .gp gyökér alatt. */
+.gp{--gp-ink:#0b2a1f;--gp-ink-2:#123a2b;--gp-line-dark:#ffffff1a;--gp-yellow:#f6b90b;--gp-yellow-2:#ffcb33;--gp-cream:#f6efe0;--gp-paper:#fffaf0;--gp-text:#0d2b20;--gp-muted:#3f6b55;--gp-soft:#7d9686;--gp-line:#e6dcc6;--gp-display:'Bricolage Grotesque','Manrope',system-ui,sans-serif;
+  min-height:100vh;background:var(--gp-cream);color:var(--gp-text);font-family:'DM Sans',system-ui,sans-serif;font-size:16px;line-height:1.5;padding-bottom:96px}
+.gp h1,.gp h2,.gp h3{font-family:var(--gp-display);letter-spacing:-.02em;line-height:1.08;margin:0}
+.gp p{margin:0}
+.gp button{cursor:pointer}
+.gp button:disabled{cursor:not-allowed;opacity:.45}
+.gp a{color:inherit}
+.gp-wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+
+/* Fejléc */
+.gp-top{position:sticky;top:0;z-index:30;background:var(--gp-ink);color:#fff;border-bottom:1px solid var(--gp-line-dark)}
+.gp-top .gp-wrap{display:flex;align-items:center;gap:10px;height:62px}
+.gp-brand{display:flex;align-items:center;gap:9px;font-family:var(--gp-display);font-weight:700;font-size:19px;text-decoration:none;white-space:nowrap}
+.gp-brand img{width:34px;height:34px;object-fit:contain;border-radius:8px}
+.gp main{max-width:none;margin:0;padding:0}
+.gp-top nav{display:none;flex-direction:row;align-items:center;gap:22px;margin-left:26px;font-size:15px;color:#cfe0d6}
+.gp-top nav a{text-decoration:none}.gp-top nav a:hover{color:#fff}
+.gp-lang{margin-left:auto;display:flex;border:1px solid var(--gp-line-dark);border-radius:10px;padding:3px;gap:2px}
+.gp-lang button{font-size:12px;font-weight:700;padding:6px 9px;border-radius:7px;color:#9fb8aa;background:none;border:0}
+.gp-lang button[aria-pressed=true]{background:var(--gp-paper);color:var(--gp-ink)}
+.gp-icon{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;border:1px solid var(--gp-line-dark);flex-shrink:0}
+.gp-signin{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:0 12px;border-radius:10px;background:var(--gp-yellow);color:var(--gp-ink)!important;font-weight:700;font-size:14px;text-decoration:none;white-space:nowrap}
+
+/* Nyitó rész */
+.gp-hero{position:relative;color:#fff;overflow:hidden;background:radial-gradient(120% 80% at 100% 0%,#c9a40ecc 0%,#6f7d1a99 35%,transparent 70%),linear-gradient(160deg,#20533c 0%,var(--gp-ink) 70%)}
+.gp-hero:before{content:"";position:absolute;inset:0;opacity:.16;background:repeating-linear-gradient(90deg,#fff 0 1px,transparent 1px 64px),repeating-linear-gradient(0deg,#fff 0 1px,transparent 1px 64px);-webkit-mask-image:linear-gradient(180deg,transparent,#000 40%,transparent);mask-image:linear-gradient(180deg,transparent,#000 40%,transparent)}
+.gp-hero .gp-wrap{position:relative;padding:30px 16px 30px}
+.gp-pill{display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:6px 12px;border-radius:99px;background:#ffffff14;border:1px solid #ffffff26}
+.gp-pill i{width:9px;height:9px;border-radius:50%;background:#3ee39a;box-shadow:0 0 0 4px #3ee39a33;animation:gp-blink 1.2s ease-in-out infinite}
+/* Zárva: piros, nem villog (v58). */
+.gp-pill.closed i{background:#ff4d4f;box-shadow:0 0 0 4px #ff4d4f33;animation:none}
+.gp-hero h1{font-size:clamp(44px,11vw,84px);font-weight:800;margin:18px 0 12px}
+.gp-lead{font-size:18px;color:#e5eee8;max-width:520px}
+.gp-cta{display:grid;gap:10px;margin:24px 0 24px;max-width:520px}
+.gp-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:50px;padding:0 20px;border-radius:12px;font-weight:700;font-size:16px;text-decoration:none;border:1px solid transparent;background:none;transition:transform .12s,background .15s}
+.gp-btn:active{transform:scale(.98)}
+.gp-btn.yellow{background:var(--gp-yellow);color:var(--gp-ink)}.gp-btn.yellow:hover{background:var(--gp-yellow-2)}
+.gp-btn.ghost{border-color:#ffffff40;color:#fff}.gp-btn.ghost:hover{background:#ffffff12}
+.gp-btn.dark{background:var(--gp-ink);color:#fff}
+.gp-btn.outline{border-color:var(--gp-line);color:var(--gp-text);background:var(--gp-paper)}
+.gp-btn.small{min-height:42px;font-size:14px;padding:0 14px}
+.gp-btn.wide{width:100%}
+.gp-phone{font-family:var(--gp-display);font-weight:800;font-size:clamp(34px,8vw,46px);color:var(--gp-yellow)!important;text-decoration:none}
+
+/* Jegy-kártya */
+.gp-ticket{position:relative;background:var(--gp-paper);color:var(--gp-text);border-radius:22px;padding:22px;margin-top:24px;max-width:520px;transform:rotate(-1.2deg);box-shadow:0 18px 40px #0007}
+.gp-ticket:before,.gp-ticket:after{content:"";position:absolute;top:50%;width:22px;height:22px;border-radius:50%;background:var(--gp-ink);transform:translateY(-50%)}
+.gp-ticket:before{left:-11px}.gp-ticket:after{right:-11px}
+.gp-ticket-head{display:flex;justify-content:space-between;gap:12px}
+.gp-ticket h2{font-size:26px}
+.gp-ticket small{color:var(--gp-muted);font-size:14px}
+.gp-badge{display:grid;place-items:center;width:46px;height:46px;border-radius:13px;background:var(--gp-yellow);color:var(--gp-ink);flex-shrink:0}
+.gp-badge.round{width:40px;height:40px;border-radius:50%}
+.gp-dash{border-top:2px dashed #d8ccb0;margin:16px 0}
+.gp-ticket-row{display:grid;grid-template-columns:1fr 1.3fr;gap:12px}
+.gp-ticket-row span{display:block;font-size:13px;color:var(--gp-muted)}
+.gp-ticket-row strong{font-family:var(--gp-display);font-size:clamp(30px,8vw,40px);font-weight:800;line-height:1.05}
+.gp-ticket-row em,.gp-price-big em,.gp-dish-buy em{font-style:normal;font-size:.45em;font-weight:600;margin-left:3px}
+.gp-ticket-foot{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--gp-muted)}
+
+/* Futó szalag */
+.gp-marquee{background:var(--gp-yellow);color:var(--gp-ink);overflow:hidden;white-space:nowrap;border-block:2px solid var(--gp-ink)}
+.gp-marquee div{display:inline-block;padding:11px 0;font-family:var(--gp-display);font-weight:800;font-size:18px;letter-spacing:.02em;animation:gp-run 30s linear infinite}
+@keyframes gp-run{to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.gp-marquee div{animation:none}}
+
+/* Üzenetek */
+.gp-alerts{padding-top:18px;display:grid;gap:10px}
+.gp-alert{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fcece6;border:1px solid #f0d7cd;color:#8f4a38;border-radius:12px;padding:12px 14px;font-size:15px}
+.gp-alert button{display:inline-flex;align-items:center;gap:6px;background:none;border:0;color:inherit;font-weight:700;text-decoration:underline;white-space:nowrap}
+.gp-success{display:flex;align-items:center;gap:8px;background:#e6f3dc;border:1px solid #cfe5bd;color:#2f6b2a;border-radius:12px;padding:12px 14px;font-weight:600}
+
+/* Szakaszok */
+.gp-section{padding:50px 0;scroll-margin-top:62px}
+.gp-kicker{display:flex;align-items:center;gap:14px;font-size:12px;font-weight:700;letter-spacing:.28em;color:var(--gp-muted);text-transform:uppercase;margin-bottom:14px!important}
+.gp-kicker:before{content:attr(data-n);letter-spacing:.1em}
+.gp-kicker span{display:block;width:38px;border-top:1.5px solid currentColor}
+.gp-title{font-size:clamp(34px,7vw,52px);font-weight:800}
+.gp-title-row{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.gp-sub{color:var(--gp-muted);font-size:17px;margin-top:12px!important;max-width:620px}
+.gp-note{margin-top:18px!important;color:var(--gp-muted);font-size:15px}
+.gp-hint{font-size:14px;color:var(--gp-muted);margin-top:10px!important}
+.gp-hint.center{text-align:center}
+.gp-link{display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:4px 0;color:var(--gp-muted);font-size:14px;font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.gp-dark{background:var(--gp-ink);color:#fff}
+.gp-dark .gp-kicker{color:var(--gp-yellow)}
+.gp-dark .gp-sub,.gp-dark .gp-hint{color:#b9cdc1}
+.gp-paper{background:var(--gp-paper)}
+
+/* Mai napi menü */
+.gp-today{display:grid;gap:18px;margin-top:28px}
+.gp-today>*,.gp-pick>*{min-width:0}
+.gp-set{background:var(--gp-ink);color:#fff;border-radius:24px;padding:22px;position:relative;overflow:hidden}
+.gp-set:after{content:"";position:absolute;right:-60px;top:-60px;width:200px;height:200px;border-radius:50%;background:radial-gradient(#f6b90b55,transparent 70%);pointer-events:none}
+.gp-set-empty p{color:#b9cdc1;margin-top:10px!important}
+.gp-set-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.gp-set h3{font-size:30px}
+.gp-set-head p{color:#a9c2b4;font-size:14px;margin-top:4px!important}
+.gp-tag{display:inline-block;background:var(--gp-yellow);color:var(--gp-ink);font-weight:700;font-size:12px;padding:5px 10px;border-radius:99px;white-space:nowrap}
+.gp-course{border-left:3px solid var(--gp-yellow);padding:2px 0 2px 14px;margin-top:20px}
+.gp-course small{display:block;font-size:11px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--gp-yellow)}
+.gp-course strong{display:block;font-size:18px;font-weight:600;margin-top:6px;line-height:1.35}
+.gp-course p{font-size:14px;color:#a9c2b4;margin-top:4px!important}
+.gp-allergens{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.gp-allergens span{font-size:12px;padding:3px 8px;border-radius:6px;background:#ffffff14;color:#d9e6de}
+.gp-allergens button{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:3px 8px;border-radius:6px;background:none;border:1px solid #ffffff30;color:#d9e6de}
+.gp-set-buy{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:22px;padding-top:18px;border-top:1px dashed #ffffff30;position:relative;z-index:1}
+.gp-set-buy p{font-size:13px;color:#a9c2b4;margin-top:4px!important}
+.gp-price-big{font-family:var(--gp-display);font-size:42px;font-weight:800;line-height:1;color:var(--gp-yellow)}
+.gp-price-big em{color:#fff}
+
+.gp-stepper{display:inline-flex;align-items:center;background:var(--gp-yellow);border-radius:12px;color:var(--gp-ink);flex-shrink:0}
+.gp-stepper button{width:44px;height:46px;display:grid;place-items:center;background:none;border:0;color:inherit}
+.gp-stepper output{min-width:26px;text-align:center;font-weight:800;font-size:18px}
+.gp-stepper.dark{background:var(--gp-ink);color:#fff}
+.gp-stepper.small button{width:38px;height:40px}
+.gp-add{display:inline-flex;align-items:center;gap:6px;min-height:46px;padding:0 16px;border-radius:12px;border:0;background:var(--gp-yellow);color:var(--gp-ink);font-weight:800;white-space:nowrap;flex-shrink:0}
+.gp-add.dark{background:var(--gp-ink);color:#fff;min-height:42px;font-size:14px;padding:0 13px}
+
+/* Étlap */
+.gp-chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none}
+.gp-chips button{flex-shrink:0;padding:9px 15px;border-radius:99px;border:1.5px solid var(--gp-line);background:var(--gp-paper);color:var(--gp-text);font-weight:600;font-size:14px}
+.gp-chips button[aria-pressed=true]{background:var(--gp-ink);border-color:var(--gp-ink);color:#fff}
+.gp-dishes{display:grid;gap:14px;margin-top:14px}
+.gp-dish{display:grid;grid-template-columns:96px 1fr;gap:14px;background:#fff;border:1px solid var(--gp-line);border-radius:20px;padding:12px}
+.gp-dish.in-cart{border-color:var(--gp-yellow);box-shadow:0 0 0 2px #f6b90b55}
+.gp-dish h3{font-family:'DM Sans',system-ui,sans-serif;font-size:17px;font-weight:700;letter-spacing:0;line-height:1.3}
+.gp-dish-img{position:relative;overflow:hidden;border:0;padding:0;border-radius:14px;aspect-ratio:1;display:grid;place-items:center;background:linear-gradient(135deg,#f3d27a,#c98a2b);font-family:var(--gp-display);font-weight:800;color:#fff9;font-size:32px}
+.gp-dish-img.main{background:linear-gradient(135deg,#f0a27a,#b4502d)}
+.gp-dish-img.vegetarian{background:linear-gradient(135deg,#9cc27e,#3d7a4f)}
+.gp-dish-img.dessert{background:linear-gradient(135deg,#e7c79b,#8a5a2b)}
+.gp-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.gp-dish-alt{font-size:13px;color:var(--gp-soft);margin-top:2px!important}
+.gp-dish-meta{font-size:13px;color:var(--gp-muted);margin-top:6px!important}
+.gp-dish .gp-link{font-size:12px;margin-top:2px;text-align:left;align-items:flex-start}
+.gp-dish .gp-link svg{margin-top:2px}
+.gp-dish-buy{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.gp-dish-buy strong{font-family:var(--gp-display);font-size:22px;font-weight:800;white-space:nowrap}
+
+/* Átvétel */
+.gp-pick{display:grid;gap:18px;margin-top:26px}
+.gp-panel{background:var(--gp-ink-2);border:1px solid var(--gp-line-dark);border-radius:24px;padding:20px}
+.gp-panel h3{font-size:20px;display:flex;align-items:center;gap:12px}
+.gp-seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:#ffffff0d;padding:5px;border-radius:14px;margin-top:16px}
+.gp-seg button{min-height:46px;border-radius:10px;border:0;background:none;font-weight:700;color:#cfe0d6}
+.gp-seg button[aria-pressed=true]{background:var(--gp-yellow);color:var(--gp-ink)}
+.gp-label{font-size:13px;color:#b9cdc1;margin-top:16px!important}
+.gp-zones{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+.gp-zones button{display:flex;align-items:center;gap:6px;min-height:54px;border-radius:14px;border:1px solid var(--gp-line-dark);background:#ffffff08;text-align:left;padding:10px 14px;font-family:var(--gp-display);font-weight:700;font-size:16px;color:#fff;line-height:1.15}
+.gp-zones button[aria-pressed=true]{background:var(--gp-yellow);color:var(--gp-ink);border-color:var(--gp-yellow)}
+.gp-slots{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.gp-slots button{min-height:46px;padding:0 16px;border-radius:12px;border:1px solid var(--gp-line-dark);background:none;font-weight:700;color:#fff}
+.gp-slots button[aria-pressed=true]{background:#fff;color:var(--gp-ink)}
+.gp-field{display:block;margin-top:14px}
+.gp-field span{display:block;font-size:13px;color:#b9cdc1;margin-bottom:6px}
+.gp-field input,.gp-field textarea{width:100%;min-height:48px;border-radius:12px;border:1px solid var(--gp-line-dark);background:#ffffff0d;color:#fff;padding:12px 14px;font-size:16px}
+.gp-field textarea{min-height:84px;resize:vertical}
+.gp-field input:focus,.gp-field textarea:focus{outline:2px solid var(--gp-yellow);outline-offset:1px}
+.gp-field textarea::placeholder{color:#8fa99a}
+.gp-form-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.gp-profile{display:grid;gap:4px;margin-top:14px;padding:14px;border-radius:14px;background:#ffffff0a;border:1px solid var(--gp-line-dark)}
+.gp-profile strong{font-size:18px}
+.gp-profile span{color:#cfe0d6}
+.gp-profile .gp-btn{justify-self:start;margin-top:10px}
+.gp-panel>.gp-btn{margin-top:14px}
+
+/* Rendeléseim */
+.gp-orders{display:grid;gap:14px;margin-top:24px}
+.gp-order{background:#fff;border:1px solid var(--gp-line);border-radius:22px;padding:20px}
+.gp-order-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.gp-order-head h3{font-size:22px}
+.gp-order-head small{color:var(--gp-muted)}
+.gp-state{display:inline-flex;align-items:center;gap:6px;background:#eef0e8;color:#4c5a46;font-weight:700;font-size:13px;padding:6px 10px;border-radius:99px;white-space:nowrap}
+.gp-state i{width:8px;height:8px;border-radius:50%;background:currentColor}
+.gp-state.requested{background:#fff2c7;color:#7a5a00}.gp-state.requested i{animation:gp-blink 1.2s infinite}
+.gp-state.confirmed{background:#e6f3dc;color:#2f6b2a}
+.gp-state.cancelled,.gp-state.rejected{background:#f9e9e6;color:#9c4c3c}
+@keyframes gp-blink{50%{opacity:.3}}
+.gp-order .order-tracker{margin-top:16px}
+.gp-order-lines{margin-top:14px;border-top:1px dashed var(--gp-line);padding-top:10px;font-size:15px}
+.gp-order-lines>div{display:flex;justify-content:space-between;gap:10px;padding:4px 0}
+.gp-order-lines small{display:block;color:var(--gp-soft);font-size:13px}
+.gp-order-lines .grand{font-weight:700;border-top:1px solid var(--gp-line);margin-top:6px;padding-top:8px}
+.gp-order .gp-btn{margin-top:12px}
+.gp-review{margin-top:10px!important;background:#fff6d6;border-radius:10px;padding:10px 12px;font-size:14px}
+
+/* Heti menü */
+.gp-week{display:grid;gap:14px;margin-top:28px}
+.gp-day{background:#fff;border:1px solid var(--gp-line);border-radius:22px;padding:20px}
+.gp-day-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.gp-day h3{font-size:28px;text-transform:capitalize}
+.gp-day-head p{font-size:14px;color:var(--gp-muted);text-transform:capitalize}
+.gp-day-date{font-family:var(--gp-display);font-weight:800;font-size:26px;color:#e3d8bf}
+.gp-day .gp-course small{color:var(--gp-muted)}
+.gp-day .gp-course p{color:var(--gp-muted)}
+.gp-day.is-today{background:var(--gp-ink);color:#fff;border-color:var(--gp-ink)}
+.gp-day.is-today .gp-day-head p,.gp-day.is-today .gp-course p,.gp-day.is-today .gp-hint{color:#a9c2b4}
+.gp-day.is-today .gp-course small{color:var(--gp-yellow)}
+.gp-set-head p,.gp-ticket small{text-transform:none}
+
+/* Gyakori kérdések */
+.gp-faq{margin-top:20px}
+.gp-faq details{border-bottom:1px solid var(--gp-line);padding:18px 0}
+.gp-faq summary{list-style:none;display:flex;justify-content:space-between;gap:12px;font-family:var(--gp-display);font-weight:700;font-size:19px;cursor:pointer}
+.gp-faq summary::-webkit-details-marker{display:none}
+.gp-faq summary:after{content:"";flex-shrink:0;width:9px;height:9px;margin:6px 4px 0 0;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);transition:transform .2s}
+.gp-faq details[open] summary:after{transform:rotate(225deg);margin-top:10px}
+.gp-faq p{color:var(--gp-muted);margin-top:12px!important}
+
+/* Lábléc */
+.gp-footer{background:var(--gp-ink);color:#c3d5ca;padding:44px 0 30px;margin-bottom:-96px;padding-bottom:126px}
+.gp-footer h2{color:#fff;font-size:26px}
+.gp-footer p{margin-top:8px!important}
+.gp-cols{display:grid;gap:24px;margin-top:24px}
+.gp-cols h4{margin:0 0 10px;font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--gp-yellow)}
+.gp-cols a{display:block;text-decoration:none;padding:3px 0}
+.gp-cols .big{font-family:var(--gp-display);font-weight:800;color:#fff;font-size:22px}
+.gp-copy{border-top:1px solid var(--gp-line-dark);margin-top:28px!important;padding-top:16px;font-size:13px;color:#7f9a8b}
+
+/* Kosár sáv és ablak */
+.gp-cartbar{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:40;display:flex;align-items:center;gap:12px;background:var(--gp-yellow);color:var(--gp-ink);border-radius:18px;padding:10px 10px 10px 14px;box-shadow:0 12px 30px #0b2a1f55;border:2px solid var(--gp-ink)}
+.gp-count{display:grid;place-items:center;min-width:34px;height:34px;border-radius:10px;background:var(--gp-ink);color:var(--gp-yellow);font-weight:800}
+.gp-sum{font-family:var(--gp-display);font-weight:800;font-size:22px;line-height:1}
+.gp-sum small{display:block;font-family:'DM Sans',system-ui,sans-serif;font-weight:600;font-size:12px;margin-top:2px}
+.gp-cartbar .gp-btn{margin-left:auto;min-height:46px}
+.gp-sheet-bg{position:fixed;inset:0;background:#0b2a1f99;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);z-index:50}
+.gp-sheet{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--gp-paper);border-radius:26px 26px 0 0;max-height:90vh;overflow:auto;padding:16px 18px calc(22px + env(safe-area-inset-bottom));animation:gp-up .25s ease-out}
+@keyframes gp-up{from{transform:translateY(40px);opacity:.4}}
+.gp-sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.gp-sheet h2{font-size:28px;display:flex;align-items:center;gap:10px}
+.gp-close{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;border:1px solid var(--gp-line);background:#fff;color:var(--gp-text)}
+.gp-line{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--gp-line)}
+.gp-line small{display:block;color:var(--gp-soft);font-size:13px}
+.gp-sheet .gp-alert{margin-top:12px}
+.gp-preview{display:grid;gap:3px;margin-top:14px;padding:14px;border-radius:14px;background:#fff;border:1px solid var(--gp-line);font-size:14px;color:var(--gp-muted)}
+.gp-preview strong{color:var(--gp-text);font-size:16px}
+.gp-totals{margin:14px 0 16px;font-size:15px}
+.gp-totals>div{display:flex;justify-content:space-between;padding:5px 0;color:var(--gp-muted)}
+.gp-totals .grand{color:var(--gp-text);font-family:var(--gp-display);font-weight:800;font-size:24px;padding-top:12px;border-top:2px dashed var(--gp-line);margin-top:6px}
+
+@media (min-width:820px){
+  .gp-top nav{display:flex}
+  .gp-hero .gp-wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:end;padding:70px 16px 60px}
+  .gp-cta{grid-template-columns:1fr 1fr}
+  .gp-ticket{margin-top:0}
+  .gp-today{grid-template-columns:1.05fr .95fr;align-items:start}
+  .gp-dishes{grid-template-columns:1fr 1fr}
+  .gp-pick{grid-template-columns:1fr 1fr;align-items:start}
+  .gp-orders{max-width:760px}
+  .gp-week{grid-template-columns:repeat(3,1fr)}
+  .gp-cols{grid-template-columns:2fr 1fr}
+  .gp-cartbar{left:auto;right:24px;width:420px}
+  .gp-sheet{left:auto;right:24px;bottom:24px;width:460px;border-radius:26px;max-height:calc(100vh - 110px)}
+}
+@media (max-width:400px){.gp-brand{font-size:17px}.gp-brand img{width:28px;height:28px}}

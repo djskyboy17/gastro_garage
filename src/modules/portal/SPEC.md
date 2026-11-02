@@ -52,3 +52,16 @@ Az étlap elején „Napi menü” kártya jelenik meg (leves + főétel + dessz
 - **Végleges törlés:** ha az ügyfél visszavonja a még visszaigazolásra váró kérését, a rendelés és minden hozzá tartozó sor véglegesen törlődik: tételek, szállítási események, portálos beküldés, ismétlődő-rendelés hozzárendelés, raktári kiadás és a rendelés naplóbejegyzései is (`shared/order-delete.ts`). Napló sem marad. A törlés egy tranzakció, változat-ellenőrzéssel; ismételt kérésre (már törölve) is `ok`. Visszavonás előtt a portál megerősítést kér.
 - Ugyanez történik a fő alkalmazásban, ha a konyha vagy a diszpécser mond le egy rendelést a főzés megkezdése előtt (`/api/orders/state`, `status = cancelled`). Ha a főzés vagy a kiszállítás már elkezdődött, a lemondás nem lehetséges (`ALREADY_STARTED`).
 - Megjegyzés: egy ismétlődő rendelésből létrejött, majd törölt rendelés napja újra legenerálható, mert a hozzárendelés is törlődik.
+
+## Új arculat — v57
+- A portál (`app/components/client-portal.tsx`, stílus: `app/portal-v57.css`, minden szabály a `.gp` gyökér alatt) a „Gastro Garage” arculatot kapta: sötétzöld, mustársárga, krém; címbetű: Bricolage Grotesque.
+- Szakaszok: nyitó rész (nyitva/lezárult jelzés a mai határidőből, telefonszám), „Mai napi menü” jegy (ár és határidő a mai menüből), 01 Rendelés (napi menü kártya + Étlap kategóriákkal), 02 Átvétel (mód, település-gombok, mai idősávok, megjegyzés, profil), 03 Saját rendeléseim (élő állapot, lemondás), heti menü, gyakori kérdések, lábléc.
+- **Település-gombok:** az aktív szállítási zónák nevei. Gombnyomásra a zóna első irányítószáma kerül a kérésbe (a zónát, díjat és minimumot továbbra is a szerver határozza meg az irányítószámból); az utolsó választás a böngészőben megmarad.
+- **Kosár:** alul sárga sáv, rákattintva összesítő ablak. A rendelés lépései változatlanok: ellenőrzés (`/api/portal/preview`, szerveroldali ár és szállítási díj), majd küldés (`/api/portal/orders`). Ha valami hiányzik (bejelentkezés, profil, település, idősáv), az ablak megmondja, mit kell még kitölteni.
+- **Heti menü:** a hét hátralévő napjai hétfőtől szombatig (vasárnap a következő hét), naponként a nyilvános `/api/portal/menu?date=` alapján; elmúlt napot a portál nem mutat.
+- A gyakori kérdések válaszai az aktuális adatokból jönnek (menüár, határidő, zónák és díjuk); a telefonszám és a cím a fordítási fájlban van (`gpPhone`, `gpAddress`).
+
+## Település és időpont — v58
+- Az Átvétel részben a település-gombok a körzetek (név szerint, irányítószám nélkül); az utolsó választás a böngészőben megmarad.
+- Idősáv helyett két gomb: „Minél előbb” vagy „Időpontra” (kívánt időpont, óó:pp). A kosár ablaka szól, ha a település vagy a kívánt időpont hiányzik.
+- A nyitó rész jelzése: nyitva zöld, villogó pont; lezárva piros, nem villog.

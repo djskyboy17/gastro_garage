@@ -14,3 +14,12 @@ Acceptance: unsupported postcode, insufficient food subtotal, closed day, disabl
 
 ## Rendelésszám-korlát megszűnt — v50
 A heti idősávoknál a „rendelések száma / nap” (`capacity`) mező és minden hozzá tartozó ellenőrzés megszűnt: nincs se minimális, se maximális rendelésszám idősávonként. Kikerült a szerkesztőből, a portál nem mutat „szabad helyet”, a rendeléskor nincs darabszám-ellenőrzés, a mentéskori ellenőrzés sem fut, és a `order_fulfillment_capacity` adatbázis-trigger is törlődött (`0023_drop_slot_capacity_trigger`). A régi mentett szabályokban szereplő `capacity` értéket a rendszer figyelmen kívül hagyja, és a következő mentéskor elhagyja. A minimális rendelési összeg (átvétel, zónák) változatlanul beállítható.
+
+## Települések irányítószám helyett, idősávok nélkül — v58
+Ez a szakasz felülírja a fenti irányítószámos és idősávos szabályokat.
+- **Körzet = település.** Egy körzet: azonosító, név magyarul és románul, szállítási díj, minimum ételérték, engedélyezve. Irányítószám nincs; a vásárló a portálon a település nevére kattint, a kérés a körzet azonosítóját (`zoneId`) viszi. Két aktív körzetnek nem lehet ugyanaz a (magyar) neve (`FULFILLMENT_ZONE_OVERLAP`). Legfeljebb 30 körzet.
+- **Díj később is beállítható.** Most minden körzet díja 0 (ingyenes kiszállítás); a díj és a minimum körzetenként átírható, és a rendelésbe pillanatképként kerül.
+- **Nincsenek heti idősávok.** A vásárló vagy „Minél előbb”-et választ (`time` üres), vagy kívánt időpontot ad meg (óó:pp), ami mai, még el nem múlt időpont kell legyen (Europe/Bucharest), különben `FULFILLMENT_SLOT` / `PORTAL_SLOT`. „Minél előbb” esetén a rendelés `time` mezője a beküldés ideje, így a konyha a beérkezés sorrendjében látja.
+- **Pillanatkép:** `{mode, zoneId, asap, start (kívánt időpont vagy üres), end: '', zoneHu, zoneRo, addressHu, addressRo, minimum, fee}`; `slotId`, `weekdays`, `postalCode` üres. Az `orders.fulfillment_slot_id` NULL, a `fulfillment_postal_code` üres. A régi rendelések idősávos pillanatképe változatlan, és „11:00–12:00” alakban jelenik meg.
+- **Régi mentett szabály:** betöltéskor a `slots` és a körzetek `postcodes` mezője kimarad, a következő mentés már nélkülük írja. Migráció nem kell (a szabály JSON-ban van).
+- Változatlan: mód engedélyezése, átvételi cím és minimum, heti zárvatartás és zárt napok, szerveroldali díj- és minimumszámítás, változatlan ár a beküldésig (`quote`).
