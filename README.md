@@ -351,3 +351,7 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 ## Kínálat és catering a portálon — v60
 
 - A rendelési oldalon a videó alapján: „Ami a garázsból kigördül” (Napi menü, Street food, Étlap, Catering) és „Catering, ami viszi a bulit” (ajánlatkérés telefonon / e-mailben, rendezvénytípusok).
+
+## Rendelési határidő a szabályokban — v61
+
+- Beállítások → Rendelési szabályok → Rendelési határidő: meddig lehet aznap rendelni (pl. 14:00). A napi menü határideje és ez közül a korábbi számít.

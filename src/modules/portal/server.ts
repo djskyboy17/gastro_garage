@@ -1,5 +1,5 @@
 import {loadPolicy,fulfillmentOptions} from "../fulfillment/server";
-import {quoteFulfillment} from "../fulfillment/domain";
+import {quoteFulfillment,orderUntilAt} from "../fulfillment/domain";
 import {cutoffInstant,kitchenWallTime} from "../menu/domain";
 import {menuDays} from '@/db/schema';
 import {publicMenu} from '../menu/server';
@@ -66,7 +66,7 @@ async function quote(input:z.infer<typeof orderInput>,userId:string){
   const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(JSON.stringify(canonical)));
   const fingerprint=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
   const preview:PortalPreview={...canonical,quote:fingerprint,items:lines.map(({recipeId,portalRevision,...line})=>line),total:subtotal+fulfillment.fee};
-  return {preview,p,lines,day,autoCutoff:day?null:menu.cutoffAt,policyRevision:policyData.revision,setPriceRevision:setItem?menu.set!.priceRevision:null};
+  return {preview,p,lines,day,autoCutoff:day?null:menu.cutoffAt,policyRevision:policyData.revision,setPriceRevision:setItem?menu.set!.priceRevision:null,orderUntilAt:orderUntilAt(policyData.policy,input.date)};
 }
 export async function handlePortal(path:string,body:unknown|undefined,user:Identity,session:Session,write:boolean):Promise<Response>{
   const db=getDb(),now=new Date().toISOString();
@@ -142,7 +142,7 @@ export async function handlePortal(path:string,body:unknown|undefined,user:Ident
   const orderId=crypto.randomUUID(),itemRows=plan.lines.map(i=>({...i,id:crypto.randomUUID()}));
   try{
     await env.DB!.batch([
-      env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM fulfillment_policy WHERE id=1 AND revision=?) AND julianday('now')<julianday(?) THEN ? ELSE NULL END,'fulfillment_order_checked',?,'',?)").bind(crypto.randomUUID(),plan.policyRevision,cutoffInstant(d.date+'T'+(d.time||'23:59')),user.userId,orderId,now),
+      env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM fulfillment_policy WHERE id=1 AND revision=?) AND julianday('now')<julianday(?) THEN ? ELSE NULL END,'fulfillment_order_checked',?,'',?)").bind(crypto.randomUUID(),plan.policyRevision,[cutoffInstant(d.date+'T'+(d.time||'23:59')),plan.orderUntilAt].filter((v):v is string=>!!v).sort()[0]??null,user.userId,orderId,now),
       // Mentett nap: a változat, az aktív állapot és a határidő; nem mentett nap (v54): közben sem mentették, és az alapértelmezett határidő még nem járt le.
       plan.day
         ?env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM menu_days WHERE date=? AND revision=? AND active=1 AND julianday('now')<julianday(cutoff_at)) THEN ? ELSE NULL END,'portal_menu_checked',?,'',?)").bind(crypto.randomUUID(),d.date,plan.day.revision,user.userId,orderId,now)

@@ -1,12 +1,12 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 // @ts-ignore
-import {quoteFulfillment,validatePolicy,parseMoney,closedDay,normalizePolicy,fulfillmentTime,type FulfillmentPolicy} from '../src/modules/fulfillment/domain.ts';
+import {quoteFulfillment,validatePolicy,parseMoney,closedDay,normalizePolicy,fulfillmentTime,orderUntilAt,type FulfillmentPolicy} from '../src/modules/fulfillment/domain.ts';
 // @ts-ignore
 import {nextState,total,type Order} from '../src/modules/shared/domain.ts';
 // @ts-ignore
 import {canAssign,deliveryList} from '../src/modules/delivery/domain.ts';
-const policy:FulfillmentPolicy={deliveryEnabled:true,pickupEnabled:true,pickupHu:'Test HU',pickupRo:'Test RO',pickupMinimum:500,closedWeekdays:[],closedDates:[],zones:[{id:'z',hu:'Nyújtód',ro:'Lunga',fee:750,minimum:1000,active:true},{id:'off',hu:'Bereck',ro:'Brețcu',fee:0,minimum:0,active:false}]};
+const policy:FulfillmentPolicy={deliveryEnabled:true,pickupEnabled:true,pickupHu:'Test HU',pickupRo:'Test RO',pickupMinimum:500,orderUntil:'',closedWeekdays:[],closedDates:[],zones:[{id:'z',hu:'Nyújtód',ro:'Lunga',fee:750,minimum:1000,active:true},{id:'off',hu:'Bereck',ro:'Brețcu',fee:0,minimum:0,active:false}]};
 const input={mode:'delivery' as const,zoneId:'z',date:'2026-11-02',time:'11:00'},now=new Date('2026-10-29T10:00:00Z');
 test('Delivery zone is chosen by name (id); fee and food-only minimum resolve server-side; pickup has no shipping fee',()=>{
  const q=quoteFulfillment(policy,input,1000,now);assert.equal(q.fee,750);assert.equal(q.zoneHu,'Nyújtód');assert.equal(q.zoneId,'z');assert.equal(q.postalCode,'');
@@ -34,6 +34,16 @@ test('Closed dates/weekdays, disabled modes and duplicate zone names fail closed
  assert.doesNotThrow(()=>validatePolicy(policy));
  const old=normalizePolicy({...policy,zones:[{id:'z',hu:'Kezdi',ro:'Targu',postcodes:['500234'],fee:1000,minimum:0,active:true}],slots:[{id:'s'}]});
  assert.deepEqual(old.zones,[{id:'z',hu:'Kezdi',ro:'Targu',fee:1000,minimum:0,active:true}]);assert.equal('slots' in old,false);
+});
+test('Order deadline (orderUntil) closes same-day ordering; empty means only the menu cutoff applies',()=>{
+ const p={...policy,orderUntil:'14:00'},before=new Date('2026-11-02T11:59:00Z'),after=new Date('2026-11-02T12:00:00Z');// 13:59 és 14:00 Bukarestben
+ assert.equal(orderUntilAt(p,'2026-11-02'),'2026-11-02T12:00:00.000Z');assert.equal(orderUntilAt(policy,'2026-11-02'),null);
+ assert.equal(quoteFulfillment(p,{...input,time:''},2000,before).asap,true);
+ assert.throws(()=>quoteFulfillment(p,{...input,time:''},2000,after),/ORDER_CLOSED/);
+ assert.equal(quoteFulfillment(p,{...input,time:'15:00'},2000,before).start,'15:00');// a kiszállítás lehet a határidő után
+ assert.doesNotThrow(()=>quoteFulfillment(policy,{...input,time:''},2000,after));
+ assert.throws(()=>validatePolicy({...policy,orderUntil:'25:00'}),/VALIDATION/);
+ assert.equal(normalizePolicy({...policy,orderUntil:undefined}).orderUntil,'');
 });
 test('Ready pickups hand over directly without courier assignment or manifests',()=>{
  const o={packingReady:1,id:'p',fulfillmentMode:'pickup',status:'confirmed',production:'queued',delivery:'pending',payment:'unpaid',revision:0,date:'2026-11-02',items:[{price:1000,quantity:2}],deliveryFee:750} as Order;

@@ -9,7 +9,7 @@ import {DishInfoDialog,type MenuSetOffer} from "./portal-dish";
 import {ProductImage} from "./product-image";
 import {TimeInput24} from "./time-input";
 import {fulfillmentTime} from "@/src/modules/fulfillment/domain";
-type PublicFulfillment=import("@/src/modules/fulfillment/domain").PolicyData&{closed:boolean};
+type PublicFulfillment=import("@/src/modules/fulfillment/domain").PolicyData&{closed:boolean;orderUntilAt?:string|null;ordersClosed?:boolean};
 type MenuProduct=PublicProduct&{remaining:number};
 type WeekDay={date:string;set:MenuSetOffer|null;open:boolean};
 const empty:PortalData={profile:null,orders:[]};
@@ -104,10 +104,13 @@ export default function ClientPortal(){
   const dishes=catalog.filter(p=>p.section!=="daily"&&(category==="all"||p.category===category));
   const cartCount=cart.reduce((n,i)=>n+i.quantity,0);
   const total=cart.reduce((sum,i)=>sum+(offers.find(p=>p.id===i.productId)?.price??0)*i.quantity,0);
-  const canOrder=!busy&&!menuLoading&&menuOpen&&!blocked;
+  // v61: a napi menü határideje és a szabályok rendelési határideje közül a korábbi számít.
+  const deadline=[cutoff,fulfillment?.orderUntilAt].filter((v):v is string=>!!v).sort()[0]??null;
+  const orderOpen=menuOpen&&!fulfillment?.ordersClosed;
+  const canOrder=!busy&&!menuLoading&&orderOpen&&!blocked;
   const inCart=(id:string)=>cart.find(i=>i.productId===id)?.quantity??0;
   const canAdd=(id:string,remaining:number)=>remaining>inCart(id)&&inCart(id)<100&&(cart.length<10||inCart(id)>0);
-  const until=cutoff?fill(t("gpUntil"),{time:clock(cutoff)}):"—";
+  const until=deadline?fill(t("gpUntil"),{time:clock(deadline)}):"—";
   const allergenList=(a:string)=>a?a.split(",").filter(Boolean):[];
   // Mi hiányzik még a rendelés ellenőrzéséhez (a kosár ablakában jelezzük).
   const missing=!authenticated?"signin":blocked?"blocked":!data.profile?"profile":mode==="delivery"&&!selectedZone?"zone":!asap&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)?"slot":null;
@@ -126,7 +129,7 @@ export default function ClientPortal(){
 
     <div className="gp-hero"><div className="gp-wrap">
       <div>
-        <span className={"gp-pill"+(menuOpen?"":" closed")}><i/>{menuLoading?t("loading"):menuOpen&&cutoff?fill(t("gpOpenUntil"),{time:clock(cutoff)}):t("gpClosed")}</span>
+        <span className={"gp-pill"+(orderOpen?"":" closed")}><i/>{menuLoading||fulfillLoading?t("loading"):orderOpen&&deadline?fill(t("gpOpenUntil"),{time:clock(deadline)}):t("gpClosed")}</span>
         <h1>Gastro Garage</h1>
         <p className="gp-lead">{t("gpLead")}</p>
         <div className="gp-cta"><a className="gp-btn yellow" href="#gp-order">{t("gpOrderCta")}</a><a className="gp-btn ghost" href="#gp-week">{t("gpWeekCta")}<ArrowRight size={17}/></a></div>
@@ -150,7 +153,7 @@ export default function ClientPortal(){
         <p className="gp-kicker" data-n="01"><span/>{t("gpOrderCta")}</p>
         <h2 className="gp-title">{t("gpOrderTitle")}</h2>
         <p className="gp-sub">{t("gpOrderLead")}</p>
-        {!menuLoading&&!menuOpen&&<p className="gp-note" role="status">{t("menuClosed")}</p>}
+        {!menuLoading&&!fulfillLoading&&!orderOpen&&<p className="gp-note" role="status">{t(menuOpen?"gpClosed":"menuClosed")}</p>}
         <div className="gp-today">
           <div>{menuLoading?<p className="gp-note">{t("loading")}</p>:menuSet&&setProduct?<article className="gp-set">
             <div className="gp-set-head"><div><h3>{t("dailyMenu")}</h3><p>{dayName(date)} · {shortDate(date)}</p></div><span className="gp-tag">{t("gpToday")} · {until}</span></div>
@@ -280,7 +283,7 @@ export default function ClientPortal(){
           {missing==="signin"?<a className="gp-btn yellow wide" href="/signin?return_to=/portal">{t("portalSignIn")}<ArrowRight size={17}/></a>
             :missing==="blocked"?<p className="gp-hint">{t("PORTAL_BLOCKED")}</p>
             :missing?<><p className="gp-hint">{t(missing==="profile"?"portalProfileFirst":missing==="zone"?"gpNeedZone":"gpNeedSlot")}</p><a className="gp-btn dark wide" href="#gp-pick" onClick={()=>setSheetOpen(false)}>{t("gpPickKicker")}<ArrowRight size={17}/></a></>
-            :<button type="button" className="gp-btn yellow wide" disabled={busy||loading||menuLoading||fulfillLoading||!menuOpen||!cart.length} onClick={()=>void check()}>{t(busy?"loading":"portalPreview")}<ArrowRight size={17}/></button>}
+            :<button type="button" className="gp-btn yellow wide" disabled={busy||loading||menuLoading||fulfillLoading||!orderOpen||!cart.length} onClick={()=>void check()}>{t(busy?"loading":"portalPreview")}<ArrowRight size={17}/></button>}
         </>}
         <p className="gp-hint center">{t("portalSlotHint")}</p>
       </div></>}

@@ -1,19 +1,20 @@
-import {validDay,kitchenWallTime} from '../menu/domain.ts';
+import {validDay,kitchenWallTime,cutoffInstant} from '../menu/domain.ts';
 export type FulfillmentMode='delivery'|'pickup';
 /** Szállítási körzet (v58): név szerint választható település; díj és minimum körzetenként (most 0, később beállítható). A régi `postcodes` mezőt a rendszer elhagyja. */
 export type Zone={id:string;hu:string;ro:string;fee:number;minimum:number;active:boolean};
-export type FulfillmentPolicy={deliveryEnabled:boolean;pickupEnabled:boolean;pickupHu:string;pickupRo:string;pickupMinimum:number;closedWeekdays:number[];closedDates:string[];zones:Zone[]};
+/** `orderUntil` (v61): meddig lehet aznap rendelni (óó:pp, romániai idő); üres = nincs külön határidő, csak a napi menüé. */
+export type FulfillmentPolicy={deliveryEnabled:boolean;pickupEnabled:boolean;pickupHu:string;pickupRo:string;pickupMinimum:number;orderUntil:string;closedWeekdays:number[];closedDates:string[];zones:Zone[]};
 export type PolicyData={revision:number|null;policy:FulfillmentPolicy};
 /**
  * A rendelésbe mentett pillanatkép. v58 óta nincs idősáv: `start` a kívánt időpont (üres = minél előbb, `asap`), `end` üres.
  * A régi rendelések `slotId`/`end`/`weekdays`/`postalCode` értékei megmaradnak, ezért ezek a mezők is a típusban vannak.
  */
 export type FulfillmentSnapshot={mode:FulfillmentMode;zoneId?:string;asap?:boolean;slotId:string;start:string;end:string;weekdays:number[];zoneHu:string;zoneRo:string;postalCode:string;addressHu:string;addressRo:string;minimum:number;fee:number};
-export const emptyPolicy:FulfillmentPolicy={deliveryEnabled:false,pickupEnabled:false,pickupHu:'',pickupRo:'',pickupMinimum:0,closedWeekdays:[],closedDates:[],zones:[]};
+export const emptyPolicy:FulfillmentPolicy={deliveryEnabled:false,pickupEnabled:false,pickupHu:'',pickupRo:'',pickupMinimum:0,orderUntil:'',closedWeekdays:[],closedDates:[],zones:[]};
 /** Mentett (akár régi szerkezetű) szabály betöltése: a megszűnt idősávok és irányítószámok kimaradnak. */
 export function normalizePolicy(raw:unknown):FulfillmentPolicy{
   const p={...emptyPolicy,...(raw as Partial<FulfillmentPolicy>)};
-  return {deliveryEnabled:!!p.deliveryEnabled,pickupEnabled:!!p.pickupEnabled,pickupHu:p.pickupHu??'',pickupRo:p.pickupRo??'',pickupMinimum:p.pickupMinimum??0,closedWeekdays:p.closedWeekdays??[],closedDates:p.closedDates??[],zones:(p.zones??[]).map(z=>({id:z.id,hu:z.hu,ro:z.ro,fee:z.fee??0,minimum:z.minimum??0,active:!!z.active}))};
+  return {deliveryEnabled:!!p.deliveryEnabled,pickupEnabled:!!p.pickupEnabled,pickupHu:p.pickupHu??'',pickupRo:p.pickupRo??'',pickupMinimum:p.pickupMinimum??0,orderUntil:p.orderUntil??'',closedWeekdays:p.closedWeekdays??[],closedDates:p.closedDates??[],zones:(p.zones??[]).map(z=>({id:z.id,hu:z.hu,ro:z.ro,fee:z.fee??0,minimum:z.minimum??0,active:!!z.active}))};
 }
 export function isoWeekday(date:string){if(!validDay(date))throw Error('FULFILLMENT_DATE');return new Date(date+'T12:00:00Z').getUTCDay()||7;}
 export function closedDay(p:FulfillmentPolicy,date:string){return p.closedDates.includes(date)||p.closedWeekdays.includes(isoWeekday(date));}
@@ -22,7 +23,11 @@ export function parseMoney(value:string){
   const [whole,fraction='']=value.trim().replace(',','.').split('.');const result=Number(whole)*100+Number(fraction.padEnd(2,'0'));
   if(result>100000000)throw Error('FULFILLMENT_MONEY');return result;
 }
+const clockTime=/^([01]\d|2[0-3]):[0-5]\d$/;
+/** A rendelési határidő időpontja az adott napon (UTC), vagy null, ha nincs beállítva. */
+export function orderUntilAt(p:Pick<FulfillmentPolicy,'orderUntil'>,date:string){return p.orderUntil?cutoffInstant(date+'T'+p.orderUntil):null;}
 export function validatePolicy(p:FulfillmentPolicy){
+  if(p.orderUntil!==''&&!clockTime.test(p.orderUntil))throw Error('VALIDATION');
   if(p.pickupEnabled&&(!p.pickupHu.trim()||!p.pickupRo.trim()))throw Error('FULFILLMENT_ADDRESS');
   if(new Set(p.zones.map(z=>z.id)).size!==p.zones.length)throw Error('VALIDATION');
   const names=p.zones.filter(z=>z.active).map(z=>z.hu.trim().toLowerCase());if(new Set(names).size!==names.length)throw Error('FULFILLMENT_ZONE_OVERLAP');
@@ -34,7 +39,8 @@ export function validatePolicy(p:FulfillmentPolicy){
 export function quoteFulfillment(p:FulfillmentPolicy,input:{mode:FulfillmentMode;zoneId:string;date:string;time:string},subtotal:number,now=new Date()):FulfillmentSnapshot{
   if(!validDay(input.date)||closedDay(p,input.date))throw Error('FULFILLMENT_CLOSED');
   if(!(input.mode==='pickup'?p.pickupEnabled:p.deliveryEnabled))throw Error('FULFILLMENT_DISABLED');
-  if(input.time!==''&&(!/^([01]\d|2[0-3]):[0-5]\d$/.test(input.time)||input.date+'T'+input.time<=kitchenWallTime(now)))throw Error('FULFILLMENT_SLOT');
+  if(p.orderUntil&&kitchenWallTime(now)>=input.date+'T'+p.orderUntil)throw Error('FULFILLMENT_ORDER_CLOSED');
+  if(input.time!==''&&(!clockTime.test(input.time)||input.date+'T'+input.time<=kitchenWallTime(now)))throw Error('FULFILLMENT_SLOT');
   const zone=input.mode==='delivery'?p.zones.find(z=>z.active&&z.id===input.zoneId):null;
   if(input.mode==='delivery'&&!zone)throw Error('FULFILLMENT_ZONE');
   if(input.mode==='pickup'&&input.zoneId!=='')throw Error('VALIDATION');

@@ -23,3 +23,9 @@ Ez a szakasz felülírja a fenti irányítószámos és idősávos szabályokat.
 - **Pillanatkép:** `{mode, zoneId, asap, start (kívánt időpont vagy üres), end: '', zoneHu, zoneRo, addressHu, addressRo, minimum, fee}`; `slotId`, `weekdays`, `postalCode` üres. Az `orders.fulfillment_slot_id` NULL, a `fulfillment_postal_code` üres. A régi rendelések idősávos pillanatképe változatlan, és „11:00–12:00” alakban jelenik meg.
 - **Régi mentett szabály:** betöltéskor a `slots` és a körzetek `postcodes` mezője kimarad, a következő mentés már nélkülük írja. Migráció nem kell (a szabály JSON-ban van).
 - Változatlan: mód engedélyezése, átvételi cím és minimum, heti zárvatartás és zárt napok, szerveroldali díj- és minimumszámítás, változatlan ár a beküldésig (`quote`).
+
+## Rendelési határidő — v61
+- A szabályokban `orderUntil` (óó:pp, romániai idő): eddig lehet aznapra rendelni a portálon, minden napra. Üres = nincs külön határidő, csak a napi menüé.
+- A napi menü határideje és ez közül mindig a korábbi számít. Utána a portál „Mára a rendelés lezárult” állapotú (piros pont), az ellenőrzés `FULFILLMENT_ORDER_CLOSED`-del elutasít, a beküldés pedig az adatbázis idejével is ellenőrzi (a kívánt időpont és a határidő közül a korábbi).
+- A kívánt kiszállítási időpont lehet a határidő után (pl. 14:00-ig rendel, 15:00-ra kéri).
+- `/api/portal/fulfillment` válasza: `orderUntilAt` (UTC) és `ordersClosed`.
