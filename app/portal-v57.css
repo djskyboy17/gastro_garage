@@ -124,9 +124,9 @@
 .gp-chips button{flex-shrink:0;padding:9px 15px;border-radius:99px;border:1.5px solid var(--gp-line);background:var(--gp-paper);color:var(--gp-text);font-weight:600;font-size:14px}
 .gp-chips button[aria-pressed=true]{background:var(--gp-ink);border-color:var(--gp-ink);color:#fff}
 .gp-dishes{display:grid;gap:14px;margin-top:14px}
-.gp-dish{display:grid;grid-template-columns:96px 1fr;gap:14px;background:#fff;border:1px solid var(--gp-line);border-radius:20px;padding:12px}
+.gp-dish{min-width:0;display:grid;grid-template-columns:96px minmax(0,1fr);gap:14px;background:#fff;border:1px solid var(--gp-line);border-radius:20px;padding:12px}
 .gp-dish.in-cart{border-color:var(--gp-yellow);box-shadow:0 0 0 2px #f6b90b55}
-.gp-dish h3{font-family:'DM Sans',system-ui,sans-serif;font-size:17px;font-weight:700;letter-spacing:0;line-height:1.3}
+.gp-dish h3{overflow-wrap:anywhere;font-family:'DM Sans',system-ui,sans-serif;font-size:17px;font-weight:700;letter-spacing:0;line-height:1.3}
 .gp-dish-img{position:relative;overflow:hidden;border:0;padding:0;border-radius:14px;aspect-ratio:1;display:grid;place-items:center;background:linear-gradient(135deg,#f3d27a,#c98a2b);font-family:var(--gp-display);font-weight:800;color:#fff9;font-size:32px}
 .gp-dish-img.main{background:linear-gradient(135deg,#f0a27a,#b4502d)}
 .gp-dish-img.vegetarian{background:linear-gradient(135deg,#9cc27e,#3d7a4f)}
@@ -134,7 +134,7 @@
 .gp-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .gp-dish-alt{font-size:13px;color:var(--gp-soft);margin-top:2px!important}
 .gp-dish-meta{font-size:13px;color:var(--gp-muted);margin-top:6px!important}
-.gp-dish-buy{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.gp-dish-buy{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
 .gp-dish-buy strong{font-family:var(--gp-display);font-size:22px;font-weight:800;white-space:nowrap}
 
 /* Átvétel */
@@ -270,7 +270,8 @@
   .gp-cta{grid-template-columns:1fr 1fr}
   .gp-ticket{margin-top:0}
   .gp-today{grid-template-columns:1.05fr .95fr;align-items:start}
-  .gp-dishes{grid-template-columns:1fr 1fr}
+  /* v62: a napi menü melletti oszlopban soronként egy étel, hogy a hosszú nevek is elférjenek */
+  .gp-dishes{grid-template-columns:minmax(0,1fr)}
   .gp-pick{grid-template-columns:1fr 1fr;align-items:start}
   .gp-order{padding:22px 22px 18px}
   .gp-week{grid-template-columns:repeat(3,1fr)}
