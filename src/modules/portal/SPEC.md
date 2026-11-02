@@ -78,3 +78,6 @@ Az étlap elején „Napi menü” kártya jelenik meg (leves + főétel + dessz
 
 ## Allergének a kártyán, felugró ablak nélkül — v62
 - Az Étlap kártyáin (mint a napi menüben) az allergének címkeként látszanak; az „Allergének · Összetevők” link, a napi menü „Összetevők” gombja és a felugró ételinfó ablak megszűnt. Az ételkép nem kattintható. Ha egy ételnek nincs allergénje, nem jelenik meg címke.
+
+## Napi menü elöl, Étlap alatta — v63
+- A Rendelés részben a napi menü kártyája teljes szélességben áll elöl (asztali gépen a leves és a főétel egymás mellett), alatta „Étlap” címmel a kategóriák és az ételkártyák (asztali gépen két oszlopban, telefonon egymás alatt).

@@ -91,6 +91,7 @@
 /* Mai napi menü */
 .gp-today{display:grid;gap:18px;margin-top:28px}
 .gp-today>*,.gp-pick>*{min-width:0}
+.gp-menu-title{font-size:28px;margin:10px 0 12px!important}
 .gp-set{background:var(--gp-ink);color:#fff;border-radius:24px;padding:22px;position:relative;overflow:hidden}
 .gp-set:after{content:"";position:absolute;right:-60px;top:-60px;width:200px;height:200px;border-radius:50%;background:radial-gradient(#f6b90b55,transparent 70%);pointer-events:none}
 .gp-set-empty p{color:#b9cdc1;margin-top:10px!important}
@@ -269,9 +270,13 @@
   .gp-hero .gp-wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:end;padding:70px 16px 60px}
   .gp-cta{grid-template-columns:1fr 1fr}
   .gp-ticket{margin-top:0}
-  .gp-today{grid-template-columns:1.05fr .95fr;align-items:start}
-  /* v62: a napi menü melletti oszlopban soronként egy étel, hogy a hosszú nevek is elférjenek */
-  .gp-dishes{grid-template-columns:minmax(0,1fr)}
+  /* v63: a napi menü teljes szélességben, a leves és a főétel egymás mellett; alatta az Étlap két oszlopban */
+  .gp-today{gap:30px}
+  .gp-set{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:36px;padding:28px 30px}
+  .gp-set-head,.gp-set-buy{grid-column:1/-1}
+  .gp-set .gp-course{margin-top:24px}
+  /* v63: az Étlap a napi menü alatt, teljes szélességben, két oszlopban */
+  .gp-dishes{grid-template-columns:repeat(2,minmax(0,1fr))}
   .gp-pick{grid-template-columns:1fr 1fr;align-items:start}
   .gp-order{padding:22px 22px 18px}
   .gp-week{grid-template-columns:repeat(3,1fr)}

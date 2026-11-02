@@ -160,6 +160,7 @@ export default function ClientPortal(){
             <div className="gp-set-buy"><div><div className="gp-price-big">{lei(menuSet.price)}<em>lei</em></div><p>{t("gpSetSub")} · {availability(menuSet.remaining)}</p></div>{stepper(SET_CART_ID,menuSet.remaining,t("dailyMenu"))}</div>
           </article>:<div className="gp-set gp-set-empty"><h3>{t("dailyMenu")}</h3><p>{t("gpNoSetToday")}</p></div>}</div>
           <div>
+            <h3 className="gp-menu-title">{t("gpOfferMenu")}</h3>
             <div className="gp-chips" role="group" aria-label={t("category")}>{CATEGORIES.map(c=><button key={c} type="button" aria-pressed={category===c} onClick={()=>setCategory(c)}>{t(c)}</button>)}</div>
             {!menuLoading&&!dishes.length&&<p className="gp-note">{t("portalEmptyMenu")}</p>}
             <div className="gp-dishes">{dishes.map(p=><article className={"gp-dish"+(inCart(p.id)?" in-cart":"")} key={p.id}>
