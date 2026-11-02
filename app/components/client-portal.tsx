@@ -4,10 +4,9 @@ import {ShoppingBag,Plus,Minus,ArrowRight,CheckCircle2,RefreshCw,KeyRound,LogOut
 import {messages} from "@/src/modules/shared/i18n";
 import {today,orderCode,groupSetItems,portionUnit,SET_CART_ID,type Language} from "@/src/modules/shared/domain";
 import {isUnlimited,addDays} from "@/src/modules/menu/domain";
-import type {PublicProduct,PortalData,PortalProfile,PortalPreview} from "@/src/modules/portal/domain";
+import {orderProgress,type PublicProduct,type PortalData,type PortalOrder,type PortalProfile,type PortalPreview} from "@/src/modules/portal/domain";
 import {DishInfoDialog,type MenuSetOffer} from "./portal-dish";
 import {ProductImage} from "./product-image";
-import {OrderTracker} from "./order-tracker";
 import {TimeInput24} from "./time-input";
 import {fulfillmentTime} from "@/src/modules/fulfillment/domain";
 type PublicFulfillment=import("@/src/modules/fulfillment/domain").PolicyData&{closed:boolean};
@@ -201,16 +200,17 @@ export default function ClientPortal(){
         <p className="gp-kicker" data-n="03"><span/>{t("portalOwn")}</p>
         <div className="gp-title-row"><h2 className="gp-title">{t("gpOrdersTitle")}</h2><button type="button" className="gp-link" disabled={busy||loading} onClick={refreshAll}><RefreshCw size={15}/>{t("portalRefresh")}</button></div>
         <p className="gp-sub">{t("progressLive")}</p>
-        {data.orders.length?<div className="gp-orders">{data.orders.map(o=><article className="gp-order" key={o.id}>
-          <div className="gp-order-head"><div><h3>{o.date===date?t("gpToday"):o.date}, {o.fulfillment?fulfillmentTime(o.fulfillment)||t("gpAsap").toLowerCase():o.time}</h3><small>#{orderCode(o.id)} · {t(o.fulfillmentMode==='pickup'?'fulfillPickup':'fulfillDelivery')} · {o.fulfillmentMode==='pickup'?(lang==="hu"?o.fulfillment?.addressHu:o.fulfillment?.addressRo):[o.fulfillment?.[lang==="hu"?"zoneHu":"zoneRo"],o.address].filter(Boolean).join(", ")}</small></div><span className={"gp-state "+o.status}><i/>{t(o.status)}</span></div>
-          <OrderTracker order={o} t={t}/>
-          <div className="gp-order-lines">{groupSetItems(o.items).map(l=>l.kind==="set"?<div key="napi-menu"><span>{l.quantity} × {t("dailyMenu")}<small>{l.items.map(i=>i[lang]).join(" · ")}</small></span><b>{money(l.total)}</b></div>:<div key={l.item.id}><span>{l.item.quantity} × {l.item[lang]}</span><b>{money(l.item.price*l.item.quantity)}</b></div>)}
-            <div><span>{t("fulfillShipping")}</span><b>{money(o.deliveryFee??0)}</b></div>
-            <div className="grand"><span>{t("fulfillGrandTotal")}</span><b>{money(o.items.reduce((s,i)=>s+i.price*i.quantity,0)+(o.deliveryFee??0))}</b></div></div>
+        {data.orders.length?<div className="gp-orders">{data.orders.map(o=>{const b=orderBars(o);const fee=o.deliveryFee??0;const sum=o.items.reduce((s,i)=>s+i.price*i.quantity,0)+fee;return <article className="gp-order" key={o.id}>
+          <div className="gp-order-head"><div><h3>{o.date===date?t("gpToday"):o.date}, {o.fulfillment?fulfillmentTime(o.fulfillment)||t("gpAsap").toLowerCase():o.time}</h3><small>{t(o.fulfillmentMode==='pickup'?'fulfillPickup':'fulfillDelivery')} · {o.fulfillmentMode==='pickup'?(lang==="hu"?o.fulfillment?.addressHu:o.fulfillment?.addressRo):[o.address,o.fulfillment?.[lang==="hu"?"zoneHu":"zoneRo"]].filter(Boolean).join(", ")}</small></div><span className={"gp-state "+b.tone}><i/>{t(b.label)}</span></div>
+          {b.steps.length>0&&<ol className="gp-bars" aria-label={t("progressTitle")}>{b.steps.map(s=><li key={s.key} className={s.state} aria-current={s.state==="current"?"step":undefined}>{t(s.key)}</li>)}</ol>}
+          {b.failed&&<p className="gp-review">{t("progressFailed")}</p>}
+          <div className="gp-order-lines">{groupSetItems(o.items).map(l=>l.kind==="set"?<div key="napi-menu"><span>{l.quantity} × {t("dailyMenu")}<small>{l.items.map(i=>i[lang]).join(" · ")}</small></span><b>{lei(l.total)} lei</b></div>:<div key={l.item.id}><span>{l.item.quantity} × {l.item[lang]}</span><b>{lei(l.item.price*l.item.quantity)} lei</b></div>)}
+            {fee>0&&<div><span>{t("fulfillShipping")}</span><b>{lei(fee)} lei</b></div>}
+            <div className="grand"><span>{t("gpTotal")}</span><b>{lei(sum)} lei</b></div></div>
           {o.note&&<p className="gp-hint">{o.note}</p>}{o.reviewNote&&<p className="gp-review">{o.reviewNote}</p>}
-          {o.status==="confirmed"&&<p className="gp-hint">{t("production")}: {t(o.production)} · {t(o.fulfillmentMode==='pickup'?'fulfillPickupStatus':'delivery')}: {t(o.fulfillmentMode==='pickup'&&o.delivery==='delivered'?'fulfillPickedUp':o.delivery)} · {t("payment")}: {t(o.payment)}</p>}
-          {o.status==="requested"&&<><p className="gp-hint">{t("gpCancelHint")}</p><button type="button" className="gp-btn outline small" disabled={busy} onClick={()=>{if(window.confirm(t("portalCancelConfirm")))void cancel(o.id,o.revision);}}>{t("portalCancel")}</button></>}
-        </article>)}</div>:<p className="gp-note">{t("portalEmptyOrders")}</p>}
+          <div className="gp-order-foot"><p className="gp-hint">{o.status==="requested"?t("gpCancelHint"):t("payment")+": "+t(o.payment)}</p><small>#{orderCode(o.id)}</small></div>
+          {o.status==="requested"&&<button type="button" className="gp-btn outline small" disabled={busy} onClick={()=>{if(window.confirm(t("portalCancelConfirm")))void cancel(o.id,o.revision);}}>{t("portalCancel")}</button>}
+        </article>;})}</div>:<p className="gp-note">{t("portalEmptyOrders")}</p>}
       </div></section>}
 
       <section id="gp-week" className="gp-section gp-paper"><div className="gp-wrap">
@@ -266,6 +266,20 @@ export default function ClientPortal(){
       </div></>}
     {infoProduct&&<DishInfoDialog product={infoProduct} lang={lang} t={t} money={money} close={()=>setInfoFor(null)}/>}
   </div>;
+}
+/**
+ * A rendelés állapota négy sávban (v59, a minta szerint): beérkezett → visszaigazolva → készül → úton / átvehető.
+ * Az „elkészült” a Készül sávon marad (címke: Elkészült); kézbesítéskor / átvételkor mind a négy kész.
+ */
+function orderBars(o:PortalOrder){
+  const p=orderProgress(o);
+  if(p.closed)return {steps:[] as {key:string;state:string}[],failed:false,label:p.closed,tone:"closed"};
+  const all=p.steps,current=all.findIndex(s=>s.state==="current"),reached=current<0?all.length:current;
+  const index=reached<=1?reached:reached<=3?2:reached===4?3:4;
+  const keys=[all[0]!.key,all[1]!.key,all[2]!.key,all[4]!.key];
+  const steps=keys.map((key,i)=>({key,state:i<index?"done":i===index?"current":"todo"}));
+  const label=o.status==="requested"?"requested":index>=4?all[5]!.key:reached===3?all[3]!.key:keys[index]!;
+  return {steps,failed:p.failed,label,tone:o.status==="requested"?"requested":index>=4?"done":"active"};
 }
 function ProfileForm({profile,t,busy,save,cancel}:{profile:PortalProfile|null;t:(k:string)=>string;busy:boolean;save:(body:unknown)=>Promise<void>;cancel?:()=>void}){
   return <form className="gp-form" onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);void save({...(profile?{revision:profile.revision}:{}),name:f.get("name"),address:f.get("address"),phone:f.get("phone")});}}>

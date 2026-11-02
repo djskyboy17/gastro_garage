@@ -167,21 +167,31 @@
 
 /* Rendeléseim */
 .gp-orders{display:grid;gap:14px;margin-top:24px}
-.gp-order{background:#fff;border:1px solid var(--gp-line);border-radius:22px;padding:20px}
+.gp-order{background:#fff;border:1px solid var(--gp-line);border-radius:22px;padding:20px 20px 16px}
 .gp-order-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
 .gp-order-head h3{font-size:22px}
 .gp-order-head small{color:var(--gp-muted)}
 .gp-state{display:inline-flex;align-items:center;gap:6px;background:#eef0e8;color:#4c5a46;font-weight:700;font-size:13px;padding:6px 10px;border-radius:99px;white-space:nowrap}
 .gp-state i{width:8px;height:8px;border-radius:50%;background:currentColor}
 .gp-state.requested{background:#fff2c7;color:#7a5a00}.gp-state.requested i{animation:gp-blink 1.2s infinite}
-.gp-state.confirmed{background:#e6f3dc;color:#2f6b2a}
-.gp-state.cancelled,.gp-state.rejected{background:#f9e9e6;color:#9c4c3c}
+.gp-state.active{background:#fff2c7;color:#7a5a00}.gp-state.active i{background:#e2a400}
+.gp-state.done{background:#e6f3dc;color:#2f6b2a}
+.gp-state.closed{background:#f9e9e6;color:#9c4c3c}
 @keyframes gp-blink{50%{opacity:.3}}
-.gp-order .order-tracker{margin-top:16px}
-.gp-order-lines{margin-top:14px;border-top:1px dashed var(--gp-line);padding-top:10px;font-size:15px}
+/* v59: négy állapotsáv a minta szerint */
+.gp-bars{list-style:none;margin:18px 0 0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.gp-bars li{text-align:center;font-size:12px;color:var(--gp-soft);line-height:1.3;overflow-wrap:anywhere}
+.gp-bars li:before{content:"";display:block;height:6px;border-radius:6px;background:#eadfc8;margin-bottom:8px}
+.gp-bars li.done,.gp-bars li.current{color:var(--gp-text);font-weight:700}
+.gp-bars li.done:before{background:var(--gp-ink)}
+.gp-bars li.current:before{background:var(--gp-yellow)}
+.gp-order-foot{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.gp-order-foot small{color:var(--gp-soft);font-size:12px;white-space:nowrap}
+.gp-order-lines{margin-top:16px;border-top:1px dashed var(--gp-line);padding-top:12px;font-size:16px}
 .gp-order-lines>div{display:flex;justify-content:space-between;gap:10px;padding:4px 0}
 .gp-order-lines small{display:block;color:var(--gp-soft);font-size:13px}
-.gp-order-lines .grand{font-weight:700;border-top:1px solid var(--gp-line);margin-top:6px;padding-top:8px}
+.gp-order-lines b{font-weight:700;white-space:nowrap}
+.gp-order-lines .grand{margin-top:2px}
 .gp-order .gp-btn{margin-top:12px}
 .gp-review{margin-top:10px!important;background:#fff6d6;border-radius:10px;padding:10px 12px;font-size:14px}
 
@@ -247,7 +257,7 @@
   .gp-today{grid-template-columns:1.05fr .95fr;align-items:start}
   .gp-dishes{grid-template-columns:1fr 1fr}
   .gp-pick{grid-template-columns:1fr 1fr;align-items:start}
-  .gp-orders{max-width:760px}
+  .gp-order{padding:22px 22px 18px}
   .gp-week{grid-template-columns:repeat(3,1fr)}
   .gp-cols{grid-template-columns:2fr 1fr}
   .gp-cartbar{left:auto;right:24px;width:420px}

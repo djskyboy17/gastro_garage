@@ -65,3 +65,9 @@ Az étlap elején „Napi menü” kártya jelenik meg (leves + főétel + dessz
 - Az Átvétel részben a település-gombok a körzetek (név szerint, irányítószám nélkül); az utolsó választás a böngészőben megmarad.
 - Idősáv helyett két gomb: „Minél előbb” vagy „Időpontra” (kívánt időpont, óó:pp). A kosár ablaka szól, ha a település vagy a kívánt időpont hiányzik.
 - A nyitó rész jelzése: nyitva zöld, villogó pont; lezárva piros, nem villog.
+
+## Saját rendelések kártya — v59
+- Négy állapotsáv: Beérkezett → Visszaigazolva → Készül → Úton (átvételnél: Átvehető). Az „Elkészült” a Készül sávon marad, a címke ilyenkor „Elkészült”; kézbesítéskor / átvételkor mind a négy sáv kész. Az állapotot továbbra is az `orderProgress` számolja.
+- Jobb felül állapot-címke: „Visszaigazolásra vár” (villogó), folyamatban sárga, kész zöld, lemondva / elutasítva piros.
+- Tételek és összesen „lei” formában; a szállítási díj sora csak akkor látszik, ha nem 0. Alul a lemondási tudnivaló (vagy a fizetés állapota) és a rendelésszám.
+- A régi hatlépéses `OrderTracker` komponens megszűnt.

@@ -343,3 +343,7 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 - A heti idősávok megszűntek: „Minél előbb” vagy kívánt időpont.
 - A portál tetején a „Rendelés nyitva” pont zölden villog, zárva piros.
 - Migráció nem kell; az éles körzeteket a szabály mentése cseréli.
+
+## Saját rendelések kártya — v59
+
+- A portálon a „Hol tart az ebéded?” kártya a minta szerint: négy állapotsáv, állapot-címke, összegek „lei” formában.
