@@ -355,3 +355,7 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 ## Rendelési határidő a szabályokban — v61
 
 - Beállítások → Rendelési szabályok → Rendelési határidő: meddig lehet aznap rendelni (pl. 14:00). A napi menü határideje és ez közül a korábbi számít.
+
+## Allergéncímkék az étlapon — v62
+
+- A portálon az Étlap kártyáin is allergéncímkék vannak; a felugró ételinfó ablak megszűnt.

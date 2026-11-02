@@ -1,16 +1,17 @@
 "use client";
 import {useCallback,useEffect,useState} from "react";
-import {ShoppingBag,Plus,Minus,ArrowRight,CheckCircle2,RefreshCw,KeyRound,LogOut,Info,Truck,MapPin,Soup,UserRound,X,Hamburger,BookOpen,PartyPopper,Phone,ArrowUpRight} from "lucide-react";
+import {ShoppingBag,Plus,Minus,ArrowRight,CheckCircle2,RefreshCw,KeyRound,LogOut,Truck,MapPin,Soup,UserRound,X,Hamburger,BookOpen,PartyPopper,Phone,ArrowUpRight} from "lucide-react";
 import {messages} from "@/src/modules/shared/i18n";
 import {today,orderCode,groupSetItems,portionUnit,SET_CART_ID,type Language} from "@/src/modules/shared/domain";
 import {isUnlimited,addDays} from "@/src/modules/menu/domain";
 import {orderProgress,type PublicProduct,type PortalData,type PortalOrder,type PortalProfile,type PortalPreview} from "@/src/modules/portal/domain";
-import {DishInfoDialog,type MenuSetOffer} from "./portal-dish";
 import {ProductImage} from "./product-image";
 import {TimeInput24} from "./time-input";
 import {fulfillmentTime} from "@/src/modules/fulfillment/domain";
 type PublicFulfillment=import("@/src/modules/fulfillment/domain").PolicyData&{closed:boolean;orderUntilAt?:string|null;ordersClosed?:boolean};
 type MenuProduct=PublicProduct&{remaining:number};
+/** A nap menüje a portálon (v49, v54): leves + főétel egy áron. */
+type MenuSetOffer={price:number;priceRevision:number;soup:MenuProduct;main:MenuProduct;remaining:number};
 type WeekDay={date:string;set:MenuSetOffer|null;open:boolean};
 const empty:PortalData={profile:null,orders:[]};
 const CATEGORIES=["all","soup","main","vegetarian","dessert"];
@@ -23,7 +24,6 @@ const EVENTS=["gpEventFamily","gpEventBirthday","gpEventBaptism","gpEventCompany
  * A logika ugyanaz, mint korábban: mai napi menü és étlap, kosár, átvétel (zóna, idősáv), profil, ellenőrzés és küldés, saját rendelések.
  */
 export default function ClientPortal(){
-  const [infoFor,setInfoFor]=useState<string|null>(null);
   const [lang,setLang]=useState<Language>("hu"),[catalog,setCatalog]=useState<MenuProduct[]>([]),[data,setData]=useState<PortalData>(empty),[authenticated,setAuthenticated]=useState(false),[blocked,setBlocked]=useState(false),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(""),[success,setSuccess]=useState("");
   const [menuSet,setMenuSet]=useState<MenuSetOffer|null>(null);
   const [menuOpen,setMenuOpen]=useState(false),[cutoff,setCutoff]=useState<string|null>(null),[menuLoading,setMenuLoading]=useState(true);
@@ -98,7 +98,6 @@ export default function ClientPortal(){
   const refreshAll=()=>{setError("");setPreview(null);void load();setMenuRefresh(n=>n+1);};
   const zones=fulfillment?.policy.zones.filter(z=>z.active)??[];
   const selectedZone=zones.find(z=>z.id===zoneId);
-  const infoProduct=catalog.find(p=>p.id===infoFor);
   const setProduct:MenuProduct|null=menuSet?{...menuSet.main,id:SET_CART_ID,hu:messages.hu.dailyMenu??"Napi menü",ro:messages.ro.dailyMenu??"Meniul zilei",price:menuSet.price,remaining:menuSet.remaining,hasImage:0}:null;
   const offers=setProduct?[setProduct,...catalog]:catalog;
   const dishes=catalog.filter(p=>p.section!=="daily"&&(category==="all"||p.category===category));
@@ -157,16 +156,16 @@ export default function ClientPortal(){
         <div className="gp-today">
           <div>{menuLoading?<p className="gp-note">{t("loading")}</p>:menuSet&&setProduct?<article className="gp-set">
             <div className="gp-set-head"><div><h3>{t("dailyMenu")}</h3><p>{dayName(date)} · {shortDate(date)}</p></div><span className="gp-tag">{t("gpToday")} · {until}</span></div>
-            {([["soup",menuSet.soup],["main",menuSet.main]] as const).map(([c,p])=><div className="gp-course" key={c}><small>{t(c)}</small><strong>{p[lang]}</strong><p>{p[lang==="hu"?"ro":"hu"]} · {p.portion} {portionUnit(p.category)}</p><div className="gp-allergens">{allergenList(p.allergens).map(a=><span key={a}>{t(a)}</span>)}<button type="button" onClick={()=>setInfoFor(p.id)}><Info size={14}/>{t("ingredientList")}</button></div></div>)}
+            {([["soup",menuSet.soup],["main",menuSet.main]] as const).map(([c,p])=><div className="gp-course" key={c}><small>{t(c)}</small><strong>{p[lang]}</strong><p>{p[lang==="hu"?"ro":"hu"]} · {p.portion} {portionUnit(p.category)}</p>{allergenList(p.allergens).length>0&&<div className="gp-allergens" aria-label={t("allergens")}>{allergenList(p.allergens).map(a=><span key={a}>{t(a)}</span>)}</div>}</div>)}
             <div className="gp-set-buy"><div><div className="gp-price-big">{lei(menuSet.price)}<em>lei</em></div><p>{t("gpSetSub")} · {availability(menuSet.remaining)}</p></div>{stepper(SET_CART_ID,menuSet.remaining,t("dailyMenu"))}</div>
           </article>:<div className="gp-set gp-set-empty"><h3>{t("dailyMenu")}</h3><p>{t("gpNoSetToday")}</p></div>}</div>
           <div>
             <div className="gp-chips" role="group" aria-label={t("category")}>{CATEGORIES.map(c=><button key={c} type="button" aria-pressed={category===c} onClick={()=>setCategory(c)}>{t(c)}</button>)}</div>
             {!menuLoading&&!dishes.length&&<p className="gp-note">{t("portalEmptyMenu")}</p>}
             <div className="gp-dishes">{dishes.map(p=><article className={"gp-dish"+(inCart(p.id)?" in-cart":"")} key={p.id}>
-              <button type="button" className={"gp-dish-img "+p.category} onClick={()=>setInfoFor(p.id)} aria-label={t("dishInfo")+" · "+p[lang]}><ProductImage product={p} alt="" className="gp-photo"/>{p.hasImage!==1&&<span>{p[lang].charAt(0)}</span>}</button>
+              <div className={"gp-dish-img "+p.category}><ProductImage product={p} alt={p[lang]} className="gp-photo"/>{p.hasImage!==1&&<span aria-hidden="true">{p[lang].charAt(0)}</span>}</div>
               <div><h3>{p[lang]}</h3><p className="gp-dish-alt">{p[lang==="hu"?"ro":"hu"]}</p><p className="gp-dish-meta">{p.portion} {portionUnit(p.category)} · {availability(p.remaining)}</p>
-                <button type="button" className="gp-link" onClick={()=>setInfoFor(p.id)}><Info size={14}/>{t("allergens")} · {t("ingredientList")}</button>
+                {allergenList(p.allergens).length>0&&<div className="gp-allergens light" aria-label={t("allergens")}>{allergenList(p.allergens).map(a=><span key={a}>{t(a)}</span>)}</div>}
                 <div className="gp-dish-buy"><strong>{lei(p.price)}<em>lei</em></strong>{stepper(p.id,p.remaining,p[lang],true)}</div></div>
             </article>)}</div>
           </div>
@@ -287,7 +286,6 @@ export default function ClientPortal(){
         </>}
         <p className="gp-hint center">{t("portalSlotHint")}</p>
       </div></>}
-    {infoProduct&&<DishInfoDialog product={infoProduct} lang={lang} t={t} money={money} close={()=>setInfoFor(null)}/>}
   </div>;
 }
 /**

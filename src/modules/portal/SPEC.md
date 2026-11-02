@@ -75,3 +75,6 @@ Az étlap elején „Napi menü” kártya jelenik meg (leves + főétel + dessz
 ## Kínálat és rendezvények — v60
 - Két új, csak tájékoztató szakasz a heti menü után: „Kínálat” (sötét; négy kártya: Napi menü, Street food, Étlap, Catering) és „Rendezvények” (krém; telefonos ajánlatkérés, e-mail, öt rendezvénytípus). Rendelési logikájuk nincs.
 - Szövegük, a telefonszám és az e-mail-cím (`gpEmail`) a fordítási fájlban van. A fejlécben „Catering”, a láblécben Kínálat és Catering link.
+
+## Allergének a kártyán, felugró ablak nélkül — v62
+- Az Étlap kártyáin (mint a napi menüben) az allergének címkeként látszanak; az „Allergének · Összetevők” link, a napi menü „Összetevők” gombja és a felugró ételinfó ablak megszűnt. Az ételkép nem kattintható. Ha egy ételnek nincs allergénje, nem jelenik meg címke.

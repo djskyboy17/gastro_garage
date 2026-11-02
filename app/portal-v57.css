@@ -104,7 +104,8 @@
 .gp-course p{font-size:14px;color:#a9c2b4;margin-top:4px!important}
 .gp-allergens{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .gp-allergens span{font-size:12px;padding:3px 8px;border-radius:6px;background:#ffffff14;color:#d9e6de}
-.gp-allergens button{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:3px 8px;border-radius:6px;background:none;border:1px solid #ffffff30;color:#d9e6de}
+/* v62: az Étlap fehér kártyáin világos allergéncímkék */
+.gp-allergens.light span{background:#f3eddf;color:#5c6f52}
 .gp-set-buy{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:22px;padding-top:18px;border-top:1px dashed #ffffff30;position:relative;z-index:1}
 .gp-set-buy p{font-size:13px;color:#a9c2b4;margin-top:4px!important}
 .gp-price-big{font-family:var(--gp-display);font-size:42px;font-weight:800;line-height:1;color:var(--gp-yellow)}
@@ -133,8 +134,6 @@
 .gp-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .gp-dish-alt{font-size:13px;color:var(--gp-soft);margin-top:2px!important}
 .gp-dish-meta{font-size:13px;color:var(--gp-muted);margin-top:6px!important}
-.gp-dish .gp-link{font-size:12px;margin-top:2px;text-align:left;align-items:flex-start}
-.gp-dish .gp-link svg{margin-top:2px}
 .gp-dish-buy{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
 .gp-dish-buy strong{font-family:var(--gp-display);font-size:22px;font-weight:800;white-space:nowrap}
 
