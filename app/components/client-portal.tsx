@@ -1,6 +1,6 @@
 "use client";
 import {useCallback,useEffect,useState} from "react";
-import {ShoppingBag,Plus,Minus,ArrowRight,CheckCircle2,RefreshCw,KeyRound,LogOut,Info,Truck,MapPin,Soup,UserRound,X} from "lucide-react";
+import {ShoppingBag,Plus,Minus,ArrowRight,CheckCircle2,RefreshCw,KeyRound,LogOut,Info,Truck,MapPin,Soup,UserRound,X,Hamburger,BookOpen,PartyPopper,Phone,ArrowUpRight} from "lucide-react";
 import {messages} from "@/src/modules/shared/i18n";
 import {today,orderCode,groupSetItems,portionUnit,SET_CART_ID,type Language} from "@/src/modules/shared/domain";
 import {isUnlimited,addDays} from "@/src/modules/menu/domain";
@@ -14,6 +14,9 @@ type MenuProduct=PublicProduct&{remaining:number};
 type WeekDay={date:string;set:MenuSetOffer|null;open:boolean};
 const empty:PortalData={profile:null,orders:[]};
 const CATEGORIES=["all","soup","main","vegetarian","dessert"];
+// v60: a Kínálat kártyái és a rendezvénytípusok (szövegük a fordítási fájlban).
+const OFFERS=[["gpOfferDaily",Soup],["gpOfferStreet",Hamburger],["gpOfferMenu",BookOpen],["gpOfferCatering",PartyPopper]] as const;
+const EVENTS=["gpEventFamily","gpEventBirthday","gpEventBaptism","gpEventCompany","gpEventCommunity"];
 
 /**
  * Ügyfélportál (v57): a gastrogarage.veres.no rendelési oldala a „Gastro Garage” arculattal (sötétzöld, mustársárga, krém).
@@ -116,7 +119,7 @@ export default function ClientPortal(){
   return <div className="gp">
     <header className="gp-top"><div className="gp-wrap">
       <a href="/portal" className="gp-brand"><img src="/logo.png" alt="" width={34} height={34}/>Gastro Garage</a>
-      <nav aria-label={t("navigation")}><a href="#gp-order">{t("gpOrderCta")}</a>{authenticated&&!blocked&&<><a href="#gp-pick">{t("gpPickKicker")}</a><a href="#gp-orders">{t("portalOwn")}</a></>}<a href="#gp-week">{t("gpWeekCta")}</a></nav>
+      <nav aria-label={t("navigation")}><a href="#gp-order">{t("gpOrderCta")}</a>{authenticated&&!blocked&&<><a href="#gp-pick">{t("gpPickKicker")}</a><a href="#gp-orders">{t("portalOwn")}</a></>}<a href="#gp-week">{t("gpWeekCta")}</a><a href="#gp-catering">{t("gpOfferCatering")}</a></nav>
       <div className="gp-lang" role="group" aria-label={t("language")}>{(["hu","ro"] as const).map(l=><button key={l} type="button" aria-pressed={lang===l} onClick={()=>setLang(l)}>{l.toUpperCase()}</button>)}</div>
       {authenticated?<><a className="gp-icon" href="/password?return_to=/portal" aria-label={t("passwordChangeLink")} title={t("passwordChangeLink")}><KeyRound size={18}/></a><a className="gp-icon" href="/signout?return_to=/portal" aria-label={t("signOut")} title={t("signOut")}><LogOut size={18}/></a></>:<a className="gp-signin" href="/signin?return_to=/portal"><UserRound size={17}/>{t("signIn")}</a>}
     </div></header>
@@ -223,8 +226,25 @@ export default function ClientPortal(){
         </article>)}</div>
       </div></section>
 
+      <section id="gp-offer" className="gp-section gp-dark"><div className="gp-wrap">
+        <p className="gp-kicker" data-n={authenticated&&!blocked?"05":"04"}><span/>{t("gpOfferKicker")}</p>
+        <h2 className="gp-title">{t("gpOfferTitle")}</h2>
+        <p className="gp-sub">{t("gpOfferLead")}</p>
+        <div className="gp-offers">{OFFERS.map(([key,Icon],i)=><article className="gp-offer" key={key}><div className="gp-offer-top"><span className="gp-badge"><Icon size={26}/></span><span className="gp-offer-n">{String(i+1).padStart(2,"0")}</span></div><h3>{t(key)}</h3><p>{t(key+"Text")}</p></article>)}</div>
+      </div></section>
+
+      <section id="gp-catering" className="gp-section"><div className="gp-wrap gp-events-wrap">
+        <div>
+          <p className="gp-kicker" data-n={authenticated&&!blocked?"06":"05"}><span/>{t("gpEventsKicker")}</p>
+          <h2 className="gp-title">{t("gpEventsTitle")}</h2>
+          <p className="gp-sub">{t("gpEventsLead")}</p>
+          <div className="gp-events-cta"><a className="gp-btn dark" href={"tel:"+t("gpPhoneHref")}><Phone size={18}/>{t("gpEventsCall")}</a><a className="gp-btn outline" href={"mailto:"+t("gpEmail")}>{t("gpEventsMail")}<ArrowUpRight size={17}/></a></div>
+        </div>
+        <ol className="gp-events">{EVENTS.map((key,i)=><li key={key}><small>{String(i+1).padStart(2,"0")}</small><strong>{t(key)}</strong></li>)}</ol>
+      </div></section>
+
       <section className="gp-section"><div className="gp-wrap">
-        <p className="gp-kicker" data-n={authenticated&&!blocked?"05":"04"}><span/>{t("gpFaqKicker")}</p>
+        <p className="gp-kicker" data-n={authenticated&&!blocked?"07":"06"}><span/>{t("gpFaqKicker")}</p>
         <h2 className="gp-title">{t("gpFaqTitle")}</h2>
         <div className="gp-faq">
           <details open><summary>{t("gpFaqPriceQ")}</summary><p>{menuSet?fill(t("gpFaqPriceA"),{price:money(menuSet.price)}):t("gpNoSetToday")}</p></details>
@@ -238,8 +258,8 @@ export default function ClientPortal(){
     <footer className="gp-footer"><div className="gp-wrap">
       <h2>Gastro Garage</h2><p>{t("gpLead")}</p>
       <div className="gp-cols">
-        <div><h4>{t("gpContact")}</h4><a className="big" href={"tel:"+t("gpPhoneHref")}>{t("gpPhone")}</a><p>{t("gpAddress")}</p></div>
-        <div><h4>{t("gpPage")}</h4><a href="#gp-order">{t("gpOrderCta")}</a><a href="#gp-week">{t("gpWeekCta")}</a>{authenticated&&!blocked&&<a href="#gp-orders">{t("portalOwn")}</a>}<a href="/">{t("portalInternal")}</a></div>
+        <div><h4>{t("gpContact")}</h4><a className="big" href={"tel:"+t("gpPhoneHref")}>{t("gpPhone")}</a><a href={"mailto:"+t("gpEmail")}>{t("gpEmail")}</a><p>{t("gpAddress")}</p></div>
+        <div><h4>{t("gpPage")}</h4><a href="#gp-order">{t("gpOrderCta")}</a><a href="#gp-week">{t("gpWeekCta")}</a>{authenticated&&!blocked&&<a href="#gp-orders">{t("portalOwn")}</a>}<a href="#gp-offer">{t("gpOfferKicker")}</a><a href="#gp-catering">{t("gpOfferCatering")}</a><a href="/">{t("portalInternal")}</a></div>
       </div>
       <p className="gp-copy">© {date.slice(0,4)} Gastro Garage · {t("settingsNote")}</p>
     </div></footer>

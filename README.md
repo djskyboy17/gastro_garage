@@ -347,3 +347,7 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 ## Saját rendelések kártya — v59
 
 - A portálon a „Hol tart az ebéded?” kártya a minta szerint: négy állapotsáv, állapot-címke, összegek „lei” formában.
+
+## Kínálat és catering a portálon — v60
+
+- A rendelési oldalon a videó alapján: „Ami a garázsból kigördül” (Napi menü, Street food, Étlap, Catering) és „Catering, ami viszi a bulit” (ajánlatkérés telefonon / e-mailben, rendezvénytípusok).

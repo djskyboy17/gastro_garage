@@ -71,3 +71,7 @@ Az étlap elején „Napi menü” kártya jelenik meg (leves + főétel + dessz
 - Jobb felül állapot-címke: „Visszaigazolásra vár” (villogó), folyamatban sárga, kész zöld, lemondva / elutasítva piros.
 - Tételek és összesen „lei” formában; a szállítási díj sora csak akkor látszik, ha nem 0. Alul a lemondási tudnivaló (vagy a fizetés állapota) és a rendelésszám.
 - A régi hatlépéses `OrderTracker` komponens megszűnt.
+
+## Kínálat és rendezvények — v60
+- Két új, csak tájékoztató szakasz a heti menü után: „Kínálat” (sötét; négy kártya: Napi menü, Street food, Étlap, Catering) és „Rendezvények” (krém; telefonos ajánlatkérés, e-mail, öt rendezvénytípus). Rendelési logikájuk nincs.
+- Szövegük, a telefonszám és az e-mail-cím (`gpEmail`) a fordítási fájlban van. A fejlécben „Catering”, a láblécben Kínálat és Catering link.

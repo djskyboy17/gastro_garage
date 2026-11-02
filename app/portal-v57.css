@@ -209,6 +209,22 @@
 .gp-day.is-today .gp-course small{color:var(--gp-yellow)}
 .gp-set-head p,.gp-ticket small{text-transform:none}
 
+/* v60: Kínálat (sötét) */
+.gp-offers{display:grid;gap:16px;margin-top:30px}
+.gp-offer{position:relative;overflow:hidden;background:linear-gradient(160deg,#123a2b,#0b2a1f 70%);border:1px solid var(--gp-line-dark);border-radius:22px;padding:26px 24px 28px;min-height:220px;display:flex;flex-direction:column}
+.gp-offer:after{content:"";position:absolute;right:-70px;top:-70px;width:220px;height:220px;border-radius:50%;background:radial-gradient(#f6b90b22,transparent 70%);pointer-events:none}
+.gp-offer-top{display:flex;justify-content:space-between;align-items:flex-start}
+.gp-offer .gp-badge{width:52px;height:52px;border-radius:14px}
+.gp-offer-n{font-size:14px;color:#7f9a8b;letter-spacing:.05em}
+.gp-offer h3{font-size:26px;margin-top:auto!important;padding-top:44px}
+.gp-offer p{color:#b9cdc1;margin-top:10px!important;font-size:16px}
+/* v60: Rendezvények / catering (krém) */
+.gp-events-cta{display:grid;gap:10px;margin-top:26px;max-width:520px}
+.gp-events{list-style:none;margin:34px 0 0;padding:0;border-top:1px solid var(--gp-line)}
+.gp-events li{display:grid;grid-template-columns:44px 1fr;align-items:center;gap:8px;padding:20px 0;border-bottom:1px solid var(--gp-line)}
+.gp-events small{font-size:14px;font-weight:700;color:var(--gp-muted);letter-spacing:.05em}
+.gp-events strong{font-family:var(--gp-display);font-weight:800;font-size:clamp(30px,8.5vw,42px);letter-spacing:-.02em;line-height:1.08}
+
 /* Gyakori kérdések */
 .gp-faq{margin-top:20px}
 .gp-faq details{border-bottom:1px solid var(--gp-line);padding:18px 0}
@@ -259,6 +275,10 @@
   .gp-pick{grid-template-columns:1fr 1fr;align-items:start}
   .gp-order{padding:22px 22px 18px}
   .gp-week{grid-template-columns:repeat(3,1fr)}
+  .gp-offers{grid-template-columns:repeat(2,1fr)}
+  .gp-events-wrap{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start}
+  .gp-events{margin-top:0}
+  .gp-events-cta{grid-template-columns:1fr 1fr}
   .gp-cols{grid-template-columns:2fr 1fr}
   .gp-cartbar{left:auto;right:24px;width:420px}
   .gp-sheet{left:auto;right:24px;bottom:24px;width:460px;border-radius:26px;max-height:calc(100vh - 110px)}
