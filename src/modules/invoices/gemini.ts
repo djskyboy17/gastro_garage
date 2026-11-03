@@ -104,7 +104,8 @@ async function googleError(response: Response) {
  */
 export async function extractWithGemini({ apiKey, mime, base64, model = GEMINI_MODEL, fetchImpl = fetch, timeoutMs = 90_000, retryDelayMs = 1500 }: GeminiInput & { retryDelayMs?: number }): Promise<unknown> {
   if (!apiKey) throw new InvoiceError("INVOICE_AI_DISABLED", 503);
-  const deadline = Date.now() + timeoutMs;
+  const started = Date.now(),
+    deadline = started + timeoutMs;
   let current = model,
     retried = false,
     lowThinking = true,
@@ -126,7 +127,11 @@ export async function extractWithGemini({ apiKey, mime, base64, model = GEMINI_M
     } finally {
       clearTimeout(timer);
     }
-    if (response.ok) break;
+    if (response.ok) {
+      // v68: mennyi ideig tartott (a naplóban látszik, gyorsítás méréséhez).
+      console.log("gemini ok", current, Math.round((Date.now() - started) / 100) / 10 + " s", lowThinking ? "low thinking" : "default thinking");
+      break;
+    }
     const detail = await googleError(response);
     console.warn("gemini error", current, response.status, detail);
     if (response.status === 400 && lowThinking && /thinking/i.test(detail)) {
