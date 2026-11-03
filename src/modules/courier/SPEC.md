@@ -1,5 +1,11 @@
 # Courier mobile workspace — v12
 
+> **Érvényes állapot (v71).** Ez az összefoglaló a mérvadó; az alábbi, korábbi változatokból maradt szöveg ahol ellentmond neki, elavult.
+> - Egy futár van: futártörzs, fiók-összekötés, napi beosztás és futárválasztás nincs (v51).
+> - Minden „futár” szerepkörű fiók ugyanazt az aznapi kiszállítási listát látja a futárportálon (courier.veres.no); más dolgozó és ügyfél nem.
+> - Indulás csak elkészült étellel; induláskor a futár neve a rendelésre kerül (pillanatkép). Kézbesítés / sikertelen kézbesítés rögzíthető, változat-ellenőrzéssel és naplóval.
+> - A futár csak a kiszállításhoz szükséges adatokat látja (név, cím, telefon, tételek, megjegyzés).
+
 Route /courier is public as a sign-in/access shell. Private tasks require the courier member role AND a unique admin-assigned courier-account binding. The role is deliberately not part of isMember: it cannot access /api/data or any generic staff business endpoints. A courier opening / is sent to /courier before data fetch. The portal/customer identity remains independent; courier status does not grant sales, inventory or financial authority.
 
 Setup: visitor signs in and requests employee access; admin/owner grants courier role in employee access; admin/owner connects that account to an existing courier master record. Matching is by stable user ID, never by name/email supplied by the courier. One account can be bound to only one courier record. Only admin/owner may link/unlink, using binding revision checks and an atomic audit. Role changes away from courier clear the binding and increase its revision through a DB trigger. No production courier account or binding is seeded.

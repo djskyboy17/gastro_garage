@@ -100,6 +100,8 @@ async function handle(req: Request, write: boolean) {
     }
     if (!write && path === "/api/session") return json({ ...session, mustChangePassword: Boolean(user.mustChangePassword) });
     if (!write && path === "/api/access/members") return json(await loadMembers(session));
+    // v71: a futó változat (csak bejelentkezett dolgozónak).
+    if (!write && path === "/api/version" && isMember(session.role)) return json({ version: env.BUILD_VERSION ?? "", commit: env.BUILD_COMMIT ?? "", builtAt: env.BUILD_TIME ?? "" });
     if (!isMember(session.role) && path !== "/api/access/request") return json({error:"ACCESS_PENDING"},403);
     // v65: beszállítói számlák (Beszerzés). A beolvasáshoz nagyobb kérés kell (a számla képe / PDF-je base64-ben).
     if(path==="/api/invoices"||path.startsWith("/api/invoices/")){

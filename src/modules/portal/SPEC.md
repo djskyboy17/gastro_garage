@@ -1,5 +1,11 @@
 # Customer portal, v8
 
+> **Érvényes állapot (v71).** Ez az összefoglaló a mérvadó; az alábbi, korábbi változatokból maradt szöveg ahol ellentmond neki, elavult.
+> - Csak mai napra lehet rendelni (v50); a főzés előtti lemondás nyom nélkül törli a rendelést (v50).
+> - Arculat (v57–v64): nyitó rész nyitva/zárva jelzéssel (zöld villogó / piros), napi menü teljes szélességben, alatta az Étlap, sárga szalag, Kínálat és Catering rész, Saját rendeléseim négy állapotsávval.
+> - Átvétel: település-gombok, „Minél előbb” / „Időpontra”, rendelési határidő (v58, v61).
+> - Az Étlap kártyáin allergéncímkék; felugró ételinfó ablak nincs (v62).
+
 Public route /portal uses the existing Sites/ChatGPT sign-in for profile and ordering. Public GET /api/portal/catalog deliberately exposes only whitelisted fields of active, explicitly published dishes: bilingual names/descriptions, gross bani price, portion grams, category and declared allergens. New and existing products default to unpublished. This is a test portal, not production commerce: no online payments, invoice generation, complete consumer-label/terms workflow, global/time-slot capacity planning or delivery-zone validation.
 
 Customer identity is independent of employee membership. An authenticated visitor may create exactly one own portal profile (name, phone, delivery address) without staff approval; this grants no internal access. First registration creates a new customer master and unique stable Site-user binding. Existing customer records cannot be claimed by email or by submitted IDs. Updating own profile requires its revision and leaves historical order snapshots unchanged. Staff-disabled identities and portal-disabled profiles cannot use private portal functions; public menu remains public. Admin/owner can block or re-enable portal profiles. Dispatcher can view accounts and publish/hide dishes but cannot disable accounts.

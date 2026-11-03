@@ -640,3 +640,23 @@ export const purchaseSettings = sqliteTable(
     check("purchase_settings_basis", sql`${t.costBasis} IN ('net','gross')`),
   ],
 );
+
+/**
+ * Bizonylat-sorozatok (v71): típusonként és évenként egy számláló (kulcs: „nir:2026”). A szám a bizonylattal egy
+ * D1-kötegben fogy (lásd src/modules/documents/server.ts), ezért hézag nélküli. Az előtag sorozatonként átírható.
+ */
+export const documentSeries = sqliteTable(
+  "document_series",
+  {
+    key: text("key").primaryKey(),
+    docType: text("doc_type").notNull(),
+    year: integer("year").notNull(),
+    prefix: text("prefix").notNull(),
+    nextNumber: integer("next_number").notNull().default(1),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("document_series_type_year").on(t.docType, t.year),
+    check("document_series_next", sql`${t.nextNumber}>=1`),
+  ],
+);

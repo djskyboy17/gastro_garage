@@ -1,5 +1,10 @@
 # Scheduled menu
 
+> **Érvényes állapot (v71).** Ez az összefoglaló a mérvadó; az alábbi, korábbi változatokból maradt szöveg ahol ellentmond neki, elavult.
+> - Napi menü: leves + főétel egy fix áron (menüár a beállításokban); desszert nincs. A Napi menü részbe tartozó étel csak a menü részeként rendelhető (v49–v54).
+> - Az Étlap ételei minden nap maguktól, korlátlan adaggal rendelhetők, mentés nélkül is, az alapértelmezett határidőig; egy napot csak eltérés esetén kell menteni (v54).
+> - A tényleges rendelési határidő a napi menü határideje és a szabályok rendelési határideje közül a korábbi (v61).
+
 One dated menu per kitchen-local calendar day. Weekly UI groups seven individual days; no implicit weekly recurrence. Admin/owner and dispatcher edit dated menus. Missing or inactive days are closed to portal orders. Products must also be active and explicitly published in the portal catalog. Existing orders and their snapshots remain intact when menus close.
 
 Each date has a UTC cutoff instant entered/displayed in Europe/Bucharest, explicit per-product integer portion limits and a revision. Cutoff cannot follow the service day. Nonexistent or ambiguous daylight-saving wall times are rejected. Editing is limited to today through 90 days ahead. Portal delivery remains limited to 30 days and future time slots.

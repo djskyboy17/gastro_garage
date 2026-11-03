@@ -463,3 +463,7 @@
   font-weight: 600;
   padding: 0 4px;
 }
+
+/* v71: futó változat a Beállítások alján */
+.version-info{margin-top:18px;font-size:13px;color:#8a947f}
+.version-info strong{color:#4d5c45}

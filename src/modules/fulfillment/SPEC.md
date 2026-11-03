@@ -1,5 +1,11 @@
 # Portal fulfillment rules — v11
 
+> **Érvényes állapot (v71).** Ez az összefoglaló a mérvadó; az alábbi, korábbi változatokból maradt szöveg ahol ellentmond neki, elavult.
+> - Körzet = település, név szerint választható; irányítószám nincs. Díj és minimum körzetenként (most 0) (v58).
+> - Heti idősávok nincsenek; a vásárló „minél előbb”-et vagy mai, még el nem múlt kívánt időpontot ad meg (v58).
+> - Rendelési határidő (`orderUntil`, pl. 14:00) a szabályokban; a napi menü határideje és ez közül a korábbi számít (v61).
+> - Heti zárvatartás és zárt napok, mód engedélyezése, átvételi cím és minimum változatlan.
+
 Admin/owner configure one revisioned policy: delivery/pickup enabled flags, bilingual pickup address, pickup minimum, ISO closed weekdays, explicit closed dates, named bilingual delivery zones with disjoint active six-digit Romanian postal-code lists, per-zone fee/minimum (integer bani), and weekly time slots with mode, weekday set, start/end and order capacity. Adjacent slots are allowed; overlapping active slots of the same mode are not. Each request reserves one slot place, independently of item/portion limits. Requests and confirmed orders reserve places; rejection/cancellation releases them. Pending requests do not automatically expire.
 
 Missing policy closes NEW portal ordering. No invented production zones, fees, address or schedule is seeded. Existing orders remain usable, historical pickup/delivery data and prices are immutable. This does not change prior orders or daily-menu configuration. Both the daily menu and the fulfillment policy must allow the date; explicit closure overrides an otherwise open menu. Every portal request must choose an available mode and compatible slot. Delivery requires a matching exact declared postal code and nonempty saved address. Postal code is customer-declared; the staff review must verify it agrees with the delivery address. No geocoding or distance calculation. Pickup does not require a private delivery address. UTC deadlines and future local slots use Europe/Bucharest; nonexistent/ambiguous DST slots are unavailable.

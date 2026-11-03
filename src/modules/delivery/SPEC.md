@@ -1,5 +1,12 @@
 # Delivery dispatch, v4
 
+> **Érvényes állapot (v71).** Ez az összefoglaló a mérvadó; az alábbi, korábbi változatokból maradt szöveg ahol ellentmond neki, elavult.
+> - Futárhozzárendelés, futártörzs és napi futárlista nincs (v51); a futár nevét induláskor a rendszer írja a rendelésre.
+> - A Kiszállítási sor kártyái állapot szerint színezettek, rendelésazonosító és futárnév nélkül (v53).
+> - Indulás és helyszíni átadás feltétele csak az elkészült étel; csomagellenőrzés nincs (v53).
+> - „Helyszíni átvételre váltás” a rendelés részleteinél: a szállítási díj megtartható vagy elengedhető, a cím az átvételi hely lesz.
+> - A portálos rendelés kiszállítási adatai: település (körzet) és kívánt időpont vagy „minél előbb” (v58) – lásd a fulfillment SPEC-et.
+
 Boundaries: courier master data, order assignment, chronological daily manifests and recorded delivery results. Shared order transitions own readiness and delivery states. No route optimization, GPS, electronic signatures or cash reconciliation. Dedicated courier accounts are implemented in ../courier/SPEC.md.
 
 All actions use the existing authenticated, same-origin JSON API. Testers share the test workspace; assigning a courier does not create an account or grant access.

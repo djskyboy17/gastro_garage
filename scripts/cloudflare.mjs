@@ -83,7 +83,12 @@ if (command === "setup") {
   requireDatabase();
   const build = spawnSync(process.execPath, [resolve(root, "scripts/run-framework.mjs"), "build"], { cwd: root, stdio: "inherit" });
   if (build.status !== 0) process.exit(build.status ?? 1);
-  run(["deploy", "--config", resolve(root, "dist/server/wrangler.json")]);
+  // v71: a futó változat azonosítása (Beállítások alján és /api/version): git-tag/commit és a feltöltés ideje.
+  const git = (...args) => (spawnSync("git", args, { cwd: root, encoding: "utf8" }).stdout ?? "").trim();
+  const version = git("describe", "--tags", "--always", "--dirty") || "ismeretlen";
+  const commit = git("rev-parse", "--short", "HEAD");
+  const builtAt = new Date().toISOString().slice(0, 16).replace("T", " ") + " UTC";
+  run(["deploy", "--config", resolve(root, "dist/server/wrangler.json"), "--var", "BUILD_VERSION:" + version, "--var", "BUILD_COMMIT:" + commit, "--var", "BUILD_TIME:" + builtAt]);
 } else {
   console.log("Használat: node scripts/cloudflare.mjs setup | migrate | secrets | google | gemini | deploy");
   process.exit(command ? 1 : 0);

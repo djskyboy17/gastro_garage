@@ -12,6 +12,10 @@ declare namespace Cloudflare {
     /** Számlabeolvasás (v65): Google Gemini API-kulcs – csak Cloudflare-titokként / helyben .dev.vars-ban; modell felülírható. */
     GEMINI_API_KEY?: string;
     GEMINI_MODEL?: string;
+    /** A futó változat (v71): a telepítő szkript adja át (--var); helyben üres. */
+    BUILD_VERSION?: string;
+    BUILD_COMMIT?: string;
+    BUILD_TIME?: string;
     DB?: D1Database;
     BUCKET?: R2Bucket;
   }

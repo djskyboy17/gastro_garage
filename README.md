@@ -365,3 +365,10 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 - Beszerzés → **Számlák**: román Factură / Bon Fiscal fotózása vagy PDF feltöltése; a Google Gemini kiolvassa a fejlécet (szállító, CUI, szám, dátum, nettó, TVA, SGR, végösszeg) és a tételsorokat. Átnézés, alapanyaghoz rendelés (a rendszer megjegyzi a párosítást), lejárat megadása, majd jóváhagyásra **bevételezés a raktárba**.
 - Kézi felvitel AI nélkül is; a bekerülési érték nettó vagy bruttó (beállítható, alapból nettó). Az SGR-betét nem kerül a raktárba.
 - Új migráció: `0026_supplier_invoices`. A Gemini-kulcs megadása: `npm run cf:gemini` (lásd TELEPITES.md). Leírás: `src/modules/invoices/SPEC.md`.
+
+## Rendbetétel és sorszámozás — v71 (fejlesztési terv 0. fázis)
+
+- **Futó változat** a Beállítások alján és a `/api/version`-ön (git-tag, commit, feltöltés ideje; a telepítő szkript adja át).
+- **Leírások:** a futár, kiszállítás, csomagolás, szabályok, portál és menü SPEC elején „Érvényes állapot” összefoglaló; a régi, ellentmondó szöveg elavult.
+- **Tesztek:** a megszűnt funkciók API-tesztjei (futár-összekapcsolás, csomagellenőrzés) törölve; a többi állapota: `tests/README.md`.
+- **Bizonylat-sorszámozás:** `src/modules/documents` – típusonként és évenként hézag nélküli sorozat (pl. NIR-2026-0001), a bizonylattal egy tranzakcióban. Új migráció: `0027_document_series`.

@@ -56,6 +56,7 @@ import {
 import { messages } from "@/src/modules/shared/i18n";
 import OperationsWorkspace from "./operations-workspace";
 import PurchasingWorkspace from "./purchasing-workspace";
+import { VersionInfo } from "./version-info";
 import FulfillmentWorkspace from "./fulfillment-workspace";
 import StocktakeWorkspace from "./stocktake-workspace";
 import LabelsWorkspace from "./labels-workspace";
@@ -1367,6 +1368,7 @@ export default function KitchenApp() {
                         <ChevronRight size={18} className="settings-card-arrow" />
                       </a>
                     </div>
+                    <VersionInfo lang={lang} />
                   </>
                 )}
                 {tab === "packing" && <PackingWorkspace lang={lang} refresh={load} initialDate={packingTarget?.date??day} initialOrderId={packingTarget?.id??""} canEditLabels={isAdmin(session.role)}/>}

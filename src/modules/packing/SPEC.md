@@ -1,5 +1,10 @@
 # Daily production plan and packing — v14
 
+> **Érvényes állapot (v71).** Ez az összefoglaló a mérvadó; az alábbi, korábbi változatokból maradt szöveg ahol ellentmond neki, elavult.
+> - A Csomagolás fülön csak a Termékcímkék vannak; csomagellenőrzés és futárválasztás nincs (v51, v53).
+> - Az áttekintő három kártyája: Rendelés, Konyhai terv, Futár.
+> - Indulás / átadás feltétele csak az elkészült étel.
+
 Boundaries: read-only daily portion aggregation, a per-order item checklist and printable internal working labels. Catalog, orders, production, delivery and payments remain separate. No stock changes, readiness changes, assignment, pricing, notifications or customer edits from this module. Printed labels do not assert food safety, shelf life or storage instructions.
 
 Approved owner/admin, kitchen and dispatcher roles can read/check. Couriers, warehouse, public visitors and pending/disabled accounts cannot. Dedicated date-scoped projection includes saved customer name for identifying packages but excludes addresses, phone, prices, payment, member identifiers and recipes. Names must not be logged or placed in local storage. Default day and date bounds use Europe/Bucharest, ±90 days.
