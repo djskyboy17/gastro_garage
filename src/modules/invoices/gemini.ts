@@ -85,6 +85,8 @@ export function geminiRequestBody(mime: string, base64: string, lowThinking = tr
 
 /** Pótmodell, ha a beállított modell nem érhető el (404): a Google mindig a legújabb Flash modellre irányítja. */
 export const GEMINI_FALLBACK_MODEL = "gemini-flash-latest";
+/** v69: további pótmodell túlterheléskor – a kisebb Flash-Lite külön kapacitáson fut, gyorsabb. */
+export const GEMINI_LITE_MODEL = "gemini-flash-lite-latest";
 
 /** A Google hibaválaszának rövid leírása a naplóba (a kulcs soha nincs benne: az csak a kérés fejlécében megy). */
 async function googleError(response: Response) {
@@ -100,17 +102,27 @@ async function googleError(response: Response) {
  * Meghívja a Geminit, és a válasz JSON-objektumát adja vissza. Hiba esetén `InvoiceError` (a kulcs soha nem kerül a hibaüzenetbe).
  * v66: ha a modell nem érhető el (404), egyszer a pótmodellel; ha a Google túlterhelt (500/503), egy rövid szünet után még egyszer próbál.
  * v68: ha a modell nem ismeri a gondolkodási beállítást (400), egyszer nélküle; időtúllépés: INVOICE_AI_TIMEOUT.
+ * v69: modellsor (beállított → gemini-flash-latest → gemini-flash-lite-latest): 404-nél azonnal, túlterhelésnél (500/503)
+ * egy újrapróbálás után a következő modell jön. Ha mind túlterhelt: INVOICE_AI_BUSY.
  * A Google hibakódja és üzenete a Worker naplójába kerül (`wrangler tail`).
  */
 export async function extractWithGemini({ apiKey, mime, base64, model = GEMINI_MODEL, fetchImpl = fetch, timeoutMs = 90_000, retryDelayMs = 1500 }: GeminiInput & { retryDelayMs?: number }): Promise<unknown> {
   if (!apiKey) throw new InvoiceError("INVOICE_AI_DISABLED", 503);
   const started = Date.now(),
     deadline = started + timeoutMs;
-  let current = model,
+  const models = [...new Set([model, GEMINI_FALLBACK_MODEL, GEMINI_LITE_MODEL])];
+  let index = 0,
+    current = models[0]!,
     retried = false,
     lowThinking = true,
     response: Response | null = null;
-  for (let attempt = 0; attempt < 4; attempt++) {
+  const next = () => {
+    if (index + 1 >= models.length) return false;
+    current = models[++index]!;
+    retried = false;
+    return true;
+  };
+  for (let attempt = 0; attempt < 8; attempt++) {
     const body = JSON.stringify(geminiRequestBody(mime, base64, lowThinking));
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), Math.max(1000, deadline - Date.now()));
@@ -138,19 +150,22 @@ export async function extractWithGemini({ apiKey, mime, base64, model = GEMINI_M
       lowThinking = false;
       continue;
     }
-    if (response.status === 404 && current !== GEMINI_FALLBACK_MODEL) {
-      current = GEMINI_FALLBACK_MODEL;
-      continue;
+    if (response.status === 404) {
+      if (next()) continue;
+      break;
     }
-    if ((response.status === 500 || response.status === 503) && !retried && deadline - Date.now() > retryDelayMs + 5000) {
-      retried = true;
-      await new Promise((r) => setTimeout(r, retryDelayMs));
-      continue;
+    if ((response.status === 500 || response.status === 503) && deadline - Date.now() > retryDelayMs + 5000) {
+      if (!retried) {
+        retried = true;
+        await new Promise((r) => setTimeout(r, retryDelayMs));
+        continue;
+      }
+      if (next()) continue;
     }
     break;
   }
   if (!response) throw new InvoiceError("INVOICE_AI_UNAVAILABLE", 502);
-  if (response.status === 429) throw new InvoiceError("INVOICE_AI_BUSY", 503);
+  if (response.status === 429 || response.status === 503) throw new InvoiceError("INVOICE_AI_BUSY", 503);
   if (response.status === 400 || response.status === 401 || response.status === 403) throw new InvoiceError("INVOICE_AI_REJECTED", 502);
   if (response.status === 404) throw new InvoiceError("INVOICE_AI_MODEL", 502);
   if (!response.ok) throw new InvoiceError("INVOICE_AI_UNAVAILABLE", 502);

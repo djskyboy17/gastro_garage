@@ -158,7 +158,7 @@ test("Gemini adapter falls back to the latest Flash model on 404 and retries onc
   const missing = (async () => new Response("{}", { status: 404 })) as unknown as typeof fetch;
   await assert.rejects(extractWithGemini({ apiKey: "k", mime: "image/jpeg", base64: "AAAA", fetchImpl: missing }), /INVOICE_AI_MODEL/);
   const down = (async () => new Response("{}", { status: 503 })) as unknown as typeof fetch;
-  await assert.rejects(extractWithGemini({ apiKey: "k", mime: "image/jpeg", base64: "AAAA", fetchImpl: down, retryDelayMs: 1 }), /INVOICE_AI_UNAVAILABLE/);
+  await assert.rejects(extractWithGemini({ apiKey: "k", mime: "image/jpeg", base64: "AAAA", fetchImpl: down, retryDelayMs: 1 }), /INVOICE_AI_BUSY/);
 });
 
 test("Gemini request asks for low thinking; drops it if the model rejects the setting; slow answers time out", async () => {
@@ -176,4 +176,16 @@ test("Gemini request asks for low thinking; drops it if the model rejects the se
   assert.doesNotMatch(bodies[1]!, /thinkingLevel/);
   const slow = ((_url: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }))))) as unknown as typeof fetch;
   await assert.rejects(extractWithGemini({ apiKey: "k", mime: "image/jpeg", base64: "AAAA", fetchImpl: slow, timeoutMs: 20 }), /INVOICE_AI_TIMEOUT/);
+});
+
+test("When the configured model stays overloaded, the next Flash models are tried", async () => {
+  const urls: string[] = [];
+  const busyThenLite = (async (url: string) => {
+    urls.push(url);
+    return url.includes("flash-lite")
+      ? new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"document_type":"bon_fiscal","lines":[]}' }] } }] }), { status: 200 })
+      : new Response(JSON.stringify({ error: { status: "UNAVAILABLE", message: "high demand" } }), { status: 503 });
+  }) as unknown as typeof fetch;
+  assert.deepEqual(await extractWithGemini({ apiKey: "k", mime: "image/jpeg", base64: "AAAA", fetchImpl: busyThenLite, retryDelayMs: 1 }), { document_type: "bon_fiscal", lines: [] });
+  assert.deepEqual(urls.map((u) => u.replace(/^.*models\//, "").replace(":generateContent", "")), ["gemini-3.8-flash", "gemini-3.8-flash", "gemini-flash-latest", "gemini-flash-latest", "gemini-flash-lite-latest"]);
 });
