@@ -372,3 +372,10 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 - **Leírások:** a futár, kiszállítás, csomagolás, szabályok, portál és menü SPEC elején „Érvényes állapot” összefoglaló; a régi, ellentmondó szöveg elavult.
 - **Tesztek:** a megszűnt funkciók API-tesztjei (futár-összekapcsolás, csomagellenőrzés) törölve; a többi állapota: `tests/README.md`.
 - **Bizonylat-sorszámozás:** `src/modules/documents` – típusonként és évenként hézag nélküli sorozat (pl. NIR-2026-0001), a bizonylattal egy tranzakcióban. Új migráció: `0027_document_series`.
+
+## Beszállítói számla megerősítése és NIR — v72 (1. fázis)
+
+- Duplikált számla (ugyanaz a szállító + szám) nem vételezhető be kétszer; csak RON-os számla; kötelező fejléc; összegeltérés csak indoklással.
+- Fizetési határidő, ténylegesen átvett mennyiség soronként, szállító automatikus felvétele / párosítása CUI szerint.
+- **NIR** sorszámmal (NIR-2026-0001), román nyomtatási kép, recepciós bizottság a beállításokban; **NIR sztornó** (admin), ha a tételekből még semmi nem fogyott.
+- Új migráció: `0028_nir`.

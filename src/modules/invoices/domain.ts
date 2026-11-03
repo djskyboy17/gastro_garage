@@ -197,6 +197,8 @@ export type InvoiceLine = InvoiceLineAmounts & {
   skip: number;
   ingredientId: string | null;
   baseQuantity: number;
+  /** v72: ténylegesen átvett mennyiség alapegységben; null = a számlázott (baseQuantity). */
+  receivedQuantity?: number | null;
   expires: string;
   batch: string;
   lotId?: string | null;
@@ -214,7 +216,11 @@ export type InvoiceHeader = {
   sgrTotal: number;
   total: number | null;
   note: string;
+  /** v72: fizetési határidő (YYYY-MM-DD vagy üres). */
+  dueDate?: string;
 };
+/** v72: a számlához tartozó NIR-ek rövid adatai a listához. */
+export type InvoiceNir = { id: string; number: string; kind: "receipt" | "reversal"; status: "issued" | "reversed"; issueDate: string };
 export type Invoice = InvoiceHeader & {
   id: string;
   status: InvoiceStatus;
@@ -231,9 +237,15 @@ export type Invoice = InvoiceHeader & {
   createdBy: string;
   createdAt: string;
   lines: InvoiceLine[];
+  /** v72 */
+  supplierId?: string | null;
+  mismatchReason?: string;
+  nirs?: InvoiceNir[];
+  /** v72: más számlák (azonosító) ugyanazzal a szállító + széria/szám kulccsal. */
+  duplicates?: string[];
 };
 export type InvoiceMapping = { key: string; ingredientId: string; factor: number };
-export type InvoicesData = { invoices: Invoice[]; mappings: InvoiceMapping[]; costBasis: CostBasis; settingsRevision: number; aiEnabled: boolean };
+export type InvoicesData = { invoices: Invoice[]; mappings: InvoiceMapping[]; costBasis: CostBasis; settingsRevision: number; aiEnabled: boolean; nirCommittee?: string };
 
 /**
  * Összegellenőrzés: a sorok bruttó összege (az SGR-betét sorokkal együtt) és a végösszeg eltérése.
@@ -292,6 +304,7 @@ export function lineReceiveError(l: InvoiceLine, receivedDate: string, basis: Co
   if (l.skip) return null;
   if (!l.ingredientId) return "INVOICE_LINE_INGREDIENT";
   if (!(l.baseQuantity > 0)) return "INVOICE_LINE_QUANTITY";
+  if (l.receivedQuantity !== null && l.receivedQuantity !== undefined && (!Number.isInteger(l.receivedQuantity) || l.receivedQuantity < 0)) return "INVOICE_LINE_QUANTITY";
   if (!parseInvoiceDate(l.expires) || l.expires < receivedDate) return "INVOICE_LINE_EXPIRES";
   const cost = costOf(l, basis);
   if (cost === null || cost < 0) return "INVOICE_LINE_COST";
@@ -376,3 +389,98 @@ export function normalizeExtraction(raw: unknown): ExtractedInvoice {
     lines,
   };
 }
+
+// ——— v72: számla megerősítése és NIR ———
+
+/**
+ * Duplikátumkulcs: szállító adószáma (RO nélkül) + széria és szám (csak betűk és számok, nagybetűvel).
+ * A szám vezető nullái nem számítanak (0099 = 99): kézzel gyakran elhagyják, az AI megtartja.
+ * Üres, ha nincs adószám vagy szám – ilyenkor nem ellenőrizhető.
+ */
+export function duplicateKey(supplierTaxId: string, series: string, number: string): string {
+  const tax = normalizeTaxId(supplierTaxId).replace(/^RO/, "");
+  const clean = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const doc = clean(series) + "|" + clean(number).replace(/^0+(?=.)/, "");
+  return tax && /\d/.test(number) ? tax + "|" + doc : "";
+}
+
+/** Bevételezés előtti fejlécellenőrzés: kötelező mezők, csak RON, és tűrés feletti összegeltérés csak indoklással. */
+export function receiveHeaderError(h: InvoiceHeader, lines: InvoiceLineAmounts[], mismatchReason: string): string | null {
+  if (!h.supplierName.trim() || !h.supplierTaxId.trim() || !h.number.trim() || !parseInvoiceDate(h.issueDate) || h.total === null) return "INVOICE_HEADER_REQUIRED";
+  if (h.currency !== "RON") return "INVOICE_CURRENCY";
+  const check = totalsCheck(h, lines);
+  if (!check.ok && !mismatchReason.trim()) return "INVOICE_TOTAL_MISMATCH";
+  return null;
+}
+
+/** A ténylegesen átvett mennyiség (ha nincs külön megadva, a számlázott). */
+export const receivedOf = (l: Pick<InvoiceLine, "baseQuantity" | "receivedQuantity">) => (l.receivedQuantity === null || l.receivedQuantity === undefined ? l.baseQuantity : l.receivedQuantity);
+
+/** Arányos érték: a számlázott sorérték az átvett mennyiségre vetítve (egész banira kerekítve). */
+export function prorate(value: number | null, invoiced: number, received: number): number | null {
+  if (value === null) return null;
+  if (invoiced <= 0) return received === 0 ? 0 : value;
+  return Math.round((value * received) / invoiced);
+}
+
+/** NIR-sor pillanatképe. Mennyiség alapegységben; érték és TVA baniban. */
+export type NirLine = {
+  position: number;
+  description: string;
+  ingredientId: string;
+  ingredientName: string;
+  unit: string;
+  invoiced: number;
+  received: number;
+  value: number;
+  vat: number;
+  vatRate: number | null;
+  lotId: string | null;
+  batch: string;
+  expires: string;
+};
+export type NirContent = {
+  supplier: { name: string; taxId: string };
+  invoice: { kind: InvoiceKind; series: string; number: string; date: string; total: number | null; currency: string };
+  committee: string[];
+  costBasis: CostBasis;
+  receivedDate: string;
+  lines: NirLine[];
+  totals: { value: number; vat: number; gross: number };
+  reason?: string;
+};
+
+/** NIR-sor a számlasorból: érték a bekerülési alap szerint, TVA a bruttó és nettó különbsége – mindkettő az átvett mennyiségre vetítve. */
+export function nirLine(l: InvoiceLine, basis: CostBasis, ingredient: { name: string; unit: string }, lotId: string | null, batch: string): NirLine {
+  const received = receivedOf(l),
+    net = prorate(netOf(l), l.baseQuantity, received),
+    gross = prorate(grossOf(l), l.baseQuantity, received),
+    value = prorate(costOf(l, basis), l.baseQuantity, received) ?? 0;
+  return {
+    position: l.position,
+    description: l.description,
+    ingredientId: l.ingredientId ?? "",
+    ingredientName: ingredient.name,
+    unit: ingredient.unit,
+    invoiced: l.baseQuantity,
+    received,
+    value,
+    vat: net !== null && gross !== null ? gross - net : 0,
+    vatRate: l.vatRate,
+    lotId,
+    batch,
+    expires: l.expires,
+  };
+}
+export function nirTotals(lines: NirLine[]) {
+  const value = lines.reduce((s, l) => s + l.value, 0),
+    vat = lines.reduce((s, l) => s + l.vat, 0);
+  return { value, vat, gross: value + vat };
+}
+/** Sztornó-NIR tartalma: ugyanazok a sorok negatív mennyiséggel és értékkel. */
+export function reversalContent(original: NirContent, receivedDate: string, reason: string): NirContent {
+  const lines = original.lines.map((l) => ({ ...l, invoiced: -l.invoiced, received: -l.received, value: -l.value, vat: -l.vat }));
+  return { ...original, receivedDate, lines, totals: nirTotals(lines), reason };
+}
+/** Bizottság: soronként egy név, üres sorok nélkül, legfeljebb 10. */
+export const committeeNames = (text: string) => text.split(/\r?\n/).map((n) => n.trim()).filter(Boolean).slice(0, 10);

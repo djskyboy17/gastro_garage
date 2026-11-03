@@ -571,6 +571,12 @@ export const supplierInvoices = sqliteTable(
     hasFile: integer("has_file").notNull().default(0),
     note: text("note").notNull().default(""),
     costBasis: text("cost_basis").notNull().default(""),
+    /** v72: a beszállító-törzs sora (CUI szerint párosítva vagy bevételezéskor felvéve). */
+    supplierId: text("supplier_id").references(() => suppliers.id),
+    /** v72: fizetési határidő (scadență), YYYY-MM-DD vagy üres. */
+    dueDate: text("due_date").notNull().default(""),
+    /** v72: ha a sorok összege a tűrésnél jobban eltér a végösszegtől, csak indoklással vételezhető be. */
+    mismatchReason: text("mismatch_reason").notNull().default(""),
     receivedDate: text("received_date").notNull().default(""),
     receivedBy: text("received_by").notNull().default(""),
     receivedAt: text("received_at").notNull().default(""),
@@ -611,6 +617,8 @@ export const supplierInvoiceLines = sqliteTable(
     skip: integer("skip").notNull().default(0),
     ingredientId: text("ingredient_id").references(() => ingredients.id),
     baseQuantity: integer("base_quantity").notNull().default(0),
+    /** v72: ténylegesen átvett mennyiség alapegységben; üres = a számlázott (base_quantity). Eltérés a NIR-en látszik. */
+    receivedQuantity: integer("received_quantity"),
     expires: text("expires").notNull().default(""),
     batch: text("batch").notNull().default(""),
     lotId: text("lot_id").references(() => stockLots.id),
@@ -633,6 +641,8 @@ export const purchaseSettings = sqliteTable(
   {
     id: integer("id").primaryKey(),
     costBasis: text("cost_basis").notNull().default("net"),
+    /** v72: a recepciós bizottság tagjai (soronként egy név), a NIR-re pillanatképként kerül. */
+    nirCommittee: text("nir_committee").notNull().default(""),
     revision: integer("revision").notNull().default(0),
   },
   (t) => [
@@ -658,5 +668,34 @@ export const documentSeries = sqliteTable(
   (t) => [
     uniqueIndex("document_series_type_year").on(t.docType, t.year),
     check("document_series_next", sql`${t.nextNumber}>=1`),
+  ],
+);
+
+/**
+ * NIR – Notă de intrare-recepție (v72). A beszállítói számla bevételezésekor keletkezik, sorszámmal (document_series: nir).
+ * Pillanatkép: szállító, számla, bizottság, sorok (számlázott / átvett mennyiség, érték, TVA, raktártétel). Végleges:
+ * nem módosítható és nem törölhető; sztornó-NIR-rel (negatív sorok) érvényteleníthető, ami a raktári tételt is visszaveszi.
+ */
+export const nirDocuments = sqliteTable(
+  "nir_documents",
+  {
+    id: text("id").primaryKey(),
+    invoiceId: text("invoice_id").notNull().references(() => supplierInvoices.id),
+    year: integer("year").notNull(),
+    number: integer("number").notNull(),
+    kind: text("kind").notNull().default("receipt"),
+    status: text("status").notNull().default("issued"),
+    reversalOf: text("reversal_of"),
+    reversedBy: text("reversed_by"),
+    issueDate: text("issue_date").notNull(),
+    content: text("content").notNull(),
+    createdBy: text("created_by").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("nir_number").on(t.year, t.number),
+    index("nir_invoice").on(t.invoiceId),
+    check("nir_kind", sql`${t.kind} IN ('receipt','reversal')`),
+    check("nir_status", sql`${t.status} IN ('issued','reversed')`),
   ],
 );

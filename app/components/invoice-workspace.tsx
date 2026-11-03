@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Camera, FileUp, PenLine, RefreshCw, ArrowLeft, Save, PackageCheck, Trash2, AlertTriangle, CheckCircle2, ExternalLink } from "lucide-react";
+import { Camera, FileUp, PenLine, RefreshCw, ArrowLeft, Save, PackageCheck, Trash2, AlertTriangle, CheckCircle2, ExternalLink, Printer, Undo2 } from "lucide-react";
 import { messages } from "@/src/modules/shared/i18n";
 import { today, type Language } from "@/src/modules/shared/domain";
 import type { Ingredient } from "@/src/modules/inventory/domain";
@@ -15,6 +15,7 @@ import {
   baseQuantityOf,
   costOf,
   grossOf,
+  prorate,
   totalsCheck,
   type CostBasis,
   type Invoice,
@@ -35,6 +36,8 @@ type FormLine = {
   skip: 0 | 1;
   ingredientId: string;
   baseQuantity: string;
+  /** v72: ténylegesen átvett mennyiség (üres = a számlázott). */
+  receivedQuantity: string;
   expires: string;
   batch: string;
 };
@@ -51,6 +54,7 @@ type Form = {
   sgrTotal: string;
   total: string;
   note: string;
+  dueDate: string;
   lines: FormLine[];
 };
 
@@ -72,6 +76,7 @@ function toForm(i: Invoice): Form {
     sgrTotal: moneyText(i.sgrTotal),
     total: moneyText(i.total),
     note: i.note,
+    dueDate: i.dueDate ?? "",
     lines: i.lines.map((l) => ({
       id: l.id,
       description: l.description,
@@ -84,12 +89,13 @@ function toForm(i: Invoice): Form {
       skip: l.skip ? 1 : 0,
       ingredientId: l.ingredientId ?? "",
       baseQuantity: l.baseQuantity ? String(l.baseQuantity) : "",
+      receivedQuantity: l.receivedQuantity === null || l.receivedQuantity === undefined ? "" : String(l.receivedQuantity),
       expires: l.expires,
       batch: l.batch,
     })),
   };
 }
-const emptyLine = (): FormLine => ({ id: crypto.randomUUID(), description: "", quantity: "1", invoiceUnit: "kg", lineNet: "", vatRate: "", lineGross: "", deposit: 0, skip: 0, ingredientId: "", baseQuantity: "", expires: "", batch: "" });
+const emptyLine = (): FormLine => ({ id: crypto.randomUUID(), description: "", quantity: "1", invoiceUnit: "kg", lineNet: "", vatRate: "", lineGross: "", deposit: 0, skip: 0, ingredientId: "", baseQuantity: "", receivedQuantity: "", expires: "", batch: "" });
 
 /** Pénzmező: üres → null; érvénytelen → hiba (a mentés nem megy tovább). */
 function money(value: string, field: string, required = false): number | null {
@@ -117,6 +123,7 @@ function toBody(id: string, revision: number, f: Form) {
     sgrTotal: money(f.sgrTotal, "sgrTotal") ?? 0,
     total: money(f.total, "total"),
     note: f.note.trim(),
+    dueDate: f.dueDate,
     lines: f.lines.map((l) => {
       const quantity = parseQuantity(l.quantity || "0");
       const vatRate = l.vatRate.trim() ? parseVatRate(l.vatRate) : null;
@@ -124,6 +131,8 @@ function toBody(id: string, revision: number, f: Form) {
       if (quantity === null || quantity < 0) throw new Error("quantity");
       if (l.vatRate.trim() && vatRate === null) throw new Error("vatRate");
       if (base === null || base < 0) throw new Error("baseQuantity");
+      const received = l.receivedQuantity.trim() ? parseQuantity(l.receivedQuantity) : null;
+      if (l.receivedQuantity.trim() && (received === null || received < 0)) throw new Error("receivedQuantity");
       return {
         id: l.id,
         description: l.description.trim(),
@@ -136,6 +145,7 @@ function toBody(id: string, revision: number, f: Form) {
         skip: l.skip,
         ingredientId: l.ingredientId || null,
         baseQuantity: Math.round(base / 1000),
+        receivedQuantity: received === null ? null : Math.round(received / 1000),
         expires: l.expires,
         batch: l.batch.trim(),
       };
@@ -203,6 +213,8 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
     [dirty, setDirty] = useState(false),
     [receivedDate, setReceivedDate] = useState(today()),
     [allExpires, setAllExpires] = useState(""),
+    [mismatchReason, setMismatchReason] = useState(""),
+    [committee, setCommittee] = useState<string | null>(null),
     [errorField, setErrorField] = useState(""),
     [retryFile, setRetryFile] = useState<string | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null),
@@ -241,6 +253,7 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
     setSuccess("");
     setReceivedDate(today());
     setAllExpires("");
+    setMismatchReason("");
   };
 
   async function post(path: string, body: unknown) {
@@ -321,7 +334,7 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
       const invoice = dirty || action === "save" ? await save() : selected;
       if (!invoice) return;
       if (action === "receive") {
-        await post("receive", { id: invoice.id, revision: invoice.revision, receivedDate });
+        await post("receive", { id: invoice.id, revision: invoice.revision, receivedDate, mismatchReason: mismatchReason.trim() });
         const fresh = await load();
         const done = fresh?.invoices.find((i) => i.id === invoice.id);
         if (done) open(done);
@@ -334,12 +347,34 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
       setBusy(false);
     }
   }
-  async function saveBasis(costBasis: CostBasis) {
+  /** v72: NIR sztornó (admin): indoklás kell; a számla újra piszkozat lesz, a raktári tételek visszakerülnek. */
+  async function reverse() {
+    if (!selected) return;
+    const reason = window.prompt(t("invoiceReversePrompt"))?.trim();
+    if (!reason) return;
+    setBusy(true);
+    setError("");
+    setSuccess("");
+    try {
+      await post("reverse", { id: selected.id, revision: selected.revision, reason });
+      const fresh = await load();
+      const again = fresh?.invoices.find((i) => i.id === selected.id);
+      if (again) open(again);
+      onReceived();
+      setSuccess("invoiceReversedOk");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "saveError");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function saveBasis(costBasis: CostBasis, nirCommittee?: string) {
     if (!data) return;
     setBusy(true);
     setError("");
     try {
-      await post("settings", { revision: data.settingsRevision, costBasis });
+      await post("settings", { revision: data.settingsRevision, costBasis, ...(nirCommittee !== undefined ? { nirCommittee } : {}) });
+      setCommittee(null);
       await load();
       setSuccess("invoiceSettingsSaved");
     } catch (e) {
@@ -422,6 +457,11 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
               </select>
             </label>
             <small>{t("invoiceCostBasisHint")}</small>
+            <label className="invoice-committee">
+              {t("invoiceCommittee")}
+              <textarea value={committee ?? data.nirCommittee ?? ""} rows={3} maxLength={1000} disabled={busy} placeholder={t("invoiceCommitteeHint")} onChange={(e) => setCommittee(e.target.value)} />
+            </label>
+            {committee !== null && <button type="button" className="button secondary" disabled={busy} onClick={() => void saveBasis(data.costBasis, committee)}>{t("invoiceSave")}</button>}
           </div>
         )}
         {data && !data.invoices.length && <p className="quiet-empty">{t("invoiceEmpty")}</p>}
@@ -447,7 +487,7 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
                       </button>
                       <small>{t(i.kind === "bon_fiscal" ? "invoiceKindBon" : "invoiceKindFactura")}{i.source === "ai" ? " · AI" : ""}</small>
                     </td>
-                    <td>{[i.series, i.number].filter(Boolean).join(" ") || "—"}</td>
+                    <td>{[i.series, i.number].filter(Boolean).join(" ") || "—"}{i.nirs?.some((n) => n.kind === "receipt" && n.status === "issued") && <small>{i.nirs.filter((n) => n.kind === "receipt" && n.status === "issued").map((n) => n.number).join(", ")}</small>}</td>
                     <td className="number">{ron(i.total)}</td>
                     <td><span className={"badge " + (i.status === "received" ? "delivered" : "pending")}>{t(i.status === "received" ? "invoiceStatusReceived" : "invoiceStatusDraft")}</span></td>
                   </tr>
@@ -466,7 +506,15 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
   const check = totalsCheck(header, form.lines.map(lineAmounts));
   const taxWarning = form.supplierTaxId.trim() && !validTaxId(form.supplierTaxId.trim().toUpperCase());
   const receivable = form.lines.filter((l) => !l.skip);
-  const stockValue = receivable.reduce((s, l) => s + (costOf(lineAmounts(l), basis) ?? 0), 0);
+  const duplicates = (selected.duplicates ?? []).map((id) => data?.invoices.find((i) => i.id === id)).filter((i): i is Invoice => !!i);
+  const nirs = selected.nirs ?? [];
+  // v72: a raktárba kerülő érték az átvett mennyiségre vetítve (ha az eltér a számlázottól).
+  const stockCost = (l: FormLine) => {
+    const base = parseQuantity(l.baseQuantity || "0") ?? 0,
+      received = l.receivedQuantity.trim() ? (parseQuantity(l.receivedQuantity) ?? base) : base;
+    return prorate(costOf(lineAmounts(l), basis), base, received);
+  };
+  const stockValue = receivable.reduce((s, l) => s + (stockCost(l) ?? 0), 0);
   const field = (key: keyof Form, label: string, props: Record<string, unknown> = {}) => (
     <label>
       {label}
@@ -485,6 +533,24 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
       </div>
       {errorText && <div className="portal-alert" role="alert"><AlertTriangle size={18} /><span>{errorText}{error === "INVOICE_FORM_NUMBER" && errorField ? " (" + t("invoiceField_" + errorField) + ")" : ""}</span></div>}
       {success && <p className="portal-success" role="status"><CheckCircle2 size={18} />{t(success)}</p>}
+      {!readonly && (selected.duplicates ?? []).length > 0 && (
+        <div className="portal-alert" role="alert"><AlertTriangle size={18} /><span>{t("invoiceDuplicateWarning")}{duplicates.length ? ": " + duplicates.map((i) => (i.issueDate || i.createdAt.slice(0, 10)) + " · " + t(i.status === "received" ? "invoiceStatusReceived" : "invoiceStatusDraft")).join("; ") : ""}</span></div>
+      )}
+      {!readonly && form.currency.trim().toUpperCase() !== "RON" && <div className="portal-alert" role="alert"><AlertTriangle size={18} /><span>{t("INVOICE_CURRENCY")}</span></div>}
+      {nirs.length > 0 && (
+        <div className="invoice-nirs panel">
+          <strong>{t("invoiceNirs")}</strong>
+          {nirs.map((n) => (
+            <span key={n.id} className={"invoice-nir" + (n.status === "reversed" ? " reversed" : "")}>
+              <a href={"/api/invoices/nir?id=" + n.id} target="_blank" rel="noreferrer"><Printer size={14} />{n.number}</a>
+              <small>{n.issueDate} · {t(n.kind === "reversal" ? "invoiceNirReversal" : n.status === "reversed" ? "invoiceNirReversed" : "invoiceNirIssued")}</small>
+            </span>
+          ))}
+          {isAdmin && readonly && nirs.some((n) => n.kind === "receipt" && n.status === "issued") && (
+            <button type="button" className="danger-button" disabled={busy} onClick={() => void reverse()}><Undo2 size={15} />{t("invoiceReverse")}</button>
+          )}
+        </div>
+      )}
       <div className="invoice-detail">
         <div className="invoice-file panel">
           {selected.hasFile ? (
@@ -528,6 +594,11 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
               {field("vatTotal", t("invoiceVat"), { inputMode: "decimal" })}
               {field("sgrTotal", t("invoiceSgr"), { inputMode: "decimal" })}
               {field("total", t("invoiceTotal"), { inputMode: "decimal" })}
+              {field("currency", t("invoiceCurrency"), { maxLength: 3 })}
+              <label>
+                {t("invoiceDueDate")}
+                <input type="date" value={form.dueDate} disabled={readonly || busy} onChange={(e) => update({ dueDate: e.target.value })} />
+              </label>
             </div>
             {!check.ok && check.difference !== null && (
               <p className="invoice-warning"><AlertTriangle size={15} />{t("invoiceTotalsMismatch")}: {ron(check.linesTotal)} / {ron(header.total)} ({ron(check.difference)})</p>
@@ -548,7 +619,7 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
             </div>
             {form.lines.map((l, index) => {
               const amounts = lineAmounts(l);
-              const cost = costOf(amounts, basis);
+              const cost = stockCost(l);
               const lot = selected.lines.find((s) => s.id === l.id)?.lotId;
               return (
                 <div className={"invoice-line" + (l.skip ? " skipped" : "")} key={l.id}>
@@ -582,6 +653,7 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
                         </select>
                       </label>
                       <label>{t("invoiceBaseQuantity")}{l.ingredientId ? " (" + unitLabel(l.ingredientId) + ")" : ""}<input value={l.baseQuantity} inputMode="numeric" disabled={readonly || busy} onChange={(e) => updateLine(l.id, { baseQuantity: e.target.value })} /></label>
+                      <label>{t("invoiceReceivedQuantity")}<input value={l.receivedQuantity} inputMode="numeric" placeholder={l.baseQuantity} disabled={readonly || busy} onChange={(e) => updateLine(l.id, { receivedQuantity: e.target.value })} /></label>
                       <label>{t("invoiceExpires")}<input type="date" value={l.expires} disabled={readonly || busy} onChange={(e) => updateLine(l.id, { expires: e.target.value })} /></label>
                       <label>{t("invoiceBatch")}<input value={l.batch} maxLength={100} placeholder={form.series + form.number} disabled={readonly || busy} onChange={(e) => updateLine(l.id, { batch: e.target.value })} /></label>
                       <p className="invoice-cost">{t(basis === "net" ? "invoiceCostNet" : "invoiceCostGross")}: <b>{ron(cost)}</b>{lot ? " · " + t("invoiceLotCreated") : ""}</p>
@@ -608,13 +680,19 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
               <p className="ops-note">{t("invoiceReceivedOn")}: {selected.receivedDate}</p>
             ) : (
               <div className="invoice-buttons">
+                {!check.ok && (
+                  <label className="invoice-reason">
+                    {t("invoiceMismatchReason")}
+                    <input value={mismatchReason} maxLength={500} disabled={busy} placeholder={t("invoiceMismatchReasonHint")} onChange={(e) => setMismatchReason(e.target.value)} />
+                  </label>
+                )}
                 <label>
                   {t("invoiceReceivedDate")}
                   <input type="date" value={receivedDate} max={today()} disabled={busy} onChange={(e) => setReceivedDate(e.target.value)} />
                 </label>
                 <button type="button" className="button secondary" disabled={busy} onClick={() => void run("save")}><Save size={17} />{t("invoiceSave")}</button>
                 <button type="button" className="button" disabled={busy || !receivable.length} onClick={() => void run("receive")}><PackageCheck size={17} />{t("invoiceReceive")}</button>
-                <button type="button" className="danger-button" disabled={busy} onClick={() => void run("discard")}><Trash2 size={15} />{t("invoiceDiscard")}</button>
+                {!nirs.length && <button type="button" className="danger-button" disabled={busy} onClick={() => void run("discard")}><Trash2 size={15} />{t("invoiceDiscard")}</button>}
               </div>
             )}
           </section>

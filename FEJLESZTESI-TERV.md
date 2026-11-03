@@ -29,7 +29,7 @@ Ellenőrzött hiányosságok a meglévő részekben:
 - **SPEC- és tesztkarbantartás:** a megszűnt szabályok (futár-összekapcsolás, csomagellenőrzés, idősávok, irányítószám) kivezetése a leírásokból; az elavult `tests/*-api.mjs` API-tesztek frissítése vagy törlése.
 - **Közös sorszámozás** (`numbering`): sorozat, következő szám, éves újrakezdés, tranzakcióban kiosztva. Ez minden további bizonylat alapja.
 
-### 1. Beszállítói számla megerősítése + NIR (közepes, 2–3 munkamenet)
+### 1. Beszállítói számla megerősítése + NIR (közepes, 2–3 munkamenet) — ✅ kész (v72), a beszerzési rendeléshez párosítás nélkül
 - **Üzleti duplikáció:** szállító CUI + széria + szám alapján figyelmeztetés feltöltéskor, tiltás a második bevételezésnél.
 - **Pénznem:** egyelőre csak RON bevételezhető. Más pénznem esetén tiltás, később dátumozott árfolyam.
 - **Bevételezés feltételei:** szállító, adószám, szám, dátum és végösszeg kötelező. Tűrés feletti összegeltérésnél csak indoklással lehessen bevételezni.

@@ -190,3 +190,55 @@ test("When the configured model stays overloaded, the next Flash models are trie
   assert.deepEqual(await extractWithGemini({ apiKey: "k", mime: "image/jpeg", base64: "AAAA", fetchImpl: busyThenLite, retryDelayMs: 1 }), { document_type: "bon_fiscal", lines: [] });
   assert.deepEqual(urls.map((u) => u.replace(/^.*models\//, "").replace(":generateContent", "")), ["gemini-3.8-flash", "gemini-3.8-flash", "gemini-flash-latest", "gemini-flash-latest", "gemini-flash-lite-latest"]);
 });
+
+// @ts-ignore Node native type stripping
+import { duplicateKey, receiveHeaderError, receivedOf, prorate, nirLine, nirTotals, reversalContent, committeeNames, type NirContent } from "../src/modules/invoices/domain.ts";
+// @ts-ignore Node native type stripping
+import { renderNirHtml } from "../src/modules/invoices/nir-print.ts";
+
+test("Duplicate key: same supplier CUI (with or without RO) and same series+number", () => {
+  assert.equal(duplicateKey("RO18547290", "MCC", "000123"), duplicateKey("18547290", "mcc", "000-123"));
+  assert.equal(duplicateKey("RO18547290", "E2E", "0099"), duplicateKey("18547290", "e2e", "99"));
+  assert.notEqual(duplicateKey("RO18547290", "MCC", "000123"), duplicateKey("RO18547290", "MCC", "000124"));
+  assert.notEqual(duplicateKey("RO18547290", "A", "1"), duplicateKey("RO18547290", "", "A1"));
+  assert.equal(duplicateKey("", "MCC", "1"), "");
+  assert.equal(duplicateKey("RO18547290", "", ""), "");
+});
+
+test("Receiving needs the header, RON, and a reason when totals do not match", () => {
+  const h = { kind: "factura" as const, supplierName: "Metro", supplierTaxId: "RO18547290", series: "MCC", number: "1", issueDate: "2026-11-03", currency: "RON", subtotal: 1000, vatTotal: 110, sgrTotal: 0, total: 1110, note: "" };
+  const lines = [{ lineNet: 1000, lineGross: null, vatRate: 1100 }];
+  assert.equal(receiveHeaderError(h, lines, ""), null);
+  assert.equal(receiveHeaderError({ ...h, supplierTaxId: "" }, lines, ""), "INVOICE_HEADER_REQUIRED");
+  assert.equal(receiveHeaderError({ ...h, issueDate: "" }, lines, ""), "INVOICE_HEADER_REQUIRED");
+  assert.equal(receiveHeaderError({ ...h, currency: "EUR" }, lines, ""), "INVOICE_CURRENCY");
+  assert.equal(receiveHeaderError({ ...h, total: 2000 }, lines, ""), "INVOICE_TOTAL_MISMATCH");
+  assert.equal(receiveHeaderError({ ...h, total: 2000 }, lines, "hiányzó tétel, jóváírást kértünk"), null);
+});
+
+test("NIR line: received quantity drives stock value and VAT; difference stays visible; reversal negates", () => {
+  const line = { id: "l", position: 1, description: "PIEPT PUI", invoiceQuantity: 2000, invoiceUnit: "kg", lineNet: 5000, vatRate: 1100, lineGross: null, deposit: 0, skip: 0, ingredientId: "chicken", baseQuantity: 2000, receivedQuantity: 1500, expires: "2026-11-10", batch: "" };
+  assert.equal(receivedOf(line), 1500);
+  assert.equal(receivedOf({ ...line, receivedQuantity: null }), 2000);
+  assert.equal(prorate(5000, 2000, 1500), 3750);
+  const n = nirLine(line, "net", { name: "Piept de pui", unit: "g" }, "lot1", "MCC1");
+  assert.equal(n.invoiced, 2000);
+  assert.equal(n.received, 1500);
+  assert.equal(n.value, 3750);
+  assert.equal(n.vat, 413);
+  assert.deepEqual(nirTotals([n]), { value: 3750, vat: 413, gross: 4163 });
+  assert.equal(nirLine(line, "gross", { name: "x", unit: "g" }, null, "").value, 4163);
+  const content: NirContent = { supplier: { name: "Metro", taxId: "RO18547290" }, invoice: { kind: "factura", series: "MCC", number: "1", date: "2026-11-03", total: 5550, currency: "RON" }, committee: committeeNames("Kiss Anna\n\n Nagy Béla "), costBasis: "net", receivedDate: "2026-11-03", lines: [n], totals: nirTotals([n]) };
+  assert.deepEqual(content.committee, ["Kiss Anna", "Nagy Béla"]);
+  const r = reversalContent(content, "2026-11-04", "hibás bevételezés");
+  assert.equal(r.lines[0]!.received, -1500);
+  assert.equal(r.totals.value, -3750);
+  assert.equal(r.reason, "hibás bevételezés");
+  const html = renderNirHtml(content, "NIR-2026-0001");
+  assert.match(html, /NOTĂ DE INTRARE-RECEPȚIE/);
+  assert.match(html, /NIR-2026-0001/);
+  assert.match(html, /Kiss Anna/);
+  assert.match(html, /1,5/);
+  assert.match(renderNirHtml(r, "NIR-2026-0002", { reversalOf: "NIR-2026-0001" }), /STORNO la NIR-2026-0001/);
+  assert.doesNotMatch(renderNirHtml({ ...content, supplier: { name: "<script>x</script>", taxId: "" } }, "N"), /<script>x/);
+});

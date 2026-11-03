@@ -54,3 +54,14 @@
   .invoice-line-grid.stock{grid-template-columns:1.8fr 1fr 1.35fr 1fr}
   .invoice-line-grid.stock .wide{grid-column:auto}
 }
+
+/* v72: NIR-ek, bizottság, eltérés oka */
+.invoice-nirs{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:12px 14px}
+.invoice-nir{display:flex;flex-direction:column}
+.invoice-nir a{display:inline-flex;align-items:center;gap:6px;font-weight:700;color:#2d4933}
+.invoice-nir small{color:#7a8a6b;font-size:12px}
+.invoice-nir.reversed a{text-decoration:line-through;color:#9c4c3c}
+.invoice-nirs .danger-button{margin-left:auto}
+.invoice-committee{flex-direction:column!important;align-items:stretch!important;width:100%}
+.invoice-committee textarea{width:100%;border:1px solid #dfe6d6;border-radius:6px;padding:7px 9px;background:#fff;font-size:14px}
+.invoice-reason{flex:1 1 260px}

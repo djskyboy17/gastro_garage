@@ -42,3 +42,14 @@ A Beszerzés „Számlák” lapja. Román Factură és Bon Fiscal fotóról vag
 - Időkeret összesen 40 másodperc (mért: egy számla kb. 5 mp alacsony gondolkodással).
 - A Google hibakódja és üzenete, valamint a sikeres hívás ideje a Worker naplójába kerül (`wrangler tail`); a kulcs soha.
 - A többsoros megnevezés egy sorba kerül (sortörés és többszörös szóköz → egy szóköz).
+
+## Számla megerősítése és NIR — v72 (fejlesztési terv 1. fázis)
+- **Duplikátum:** kulcs = szállító adószáma (RO nélkül) + széria + szám (csak betű/szám, nagybetű, a szám vezető nullái nélkül: 0099 = 99). Az átnézésnél figyelmeztetés, ha más számlán is szerepel; **bevételezéskor tiltás**, ha egy bevételezett számlán már szerepel (`INVOICE_DUPLICATE`).
+- **Bevételezés feltételei:** szállító, CUI, szám, dátum és végösszeg kötelező (`INVOICE_HEADER_REQUIRED`); csak RON (`INVOICE_CURRENCY`); tűrés feletti összegeltérés csak indoklással (`INVOICE_TOTAL_MISMATCH`), az ok a számlán és a NIR-en is megmarad.
+- **Fizetési határidő** (`due_date`) a fejlécben (a pénzügyi fázishoz).
+- **Szállítótörzs:** bevételezéskor a számla a beszállítóhoz kötődik CUI szerint; ha nincs ilyen, a rendszer felveszi (név + CUI, megjegyzés: „Számlából felvéve”).
+- **Átvett mennyiség** soronként (ha eltér a számlázottól): a raktárba az átvett mennyiség kerül, az érték arányosan; az eltérés a NIR-en látszik. 0 átvett → nincs raktártétel, de a NIR-en szerepel.
+- **NIR** (`nir_documents`): a bevételezéssel egy kötegben, sorszámmal (NIR-ÉV-szám, a `documents` sorozatból). Pillanatkép: szállító, számla, bizottság (Beállítás: soronként egy név), értékelés (nettó/bruttó), sorok (számlázott / átvett / eltérés, egységár, érték, TVA, tétel, lejárat), összesen. Nyomtatás: `GET /api/invoices/nir?id=` – román HTML, böngészőből PDF. A saját cég neve még nincs rajta (cégadatok: számlázási fázis).
+- **NIR sztornó** (`POST /api/invoices/reverse {id, revision, reason}`, csak admin): csak ha a bevételezett tételekből még semmi nem fogyott és nem volt leltárkorrekció (`INVOICE_LOTS_USED`). Egy kötegben: sztornó-NIR (új szám, negatív sorok, „STORNO la …”), az eredeti NIR „sztornózva”, a raktári tételek nullázva (`receipt_reversal` mozgás), a számla újra piszkozat (javítható, újra bevételezhető új NIR-rel).
+- **Bizonylat nem törölhető:** NIR-rel rendelkező számla nem vethető el (`INVOICE_HAS_NIR`).
+- Nem része: beszerzési rendeléshez párosítás (később), nem RON-os bevételezés árfolyammal.
