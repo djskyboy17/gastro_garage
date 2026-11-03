@@ -8,6 +8,7 @@ import {loadStocktakes,handleStocktake,StocktakeError} from '@/src/modules/stock
 import {loadMenu,publicMenu,publicMenuBoard,saveMenu,saveMenuSettings,MenuError} from '@/src/modules/menu/server';
 import {handleInvoices,InvoiceError} from "@/src/modules/invoices/server";
 import {handleProduction,ProductionError} from "@/src/modules/production/server";
+import {handleDeliveryNotes,DeliveryNoteError,hasActiveNote,cancelOrderWithNote} from "@/src/modules/delivery-notes/server";
 import { env } from "cloudflare:workers";
 import { currentUser, handleAuth, AuthError } from "@/src/modules/auth/server";
 import { sessionFor, handleAccess, loadMembers, AccessError } from "@/src/modules/access/server";
@@ -114,6 +115,11 @@ async function handle(req: Request, write: boolean) {
       return await handleInvoices(path,body,session,write,req);
     }
     // v73: gyártási tételek és bon de consum (csak admin; a modul ellenőrzi).
+    // v75: aviz de însoțire a mărfii (a modul ellenőrzi a szerepköröket).
+    if(path==="/api/delivery-notes"||path.startsWith("/api/delivery-notes/")){
+      let body:unknown;if(write){const raw=await req.text();if(raw.length>20000)return json({error:"TOO_LARGE"},413);body=JSON.parse(raw);}
+      return await handleDeliveryNotes(path,body,session,write,req);
+    }
     if(path==="/api/production"||path.startsWith("/api/production/")){
       let body:unknown;if(write){const raw=await req.text();if(raw.length>100000)return json({error:"TOO_LARGE"},413);body=JSON.parse(raw);}
       return await handleProduction(path,body,session,write,req);
@@ -540,6 +546,11 @@ async function handle(req: Request, write: boolean) {
       // v50: főzés előtti lemondás = végleges törlés (rendelés, tételek, kapcsolódó sorok és napló is).
       // A nextState már ellenőrizte, hogy a főzés és a kiszállítás még nem kezdődött el.
       if (d.field === "status" && d.value === "cancelled") {
+        // v75: avizos rendelés nem törölhető véglegesen: lemondott állapot + sztornó-aviz.
+        if (await hasActiveNote(d.id)) {
+          if (!(await cancelOrderWithNote(d.id, d.revision, actor, d.note || "comandă anulată"))) return json({ error: "CONFLICT" }, 409);
+          return json({ ok: true, deleted: false });
+        }
         const deleted = await hardDeleteOrder(
           d.id,
           "EXISTS (SELECT 1 FROM orders WHERE id=? AND revision=? AND status IN ('requested','confirmed') AND production='queued' AND delivery='pending')",
@@ -596,6 +607,7 @@ async function handle(req: Request, write: boolean) {
     if (e instanceof PurchaseError) return json({ error: e.code }, e.status);
     if (e instanceof InvoiceError) return json({ error: e.code }, e.status);
     if (e instanceof ProductionError) return json({ error: e.code }, e.status);
+    if (e instanceof DeliveryNoteError) return json({ error: e.code }, e.status);
     if (e instanceof OperationError) return json({ error: e.code }, e.status);
     if (e instanceof z.ZodError || e instanceof SyntaxError)
       return json({ error: "VALIDATION" }, 400);

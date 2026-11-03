@@ -74,6 +74,8 @@ export type Item = {
   setGroup?: string;
 };
 export type Order = {
+  /** v75: az iroda avizt kért ehhez a rendeléshez. */
+  deliveryNoteRequired?: number;
   packingItems?:string;
   packingReady?:number;
   packingCheckedAt?:string;

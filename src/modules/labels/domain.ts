@@ -89,6 +89,8 @@ export function anyFrozen(nodes: LabelNode[]): boolean {
 export type MissingLabelData = "recipe" | "nutrition" | "shelfLife" | "storage" | "producer";
 export type ConsumerLabel = {
   itemId: string;
+  /** v75: a címke egyedi kulcsa – ha egy rendelési tétel két gyártási tételre esik, két címke készül ugyanazzal az itemId-vel. */
+  key: string;
   productId: string;
   orderCode: string;
   /** Ennyi példány kell (adagonként egy). */
@@ -109,7 +111,7 @@ export type ConsumerLabel = {
   url: string;
   missing: MissingLabelData[];
 };
-export type PublicLabel = Omit<ConsumerLabel, "orderCode" | "copies" | "missing" | "url" | "productId">;
+export type PublicLabel = Omit<ConsumerLabel, "orderCode" | "copies" | "missing" | "url" | "productId" | "key">;
 
 export function consumerLabel(input: {
   item: { id: string; productId: string; hu: string; ro: string; allergens: string; quantity: number };
@@ -140,6 +142,7 @@ export function consumerLabel(input: {
   if (!settings.producerName || !settings.producerAddress) missing.push("producer");
   return {
     itemId: item.id,
+    key: item.id + ":" + lotCode(input.date, item.productId) + (input.batch ? ":" + input.batch.code : ""),
     productId: item.productId,
     orderCode: input.orderCode,
     copies: item.quantity,

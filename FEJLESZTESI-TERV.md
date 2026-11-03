@@ -53,7 +53,7 @@ Ellenőrzött hiányosságok a meglévő részekben:
 - **Napi egyeztetés:** gyártott = eladott + készleten + selejt + egyéb kiadás.
 - *Elfogadás:* 100 adag gyártva, 80 eladva, 15 készleten, 5 selejt → az egyenleg egyezik, az alapanyag nem fogy újra.
 
-### 4. Aviz (közepes, 2 munkamenet)
+### 4. Aviz (közepes, 2 munkamenet) — ✅ kész (v75), részletek: src/modules/delivery-notes/SPEC.md; kinek kell: beállítható, a könyvelővel egyeztetendő
 - **Aviz de însoțire a mărfii:** sorszámozott, kiszállításonként és ügyfelenként, tételekkel és gyártási tétellel. Átadás rögzítése, részszállítás, nyomtatás.
 - A rendelés lemondása aviz után már sztornó, nem törlés.
 - Kapcsolat a későbbi számlához (egy számla több avizt összevonhat).

@@ -58,6 +58,8 @@ export const orders = sqliteTable("orders", {
   reviewNote: text("review_note").notNull().default(""),
   courierName: text("courier_name").notNull().default(""),
   courierPhone: text("courier_phone").notNull().default(""),
+  /** v75: az iroda kérte, hogy ehhez a rendeléshez aviz készüljön. */
+  deliveryNoteRequired: integer("delivery_note_required").notNull().default(0),
   id: text("id").primaryKey(),
   customerId: text("customer_id")
     .notNull()
@@ -849,4 +851,47 @@ export const productionDocuments = sqliteTable(
     check("production_document_kind", sql`${t.kind} IN ('issue','reversal')`),
     check("production_document_status", sql`${t.status} IN ('issued','reversed')`),
   ],
+);
+
+/**
+ * Aviz de însoțire a mărfii (v75): rendelésenként legfeljebb egy érvényes (kiállított, nem sztornózott) aviz, sorszámmal
+ * (document_series: delivery_note). Pillanatkép: szállító, vevő, tételek gyártási tétellel, ár nélkül. Végleges: csak
+ * sztornó-avizzal érvényteleníthető. Az invoice_id-t az 5. fázis (számlázás) tölti ki.
+ */
+export const deliveryNotes = sqliteTable(
+  "delivery_notes",
+  {
+    id: text("id").primaryKey(),
+    orderId: text("order_id").notNull().references(() => orders.id),
+    year: integer("year").notNull(),
+    number: integer("number").notNull(),
+    kind: text("kind").notNull().default("issue"),
+    status: text("status").notNull().default("issued"),
+    reversalOf: text("reversal_of"),
+    reversedBy: text("reversed_by"),
+    issueDate: text("issue_date").notNull(),
+    day: text("day").notNull(),
+    content: text("content").notNull(),
+    invoiceId: text("invoice_id"),
+    createdBy: text("created_by").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("delivery_note_number").on(t.year, t.number),
+    uniqueIndex("delivery_note_one_active").on(t.orderId).where(sql`${t.kind}='issue' AND ${t.status}='issued'`),
+    index("delivery_note_day").on(t.day),
+    check("delivery_note_kind", sql`${t.kind} IN ('issue','reversal')`),
+    check("delivery_note_status", sql`${t.status} IN ('issued','reversed')`),
+  ],
+);
+
+/** Aviz-beállítás (egyetlen sor, v75): minden kiszállításhoz készüljön-e aviz. [ELLENŐRIZENDŐ] a könyvelővel – alapból ki. */
+export const deliveryNoteSettings = sqliteTable(
+  "delivery_note_settings",
+  {
+    id: integer("id").primaryKey(),
+    allDeliveries: integer("all_deliveries").notNull().default(0),
+    revision: integer("revision").notNull().default(0),
+  },
+  (t) => [check("delivery_note_settings_singleton", sql`${t.id}=1`)],
 );

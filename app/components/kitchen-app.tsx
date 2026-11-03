@@ -59,6 +59,7 @@ import OperationsWorkspace from "./operations-workspace";
 import PurchasingWorkspace from "./purchasing-workspace";
 import ProductionWorkspace, { ProductionWarning } from "./production-workspace";
 import DayCloseWorkspace from "./day-close-workspace";
+import { DeliveryNoteFlag } from "./delivery-notes-panel";
 import { VersionInfo } from "./version-info";
 import FulfillmentWorkspace from "./fulfillment-workspace";
 import StocktakeWorkspace from "./stocktake-workspace";
@@ -1540,6 +1541,7 @@ export default function KitchenApp() {
                 {can("orders/state",{field:"delivery"}) && selectedOrder.status === "confirmed" && selectedOrder.delivery !== "delivered" && <div className="detail-delivery-note"><Field label={t("deliveryNote")}><textarea maxLength={500} value={deliveryNote} onChange={e=>setDeliveryNote(e.target.value)}/></Field><small>{t("recordedResult")}</small></div>}
                 {selectedOrder.status==="requested" && can("orders/state",{field:"status"}) && <OrderRequestReview key={selectedOrder.id+":"+selectedOrder.revision} order={selectedOrder} lang={lang} busy={busy} mutate={mutate}/>}
                 {selectedOrder.reviewNote && <p className="portal-review-note">{selectedOrder.reviewNote}</p>}
+                {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <DeliveryNoteFlag key={selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} revision={selectedOrder.revision} value={!!selectedOrder.deliveryNoteRequired} onSaved={() => void load()} />}
                 
                 <div className="state-grid">
                   {[

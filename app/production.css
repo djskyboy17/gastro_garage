@@ -38,3 +38,16 @@
 .production-settings .button{justify-self:start;display:inline-flex;align-items:center;gap:6px}
 .production-toolbar .badge{display:inline-flex;align-items:center;gap:5px}
 @media(max-width:700px){.production-footer{padding:12px}.production-settings{margin:0 12px 12px}}
+/* v75: Avizok (Csomagolás fül) és „Aviz kell” jelölés */
+.notes-panel{margin-bottom:14px}
+.notes-panel .panel-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.notes-panel .panel-heading h2{display:flex;align-items:center;gap:8px}
+.notes-panel .panel-heading p{color:var(--muted);line-height:1.6;margin:6px 0 0}
+.notes-panel .button.is-disabled{opacity:.5;pointer-events:none}
+.notes-setting{display:flex;align-items:center;gap:8px;padding:0 17px 12px;font-size:14px;font-weight:600}
+.notes-list{list-style:none;margin:0;padding:0 17px 14px;display:grid;gap:0}
+.notes-list li{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding:10px 0}
+.notes-list li>div:first-child{display:grid;gap:4px}
+.notes-list .button{display:inline-flex;align-items:center;gap:6px}
+.notes-flag{display:flex;align-items:center;gap:8px;margin:10px 0;font-weight:600;font-size:14px;flex-wrap:wrap}
+@media(max-width:700px){.notes-list{padding:0 12px 12px}.notes-setting{padding:0 12px 12px}}

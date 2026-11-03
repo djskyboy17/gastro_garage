@@ -36,7 +36,7 @@ export class LabelError extends Error {
 const json = (v: unknown, status = 200) => Response.json(v, { status, headers: { "Cache-Control": "no-store" } });
 const line = (max: number) => z.string().trim().max(max);
 
-async function loadSettings(): Promise<{ revision: number; settings: LabelSettings }> {
+export async function loadSettings(): Promise<{ revision: number; settings: LabelSettings }> {
   const [row] = await getDb().select().from(labelSettings).where(eq(labelSettings.id, 1));
   return { revision: row?.revision ?? 0, settings: parseLabelSettings(row?.content) };
 }
@@ -124,6 +124,17 @@ async function buildLabels(
     }
     return labels;
   });
+}
+
+/** v75: egy rendelés fogyasztói címkéi (gyártási tétel szerint bontva) – az aviz sorai ebből készülnek. */
+export async function orderLabels(orderId: string, req: Request): Promise<ConsumerLabel[]> {
+  const rows = await getDb()
+    .select({ item: orderItems, order: orders })
+    .from(orderItems)
+    .innerJoin(orders, eq(orders.id, orderItems.orderId))
+    .where(eq(orders.id, orderId))
+    .orderBy(asc(orderItems.id));
+  return buildLabels(rows, req);
 }
 
 /** Nyilvános: a címke QR-kódja ezt nyitja meg. Csak visszaigazolt rendelés tétele, ügyféladat nélkül. */
