@@ -9,6 +9,7 @@ import {loadMenu,publicMenu,publicMenuBoard,saveMenu,saveMenuSettings,MenuError}
 import {handleInvoices,InvoiceError} from "@/src/modules/invoices/server";
 import {handleProduction,ProductionError} from "@/src/modules/production/server";
 import {handleDeliveryNotes,DeliveryNoteError,hasActiveNote,cancelOrderWithNote} from "@/src/modules/delivery-notes/server";
+import {handleFinance,FinanceError,cancelPaymentState} from "@/src/modules/finance/server";
 import { env } from "cloudflare:workers";
 import { currentUser, handleAuth, AuthError } from "@/src/modules/auth/server";
 import { sessionFor, handleAccess, loadMembers, AccessError } from "@/src/modules/access/server";
@@ -115,6 +116,11 @@ async function handle(req: Request, write: boolean) {
       return await handleInvoices(path,body,session,write,req);
     }
     // v73: gyártási tételek és bon de consum (csak admin; a modul ellenőrzi).
+    // v76: pénzügy és pénztár (a modul ellenőrzi a szerepköröket).
+    if(path==="/api/finance"||path.startsWith("/api/finance/")){
+      let body:unknown;if(write){const raw=await req.text();if(raw.length>20000)return json({error:"TOO_LARGE"},413);body=JSON.parse(raw);}
+      return await handleFinance(path,body,session,write,req);
+    }
     // v75: aviz de însoțire a mărfii (a modul ellenőrzi a szerepköröket).
     if(path==="/api/delivery-notes"||path.startsWith("/api/delivery-notes/")){
       let body:unknown;if(write){const raw=await req.text();if(raw.length>20000)return json({error:"TOO_LARGE"},413);body=JSON.parse(raw);}
@@ -534,6 +540,8 @@ async function handle(req: Request, write: boolean) {
       const [row] = await db.select().from(orders).where(eq(orders.id, d.id));
       if (!row) return json({ error: "NOT_FOUND" }, 404);
       if (row.revision !== d.revision) return json({ error: "CONFLICT" }, 409);
+      // v76: a fizetés befizetésként rögzül (mód, összeg, ki vette át) – a régi „fizetve” kapcsoló megszűnt.
+      if (d.field === "payment") return json({ error: "USE_PAYMENTS" }, 400);
       if (row.status === "requested" && d.field === "status" && d.value === "rejected" && !d.note)
         return json({error:"REVIEW_NOTE_REQUIRED"},400);
       if (d.field === "delivery" && d.value === "failed" && !d.note)
@@ -546,9 +554,21 @@ async function handle(req: Request, write: boolean) {
       // v50: főzés előtti lemondás = végleges törlés (rendelés, tételek, kapcsolódó sorok és napló is).
       // A nextState már ellenőrizte, hogy a főzés és a kiszállítás még nem kezdődött el.
       if (d.field === "status" && d.value === "cancelled") {
+        // v76: befizetett rendelés nem mondható le, amíg a befizetést vissza nem adták (sztornó).
+        const paid = await cancelPaymentState(d.id);
+        if (paid.net !== 0) return json({ error: "ORDER_HAS_PAYMENTS" }, 409);
         // v75: avizos rendelés nem törölhető véglegesen: lemondott állapot + sztornó-aviz.
         if (await hasActiveNote(d.id)) {
           if (!(await cancelOrderWithNote(d.id, d.revision, actor, d.note || "comandă anulată"))) return json({ error: "CONFLICT" }, 409);
+          return json({ ok: true, deleted: false });
+        }
+        // v76: ha volt (sztornózott) befizetése, a bizonylatai miatt nem törlődik, csak lemondott lesz.
+        if (paid.hasRows) {
+          const r = await env.DB!.batch([
+            env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM orders WHERE id=? AND revision=? AND status IN ('requested','confirmed') AND production='queued' AND delivery='pending') AND (SELECT COALESCE(SUM(amount),0) FROM payments WHERE order_id=?)=0 THEN ? ELSE NULL END,'order_cancelled',?,?,?)").bind(crypto.randomUUID(), d.id, d.revision, d.id, actor, d.id, JSON.stringify({ note: d.note }), now),
+            env.DB!.prepare("UPDATE orders SET status='cancelled',revision=revision+1 WHERE id=? AND revision=?").bind(d.id, d.revision),
+          ]).catch(() => null);
+          if (!r || r[1]!.meta.changes !== 1) return json({ error: "CONFLICT" }, 409);
           return json({ ok: true, deleted: false });
         }
         const deleted = await hardDeleteOrder(
@@ -608,6 +628,7 @@ async function handle(req: Request, write: boolean) {
     if (e instanceof InvoiceError) return json({ error: e.code }, e.status);
     if (e instanceof ProductionError) return json({ error: e.code }, e.status);
     if (e instanceof DeliveryNoteError) return json({ error: e.code }, e.status);
+    if (e instanceof FinanceError) return json({ error: e.code }, e.status);
     if (e instanceof OperationError) return json({ error: e.code }, e.status);
     if (e instanceof z.ZodError || e instanceof SyntaxError)
       return json({ error: "VALIDATION" }, 400);

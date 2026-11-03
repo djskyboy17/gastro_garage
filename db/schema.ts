@@ -895,3 +895,128 @@ export const deliveryNoteSettings = sqliteTable(
   },
   (t) => [check("delivery_note_settings_singleton", sql`${t.id}=1`)],
 );
+
+/**
+ * Pénztártétel (v76, registru de casă): egy pénztár, előjeles összeg baniban (+ bevétel, − kiadás). Mindig a rögzítés
+ * (Europe/Bucharest) napjára kerül; végleges, javítás sztornó-tétellel. A záró egyenleg nem lehet negatív.
+ */
+export const cashEntries = sqliteTable(
+  "cash_entries",
+  {
+    id: text("id").primaryKey(),
+    day: text("day").notNull(),
+    kind: text("kind").notNull(),
+    amount: integer("amount").notNull(),
+    document: text("document").notNull().default(""),
+    note: text("note").notNull().default(""),
+    refId: text("ref_id"),
+    reversalOf: text("reversal_of"),
+    actor: text("actor").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    index("cash_entries_day").on(t.day),
+    check("cash_entries_kind", sql`${t.kind} IN ('counter_sale','courier_handover','supplier_payment','deposit','bank_deposit','other_in','other_out','reversal')`),
+    check("cash_entries_amount", sql`${t.amount}<>0`),
+  ],
+);
+
+/** Pénztárnap (v76): lezáráskor a nyitó és záró egyenleg pillanatképe; lezárt napra nem kerülhet tétel. */
+export const cashDays = sqliteTable(
+  "cash_days",
+  {
+    day: text("day").primaryKey(),
+    status: text("status").notNull().default("open"),
+    opening: integer("opening").notNull().default(0),
+    closing: integer("closing").notNull().default(0),
+    revision: integer("revision").notNull().default(0),
+    closedBy: text("closed_by"),
+    closedAt: text("closed_at"),
+  },
+  (t) => [check("cash_days_status", sql`${t.status} IN ('open','closed')`)],
+);
+
+/** Futár készpénz-leadása (v76): elvárt (a le nem adott készpénzes befizetései) és átadott összeg, eltéréssel. */
+export const courierHandovers = sqliteTable(
+  "courier_handovers",
+  {
+    id: text("id").primaryKey(),
+    courierUserId: text("courier_user_id").notNull(),
+    courierName: text("courier_name").notNull(),
+    day: text("day").notNull(),
+    expected: integer("expected").notNull(),
+    counted: integer("counted").notNull(),
+    note: text("note").notNull().default(""),
+    cashEntryId: text("cash_entry_id"),
+    actor: text("actor").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("courier_handovers_day").on(t.day), check("courier_handovers_counted", sql`${t.counted}>=0`)],
+);
+
+/**
+ * Befizetés egy rendelésre (v76): készpénz vagy kártya, ki vette át (futár / iroda). Előjeles: a sztornó negatív tétel
+ * (reversal_of). A futár készpénze a leadásig (handover_id) nála van; az iroda készpénze azonnal pénztártétel lesz.
+ */
+export const payments = sqliteTable(
+  "payments",
+  {
+    id: text("id").primaryKey(),
+    orderId: text("order_id").notNull().references(() => orders.id),
+    day: text("day").notNull(),
+    method: text("method").notNull(),
+    amount: integer("amount").notNull(),
+    collectedBy: text("collected_by").notNull(),
+    collectorId: text("collector_id").notNull(),
+    collectorName: text("collector_name").notNull().default(""),
+    reversalOf: text("reversal_of"),
+    reversedBy: text("reversed_by"),
+    handoverId: text("handover_id").references(() => courierHandovers.id),
+    cashEntryId: text("cash_entry_id"),
+    note: text("note").notNull().default(""),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    index("payments_order").on(t.orderId),
+    index("payments_day").on(t.day),
+    check("payments_method", sql`${t.method} IN ('cash','card')`),
+    check("payments_collected_by", sql`${t.collectedBy} IN ('courier','office')`),
+    check("payments_amount", sql`${t.amount}<>0`),
+  ],
+);
+
+/** Z-jelentés (v76): naponta egy, kézi rögzítés; az eltérés a rögzített fizetésekhez képest látszik. */
+export const zReports = sqliteTable("z_reports", {
+  day: text("day").primaryKey(),
+  zNumber: text("z_number").notNull(),
+  total: integer("total").notNull(),
+  cash: integer("cash").notNull(),
+  card: integer("card").notNull(),
+  note: text("note").notNull().default(""),
+  revision: integer("revision").notNull().default(0),
+  actor: text("actor").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/** Beszállítói kifizetés (v76): pénztárból vagy bankból, részletben is; sztornó negatív tétellel. */
+export const supplierPayments = sqliteTable(
+  "supplier_payments",
+  {
+    id: text("id").primaryKey(),
+    invoiceId: text("invoice_id").notNull().references(() => supplierInvoices.id),
+    day: text("day").notNull(),
+    method: text("method").notNull(),
+    amount: integer("amount").notNull(),
+    reversalOf: text("reversal_of"),
+    reversedBy: text("reversed_by"),
+    cashEntryId: text("cash_entry_id"),
+    note: text("note").notNull().default(""),
+    actor: text("actor").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    index("supplier_payments_invoice").on(t.invoiceId),
+    check("supplier_payments_method", sql`${t.method} IN ('cash','bank')`),
+    check("supplier_payments_amount", sql`${t.amount}<>0`),
+  ],
+);

@@ -26,3 +26,8 @@ A futártörzs (`couriers`) és a fiók–futár összekötés megszűnt (a `cou
 - A tranzakció továbbra is ellenőrzi a változatot (revision), a visszaigazolt, nem átvételes rendelést és azt, hogy a felhasználó még futár szerepkörű.
 - Megszűnt végpontok: `GET /api/courier/accounts`, `POST /api/courier/bind`; a felület (Hozzáférés → futárfiókok összekötése) is.
 - Ha több futár szerepkörű fiók lenne, mindegyik ugyanazt a teljes listát látná.
+
+## Fizetés kézbesítéskor — v76
+- A feladat a rendelés **hátralékát** mutatja (`due`, bani); tételárak, fizetési előzmény továbbra sem látszanak. A napi összesítőben a futárnál lévő, még le nem adott készpénz (`cashOnHand`).
+- Kézbesítéskor a futár kiválasztja: készpénz / kártya / már fizetett, az összeg alapból a hátralék, átírható (túlfizetés nem rögzíthető). A befizetés a kézbesítéssel egy kötegben rögzül; ismételt kérés nem rögzíti újra.
+- A készpénzt este az iroda veszi át a Pénztár fülön (../finance/SPEC.md).

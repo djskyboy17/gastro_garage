@@ -225,6 +225,13 @@
       "when": 1793744746202,
       "tag": "0031_delivery_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1793745972098,
+      "tag": "0032_finance",
+      "breakpoints": true
     }
   ]
 }

@@ -51,3 +51,38 @@
 .notes-list .button{display:inline-flex;align-items:center;gap:6px}
 .notes-flag{display:flex;align-items:center;gap:8px;margin:10px 0;font-weight:600;font-size:14px;flex-wrap:wrap}
 @media(max-width:700px){.notes-list{padding:0 12px 12px}.notes-setting{padding:0 12px 12px}}
+/* v76: Pénztár fül és fizetési panel */
+.cash-workspace{display:grid;gap:14px}
+.cash-workspace .production-toolbar{padding:0}
+.cash-section{padding:14px 17px;display:grid;gap:10px}
+.cash-section h2{display:flex;align-items:center;gap:8px;margin:0;font-size:18px}
+.cash-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;border-top:1px solid var(--line);padding:10px 0}
+.cash-row>div:first-child{flex:1;min-width:200px;display:grid;gap:3px}
+.cash-row small{color:var(--muted)}
+.cash-row.is-overdue strong{color:#a33}
+.cash-note{border:1px solid var(--line);border-radius:7px;padding:7px 8px;min-width:180px}
+.cash-totals{display:flex;flex-wrap:wrap;gap:8px 18px;background:#f8f9f5;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:14px}
+.cash-out{color:#a33}.cash-diff{color:#a33;font-weight:700}
+.cash-z{margin-top:4px}
+.pay-panel{border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0;display:grid;gap:8px;background:#fbfcf8}
+.pay-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pay-head strong{display:flex;align-items:center;gap:6px}
+.pay-sums{margin:0;font-size:14px}
+.pay-list{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.pay-list li{display:flex;align-items:center;gap:8px;justify-content:space-between;border-top:1px dashed var(--line);padding:6px 0;font-size:13px}
+.pay-list li span{flex:1}
+.pay-list li.is-reversed,.cash-row small.is-reversed{color:var(--muted);text-decoration:line-through}
+.pay-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pay-form input,.pay-form select,.cash-row select{border:1px solid var(--line);border-radius:7px;padding:8px 9px;background:#fff;min-width:0}
+.pay-form input{width:140px}
+.pay-form .button,.cash-row .button{display:inline-flex;align-items:center;gap:6px}
+.courier-cash{display:flex;flex-wrap:wrap;align-items:center;gap:6px;background:#fff4d2;border:1px solid #f0dfad;border-radius:9px;padding:10px 12px;margin:10px 0}
+.courier-cash small{width:100%;color:#8a6a10}
+.courier-payment{display:grid;gap:8px;border:1px solid var(--line);border-radius:9px;padding:10px;margin:8px 0}
+.courier-payment p{margin:0}
+.courier-pay-methods{display:flex;flex-wrap:wrap;gap:12px}
+.courier-pay-methods label{display:flex;align-items:center;gap:6px;font-weight:600}
+.courier-payment>label{display:grid;gap:4px;font-size:13px}
+.courier-payment input[inputmode]{border:1px solid var(--line);border-radius:7px;padding:9px;font-size:16px;max-width:180px}
+.cash-field{display:grid;gap:4px;font-size:12px;color:var(--muted);font-weight:600}
+.pay-form{align-items:end}

@@ -60,6 +60,7 @@ import PurchasingWorkspace from "./purchasing-workspace";
 import ProductionWorkspace, { ProductionWarning } from "./production-workspace";
 import DayCloseWorkspace from "./day-close-workspace";
 import { DeliveryNoteFlag } from "./delivery-notes-panel";
+import CashWorkspace, { OrderPaymentPanel } from "./cash-workspace";
 import { VersionInfo } from "./version-info";
 import FulfillmentWorkspace from "./fulfillment-workspace";
 import StocktakeWorkspace from "./stocktake-workspace";
@@ -123,6 +124,7 @@ const nav = [
   ["stocktake", ClipboardList],
   ["labels", Tag],
   ["procurement", ClipboardList],
+  ["cash", Wallet],
   ["safety", CheckCircle2],
   ["audit", History],
   ["access", Users],
@@ -714,6 +716,8 @@ export default function KitchenApp() {
                         ? "productionSubtitle"
                         : tab === "delivery"
                           ? "deliverySubtitle"
+                          : tab === "cash"
+                            ? "cashHint"
                           : tab === "recurring"
                             ? "recurringHint"
                           : tab === "safety"
@@ -1382,6 +1386,7 @@ export default function KitchenApp() {
                 {tab === "packing" && <PackingWorkspace lang={lang} refresh={load} initialDate={packingTarget?.date??day} initialOrderId={packingTarget?.id??""} canEditLabels={isAdmin(session.role)}/>}
                 {tab === "fulfillment" && <FulfillmentWorkspace lang={lang} role={session.role}/>}
                 {tab === "labels" && <LabelsWorkspace lang={lang}/>}
+                {tab === "cash" && <CashWorkspace key={day} lang={lang} initialDay={day} />}
                 {tab === "stocktake" && <StocktakeWorkspace ops={data.operations} lang={lang} role={session.role} refresh={load}/>}
                 {tab === "menu" && <MenuWorkspace products={data.products} lang={lang}/>}
                 {tab === "portal" && <PortalManagement data={data} lang={lang} role={session.role} busy={busy} mutate={mutate} refresh={load} onOrder={detail}/>}
@@ -1541,6 +1546,7 @@ export default function KitchenApp() {
                 {can("orders/state",{field:"delivery"}) && selectedOrder.status === "confirmed" && selectedOrder.delivery !== "delivered" && <div className="detail-delivery-note"><Field label={t("deliveryNote")}><textarea maxLength={500} value={deliveryNote} onChange={e=>setDeliveryNote(e.target.value)}/></Field><small>{t("recordedResult")}</small></div>}
                 {selectedOrder.status==="requested" && can("orders/state",{field:"status"}) && <OrderRequestReview key={selectedOrder.id+":"+selectedOrder.revision} order={selectedOrder} lang={lang} busy={busy} mutate={mutate}/>}
                 {selectedOrder.reviewNote && <p className="portal-review-note">{selectedOrder.reviewNote}</p>}
+                {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <OrderPaymentPanel key={"pay-"+selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} canEdit onSaved={() => void load()} />}
                 {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <DeliveryNoteFlag key={selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} revision={selectedOrder.revision} value={!!selectedOrder.deliveryNoteRequired} onSaved={() => void load()} />}
                 
                 <div className="state-grid">
@@ -1610,17 +1616,6 @@ export default function KitchenApp() {
                           {t("markFailed")}
                         </Button>
                       </>
-                    )}
-                    {can("orders/state",{field:"payment"}) && selectedOrder.payment === "unpaid" && (
-                      <Button
-                        secondary
-                        onClick={() =>
-                          void change(selectedOrder, "payment", "paid")
-                        }
-                      >
-                        <Wallet size={16} />
-                        {t("markPaid")}
-                      </Button>
                     )}
                     {can("orders/state",{field:"status"}) && selectedOrder.production === "queued" &&
                       selectedOrder.delivery === "pending" && (

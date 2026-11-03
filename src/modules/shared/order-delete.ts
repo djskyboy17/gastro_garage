@@ -9,7 +9,7 @@ import { env } from "cloudflare:workers";
  * ugyanabban a változatban van, és a főzés még nem kezdődött el. Ha hamis, az első utasítás NOT NULL hibával
  * leállítja az egész tranzakciót, így részleges törlés nem maradhat. A segédsor a tranzakció végén törlődik.
  *
- * v75: avizos (bizonylattal rendelkező) rendelés soha nem törlődik – a bizonylat megmarad, a rendelés csak lemondható.
+ * v75/v76: avizos vagy befizetéssel rendelkező (bizonylattal rendelkező) rendelés soha nem törlődik – a bizonylat megmarad, a rendelés csak lemondható.
  *
  * Visszaadja, hogy történt-e törlés (false: a feltétel nem teljesült, semmi nem változott).
  */
@@ -19,8 +19,8 @@ export async function hardDeleteOrder(orderId: string, guard: string, guardBinds
   try {
     await env.DB!.batch([
       env.DB!.prepare(
-        `INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN (${guard}) AND NOT EXISTS (SELECT 1 FROM delivery_notes WHERE order_id=?) THEN 'system' ELSE NULL END,'order_delete_guard','','',?)`,
-      ).bind(guardRow, ...guardBinds, orderId, now),
+        `INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN (${guard}) AND NOT EXISTS (SELECT 1 FROM delivery_notes WHERE order_id=?) AND NOT EXISTS (SELECT 1 FROM payments WHERE order_id=?) THEN 'system' ELSE NULL END,'order_delete_guard','','',?)`,
+      ).bind(guardRow, ...guardBinds, orderId, orderId, now),
       env.DB!.prepare("DELETE FROM order_items WHERE order_id=?").bind(orderId),
       env.DB!.prepare("DELETE FROM delivery_events WHERE order_id=?").bind(orderId),
       env.DB!.prepare("DELETE FROM portal_submissions WHERE order_id=?").bind(orderId),

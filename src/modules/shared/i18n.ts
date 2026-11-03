@@ -15,6 +15,7 @@ import { labelMessages } from "../labels/i18n";
 import { invoiceMessages } from "../invoices/i18n";
 import { productionMessages } from "../production/i18n";
 import { deliveryNoteMessages } from "../delivery-notes/i18n";
+import { financeMessages } from "../finance/i18n";
 export const messages: Record<"hu" | "ro", Record<string, string>> = {
   hu: {
     ...operationMessages.hu,
@@ -34,6 +35,7 @@ export const messages: Record<"hu" | "ro", Record<string, string>> = {
     ...invoiceMessages.hu,
     ...productionMessages.hu,
     ...deliveryNoteMessages.hu,
+    ...financeMessages.hu,
     brand: "Catering műhely",
     previous: "Előző nap",
     next: "Következő nap",
@@ -264,6 +266,7 @@ export const messages: Record<"hu" | "ro", Record<string, string>> = {
     ...invoiceMessages.ro,
     ...productionMessages.ro,
     ...deliveryNoteMessages.ro,
+    ...financeMessages.ro,
     brand: "Atelier de catering",
     previous: "Ziua precedentă",
     next: "Ziua următoare",

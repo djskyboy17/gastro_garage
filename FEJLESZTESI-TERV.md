@@ -58,13 +58,13 @@ Ellenőrzött hiányosságok a meglévő részekben:
 - A rendelés lemondása aviz után már sztornó, nem törlés.
 - Kapcsolat a későbbi számlához (egy számla több avizt összevonhat).
 
-### 5. Kimenő számlázás + RO e-Factura (nagy, 4–5 munkamenet)
+### 5. Kimenő számlázás + RO e-Factura (nagy, 4–5 munkamenet) — ⏸ későbbre halasztva (2026-11-04): SPV-hozzáférés bizonytalan, a digitális tanúsítvány megvan
 - **Cégadatok és partnertörzs:** CUI, Reg. Com., cím, bank. Az ügyfél és a számlázási partner szétválik.
 - **Számla:** sorozat, tételek TVA-kulccsal (dátum szerint), előleg, végszámla, sztornó, PDF.
 - **RO e-Factura:** UBL 2.1 / CIUS-RO XML generálása, beküldés az ANAF SPV-be (OAuth), az állapot lekérdezése és a válaszok archiválása háttérfeladatból. A bejövő e-Facturák letöltése az SPV-ből, mint pontos adatforrás a beszállítói számlákhoz (az AI-beolvasás mellett).
 - *Előfeltétel:* ANAF-hozzáférés (tokenes digitális tanúsítvány) a céghez.
 
-### 6. Pénzügy és pénztár (közepes, 2–3 munkamenet)
+### 6. Pénzügy és pénztár (közepes, 2–3 munkamenet) — ✅ kész (v76), részletek: src/modules/finance/SPEC.md; a vevői banki utalás és egyenleg a számlázással (5. fázis) jön
 - **Fizetések:** készpénz, kártya, utalás; részfizetés; nyitott vevő- és szállítóegyenleg; esedékesség.
 - **Registru de casă és chitanță:** pénztáranként nyitó és záró egyenleg, bevétel és kiadás bizonylattal.
 - **Pénztárgép:** első lépésben a Z-jelentés kézi rögzítése és egyeztetése. Eszközintegráció csak a típus ismeretében.
