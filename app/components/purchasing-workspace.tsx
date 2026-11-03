@@ -10,6 +10,7 @@ import {
   type ReactNode,
   type FormEvent,
 } from "react";
+import InvoiceWorkspace from "./invoice-workspace";
 import {
   Plus,
   ArrowLeft,
@@ -51,6 +52,9 @@ type Props = {
   renderPlan: (
     create: (lines: { ingredientId: string; quantity: number }[]) => void,
   ) => ReactNode;
+  /** v65: Számlák fül – admin-e (bekerülési érték beállítása), és frissítés bevételezés után. */
+  isAdmin?: boolean;
+  onRefresh?: () => void;
 };
 export default function PurchasingWorkspace({
   data,
@@ -60,6 +64,8 @@ export default function PurchasingWorkspace({
   error,
   onSave,
   renderPlan,
+  isAdmin = false,
+  onRefresh,
 }: Props) {
   const t = (k: string) => messages[lang][k] ?? k;
   const named = (p: { hu: string; ro: string }) => p[lang];
@@ -254,7 +260,7 @@ export default function PurchasingWorkspace({
         role="tablist"
         aria-label={t("procurement")}
       >
-        {["plan", "orders", "suppliers"].map((v) => (
+        {["plan", "orders", "invoices", "suppliers"].map((v) => (
           <button
             key={v}
             role="tab"
@@ -270,7 +276,9 @@ export default function PurchasingWorkspace({
                 ? "procurement"
                 : v === "orders"
                   ? "purchaseOrders"
-                  : "suppliers",
+                  : v === "invoices"
+                    ? "invoicesTab"
+                    : "suppliers",
             )}
             {v === "orders" && openOrders.length > 0 && (
               <span>{openOrders.length}</span>
@@ -287,6 +295,9 @@ export default function PurchasingWorkspace({
           {renderPlan(create)}
           <p className="ops-note">{t("incomingHint")}</p>
         </>
+      )}
+      {view === "invoices" && (
+        <InvoiceWorkspace lang={lang} ingredients={data.operations.ingredients} isAdmin={isAdmin} onReceived={() => onRefresh?.()} />
       )}
       {view === "suppliers" && (
         <>

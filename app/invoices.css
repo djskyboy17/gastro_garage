@@ -1,0 +1,56 @@
+/* v65: Beszerzés → Számlák (Factură / Bon Fiscal beolvasása és bevételezése) */
+.invoice-workspace{display:flex;flex-direction:column;gap:14px}
+.invoice-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.invoice-actions .button{min-height:46px}
+.invoice-status{display:flex;align-items:center;gap:9px;background:#fff7e0;border:1px solid #f0dfad;color:#7a5a00;border-radius:8px;padding:11px 13px;font-weight:600}
+.invoice-settings{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;background:#f8f9f5;border:1px solid var(--line);border-radius:9px;padding:11px 13px;font-size:14px}
+.invoice-settings label{display:flex;align-items:center;gap:8px;font-weight:600}
+.invoice-settings select{border:1px solid #dfe6d6;border-radius:6px;padding:7px 9px;background:#fff}
+.invoice-settings small{color:#7a8a6b}
+.invoice-row{cursor:pointer}
+.invoice-row:hover td{background:#f8faf3}
+.invoice-row td small{display:block;color:#9a9f94;margin-top:4px}
+.invoice-row .text-button{padding:0;font-weight:600;color:#2d4933}
+.invoice-ai-note{color:#8a6a10;background:#fff4d2;border-radius:6px;padding:5px 9px}
+.invoice-detail{display:grid;gap:14px}
+.invoice-file{padding:10px;align-self:start}
+.invoice-file-link{display:block;text-decoration:none;color:inherit}
+.invoice-file img{display:block;width:100%;height:auto;max-height:80vh;object-fit:contain;border-radius:6px;background:#fff}
+.invoice-pdf{display:flex;align-items:center;justify-content:center;gap:8px;min-height:160px;border:1px dashed #cfd8c3;border-radius:8px;color:#5f7e45;font-weight:700;font-size:20px}
+.invoice-open{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:14px;color:#5f7e45;font-weight:600}
+.invoice-form{display:flex;flex-direction:column;gap:14px;min-width:0}
+.invoice-section{padding:16px}
+.invoice-section h2{margin-bottom:12px}
+.invoice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
+.invoice-grid label,.invoice-line-grid label,.invoice-note,.invoice-buttons label,.invoice-all-expires{display:flex;flex-direction:column;gap:5px;font-size:13px;color:#7a8a6b;font-weight:500;min-width:0}
+.invoice-workspace input,.invoice-workspace select,.invoice-workspace textarea{width:100%;border:1px solid #dfe6d6;background:#fafbf7;color:#3c5030;border-radius:6px;padding:8px 9px;min-height:40px;font-size:15px}
+.invoice-workspace input[type=checkbox]{width:auto;min-height:0}
+.invoice-workspace input:disabled,.invoice-workspace select:disabled,.invoice-workspace textarea:disabled{background:#f2f3ee;color:#5d6656}
+.invoice-warning{display:flex;align-items:center;gap:6px;color:#a3604e;font-size:13px;margin-top:8px}
+.invoice-lines-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:10px;margin-bottom:6px}
+.invoice-lines-head h2{margin:0}
+.invoice-all-expires{flex-direction:row;align-items:center}
+.invoice-all-expires input{width:auto}
+.invoice-line{border:1px solid var(--line);border-radius:9px;padding:11px;margin-bottom:10px;background:#fff}
+.invoice-line.skipped{background:#f6f6f1;opacity:.85}
+.invoice-line-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.invoice-line-n{font-weight:700;color:#9aa68d;min-width:22px}
+.invoice-line-desc{flex:1;font-weight:600}
+.invoice-skip{display:flex;align-items:center;gap:6px;font-size:13px;color:#7a8a6b;white-space:nowrap}
+.invoice-line-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 10px}
+.invoice-line-grid.stock{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+.invoice-line-grid .wide{grid-column:1/-1}
+.invoice-cost{grid-column:1/-1;font-size:14px;color:#5d6656;margin:0}
+.invoice-summary{font-size:15px;margin:12px 0}
+.invoice-buttons{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px}
+.invoice-buttons label{min-width:160px}
+.invoice-buttons .button{min-height:44px}
+.invoice-note textarea{min-height:70px;resize:vertical}
+@media(min-width:1000px){
+  .invoice-detail{grid-template-columns:minmax(0,.9fr) minmax(0,1.3fr);align-items:start}
+  .invoice-file{position:sticky;top:90px}
+  .invoice-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .invoice-line-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+  .invoice-line-grid.stock{grid-template-columns:1.8fr 1fr 1.35fr 1fr}
+  .invoice-line-grid.stock .wide{grid-column:auto}
+}

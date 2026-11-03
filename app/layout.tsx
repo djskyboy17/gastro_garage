@@ -9,6 +9,7 @@ import "./recurring.css";
 import "./portal.css";
 import "./portal-v44.css";
 import "./portal-v57.css";
+import "./invoices.css";
 import "./menu.css";
 import "./stocktake.css";
 import "./fulfillment.css";

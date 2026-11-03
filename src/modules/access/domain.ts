@@ -28,6 +28,9 @@ export function canWrite(role:Role,path:string,body:unknown): boolean {
   if(path==="/api/kitchen/ready")return isAdmin(role)||isKitchenStaff(role);
   if(path==="/api/labels/settings")return isAdmin(role);
   if(path==="/api/fulfillment/save")return isAdmin(role);
+  // v65: számlák – mint a Beszerzés (admin és konyha/raktár); a bekerülési érték beállítása csak admin.
+  if(path==="/api/invoices/settings")return isAdmin(role);
+  if(["/api/invoices/scan","/api/invoices/save","/api/invoices/receive","/api/invoices/discard"].includes(path))return isAdmin(role)||isKitchenStaff(role);
   const stocktakePaths=["/api/stocktake/create","/api/stocktake/save","/api/stocktake/refresh-line","/api/stocktake/post","/api/stocktake/reverse","/api/stocktake/cancel"];
   if(stocktakePaths.includes(path))return isAdmin(role)||(isKitchenStaff(role)&&!["/api/stocktake/post","/api/stocktake/reverse"].includes(path));
   const safetyPaths = ["/api/safety/points","/api/safety/records","/api/safety/resolve"];

@@ -545,3 +545,98 @@ export const labelSettings = sqliteTable(
   (t) => [check("label_settings_singleton", sql`${t.id}=1`)],
 );
 
+/**
+ * Beszállítói számla (v65): fotóról / PDF-ről AI-val (Gemini) kiolvasva vagy kézzel felvéve.
+ * Pénz egész baniban. Állapot: draft (átnézésre vár) → received (bevételezve). A piszkozat elvetése törli.
+ */
+export const supplierInvoices = sqliteTable(
+  "supplier_invoices",
+  {
+    id: text("id").primaryKey(),
+    kind: text("kind").notNull(),
+    status: text("status").notNull().default("draft"),
+    revision: integer("revision").notNull().default(0),
+    supplierName: text("supplier_name").notNull().default(""),
+    supplierTaxId: text("supplier_tax_id").notNull().default(""),
+    series: text("series").notNull().default(""),
+    number: text("number").notNull().default(""),
+    issueDate: text("issue_date").notNull().default(""),
+    currency: text("currency").notNull().default("RON"),
+    subtotal: integer("subtotal"),
+    vatTotal: integer("vat_total"),
+    sgrTotal: integer("sgr_total").notNull().default(0),
+    total: integer("total"),
+    source: text("source").notNull(),
+    model: text("model").notNull().default(""),
+    hasFile: integer("has_file").notNull().default(0),
+    note: text("note").notNull().default(""),
+    costBasis: text("cost_basis").notNull().default(""),
+    receivedDate: text("received_date").notNull().default(""),
+    receivedBy: text("received_by").notNull().default(""),
+    receivedAt: text("received_at").notNull().default(""),
+    createdBy: text("created_by").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    check("supplier_invoice_kind", sql`${t.kind} IN ('factura','bon_fiscal')`),
+    check("supplier_invoice_status", sql`${t.status} IN ('draft','received')`),
+    check("supplier_invoice_source", sql`${t.source} IN ('ai','manual')`),
+    index("supplier_invoice_created").on(t.createdAt),
+  ],
+);
+/** A számla eredeti képe vagy PDF-je (base64), a termékképekhez hasonlóan az adatbázisban. */
+export const supplierInvoiceFiles = sqliteTable("supplier_invoice_files", {
+  invoiceId: text("invoice_id").primaryKey().references(() => supplierInvoices.id),
+  mime: text("mime").notNull(),
+  bytes: integer("bytes").notNull(),
+  data: text("data").notNull(),
+});
+/**
+ * Számlasor. A számlán szereplő mennyiség ezredekben (`invoiceQuantity` 1250 = 1,25), a raktárba kerülő mennyiség alapegységben
+ * (`baseQuantity`: g / ml / db). Kihagyott sor (pl. SGR-betét, zacskó) nem kerül a raktárba.
+ */
+export const supplierInvoiceLines = sqliteTable(
+  "supplier_invoice_lines",
+  {
+    id: text("id").primaryKey(),
+    invoiceId: text("invoice_id").notNull().references(() => supplierInvoices.id),
+    position: integer("position").notNull(),
+    description: text("description").notNull(),
+    invoiceQuantity: integer("invoice_quantity").notNull(),
+    invoiceUnit: text("invoice_unit").notNull().default(""),
+    lineNet: integer("line_net"),
+    vatRate: integer("vat_rate"),
+    lineGross: integer("line_gross"),
+    deposit: integer("deposit").notNull().default(0),
+    skip: integer("skip").notNull().default(0),
+    ingredientId: text("ingredient_id").references(() => ingredients.id),
+    baseQuantity: integer("base_quantity").notNull().default(0),
+    expires: text("expires").notNull().default(""),
+    batch: text("batch").notNull().default(""),
+    lotId: text("lot_id").references(() => stockLots.id),
+  },
+  (t) => [
+    index("supplier_invoice_line_invoice").on(t.invoiceId),
+    check("supplier_invoice_line_quantity", sql`${t.invoiceQuantity}>=0 AND ${t.baseQuantity}>=0`),
+  ],
+);
+/** Megjegyzett párosítás: szállító + számlán szereplő megnevezés → alapanyag és átváltás (alapegység / számlaegység, ezredekben). */
+export const invoiceItemMappings = sqliteTable("invoice_item_mappings", {
+  key: text("key").primaryKey(),
+  ingredientId: text("ingredient_id").notNull().references(() => ingredients.id),
+  factor: integer("factor").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+/** Beszerzési beállítások (egy sor): bekerülési érték nettó vagy bruttó. [ELLENŐRIZENDŐ] a könyvelővel – alapból nettó. */
+export const purchaseSettings = sqliteTable(
+  "purchase_settings",
+  {
+    id: integer("id").primaryKey(),
+    costBasis: text("cost_basis").notNull().default("net"),
+    revision: integer("revision").notNull().default(0),
+  },
+  (t) => [
+    check("purchase_settings_singleton", sql`${t.id}=1`),
+    check("purchase_settings_basis", sql`${t.costBasis} IN ('net','gross')`),
+  ],
+);

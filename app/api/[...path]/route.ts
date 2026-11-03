@@ -6,10 +6,11 @@ import {handleCourier,CourierError} from "@/src/modules/courier/server";
 import {fulfillmentOptions,loadPolicy,savePolicy,FulfillmentError} from '@/src/modules/fulfillment/server';
 import {loadStocktakes,handleStocktake,StocktakeError} from '@/src/modules/stocktake/server';
 import {loadMenu,publicMenu,saveMenu,saveMenuSettings,MenuError} from '@/src/modules/menu/server';
+import {handleInvoices,InvoiceError} from "@/src/modules/invoices/server";
 import { env } from "cloudflare:workers";
 import { currentUser, handleAuth, AuthError } from "@/src/modules/auth/server";
 import { sessionFor, handleAccess, loadMembers, AccessError } from "@/src/modules/access/server";
-import { isMember, canWrite, projectData } from "@/src/modules/access/domain";
+import { isMember, isAdmin, isKitchenStaff, canWrite, projectData } from "@/src/modules/access/domain";
 import { getDb } from "@/db";
 import { loadPublicCatalog, handlePortal, PortalError } from "@/src/modules/portal/server";
 import { loadRecurring, handleRecurring, RecurringError } from "@/src/modules/recurring/server";
@@ -100,6 +101,13 @@ async function handle(req: Request, write: boolean) {
     if (!write && path === "/api/session") return json({ ...session, mustChangePassword: Boolean(user.mustChangePassword) });
     if (!write && path === "/api/access/members") return json(await loadMembers(session));
     if (!isMember(session.role) && path !== "/api/access/request") return json({error:"ACCESS_PENDING"},403);
+    // v65: beszállítói számlák (Beszerzés). A beolvasáshoz nagyobb kérés kell (a számla képe / PDF-je base64-ben).
+    if(path==="/api/invoices"||path.startsWith("/api/invoices/")){
+      if(!isAdmin(session.role)&&!isKitchenStaff(session.role))return json({error:"FORBIDDEN"},403);
+      let body:unknown;
+      if(write){const raw=await req.text();if(raw.length>(path==="/api/invoices/scan"?2_000_000:300_000))return json({error:"INVOICE_FILE_TOO_LARGE"},413);body=JSON.parse(raw);if(!canWrite(session.role,path,body))return json({error:"FORBIDDEN"},403);}
+      return await handleInvoices(path,body,session,write,req);
+    }
     if(path==='/api/packing'||path.startsWith('/api/packing/')){
       let body:unknown;if(write){const raw=await req.text();if(raw.length>40000)return json({error:'TOO_LARGE'},413);body=JSON.parse(raw);}
       return await handlePacking(path,body,session,write,new URL(req.url).searchParams.get('date')??today());
@@ -570,6 +578,7 @@ async function handle(req: Request, write: boolean) {
     if (e instanceof AccessError) return json({error:e.code},e.status);
     if (e instanceof DeliveryError) return json({ error: e.code }, e.status);
     if (e instanceof PurchaseError) return json({ error: e.code }, e.status);
+    if (e instanceof InvoiceError) return json({ error: e.code }, e.status);
     if (e instanceof OperationError) return json({ error: e.code }, e.status);
     if (e instanceof z.ZodError || e instanceof SyntaxError)
       return json({ error: "VALIDATION" }, 400);

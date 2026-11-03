@@ -16,6 +16,7 @@
     "cf:migrate": "node scripts/cloudflare.mjs migrate",
     "cf:secrets": "node scripts/cloudflare.mjs secrets",
     "cf:google": "node scripts/cloudflare.mjs google",
+    "cf:gemini": "node scripts/cloudflare.mjs gemini",
     "cf:deploy": "node scripts/cloudflare.mjs deploy"
   },
   "dependencies": {

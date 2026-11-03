@@ -9,6 +9,9 @@ declare namespace Cloudflare {
     /** Google-belépés (v30): az azonosító nyilvános (cloudflare.json), a titkos kulcs Cloudflare-titok. */
     GOOGLE_CLIENT_ID?: string;
     GOOGLE_CLIENT_SECRET?: string;
+    /** Számlabeolvasás (v65): Google Gemini API-kulcs – csak Cloudflare-titokként / helyben .dev.vars-ban; modell felülírható. */
+    GEMINI_API_KEY?: string;
+    GEMINI_MODEL?: string;
     DB?: D1Database;
     BUCKET?: R2Bucket;
   }

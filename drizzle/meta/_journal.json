@@ -183,6 +183,13 @@
       "when": 1793554973302,
       "tag": "0025_menu_auto_days",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1793725252071,
+      "tag": "0026_supplier_invoices",
+      "breakpoints": true
     }
   ]
 }

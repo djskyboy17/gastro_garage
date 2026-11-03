@@ -94,6 +94,18 @@ A `cf:migrate` csak az új adatbázis-változásokat futtatja le; ha nincs új, 
 
 7. Feltöltés: `npm.cmd run cf:deploy`. A belépőoldalon megjelenik a **Belépés Google-fiókkal** gomb.
 
+## Számlabeolvasás AI-val (Gemini) — v65
+
+1. A Google AI Studio-ban (aistudio.google.com → **Get API key**) hozz létre egy API-kulcsot. **Fizetős (billing) projektet** használj: az ingyenes szinten a Google tanításra használhatja a feltöltött számlaképeket.
+2. A projekt mappájában futtasd, és illeszd be a kulcsot, amikor kéri (a kulcs titok: ne küldd el senkinek, chatben se):
+
+   ```
+   npm.cmd run cf:gemini
+   ```
+
+3. Nem kell újra feltölteni: a következő kéréstől a Beszerzés → **Számlák** lapon működik az AI-beolvasás. Kulcs nélkül a számlák kézzel vehetők fel.
+4. Helyi fejlesztéshez a kulcs a `.dev.vars` fájlba kerül (`GEMINI_API_KEY=…`); ez a fájl nem kerül a Gitbe.
+
 ## Elfelejtett jelszó
 
 - Aki Google-lel lép be, annak nincs jelszava, amit elfelejthetne. Ha jelszóval regisztrált, de Gmail-címmel, a Google-gombbal is be tud lépni ugyanabba a fiókba.

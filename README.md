@@ -359,3 +359,9 @@ Az alkalmazás a Cloudflare-en fut, három címen: `gastrogarage.veres.no` (ügy
 ## Allergéncímkék az étlapon — v62
 
 - A portálon az Étlap kártyáin is allergéncímkék vannak; a felugró ételinfó ablak megszűnt.
+
+## Számlák beolvasása AI-val — v65
+
+- Beszerzés → **Számlák**: román Factură / Bon Fiscal fotózása vagy PDF feltöltése; a Google Gemini kiolvassa a fejlécet (szállító, CUI, szám, dátum, nettó, TVA, SGR, végösszeg) és a tételsorokat. Átnézés, alapanyaghoz rendelés (a rendszer megjegyzi a párosítást), lejárat megadása, majd jóváhagyásra **bevételezés a raktárba**.
+- Kézi felvitel AI nélkül is; a bekerülési érték nettó vagy bruttó (beállítható, alapból nettó). Az SGR-betét nem kerül a raktárba.
+- Új migráció: `0026_supplier_invoices`. A Gemini-kulcs megadása: `npm run cf:gemini` (lásd TELEPITES.md). Leírás: `src/modules/invoices/SPEC.md`.

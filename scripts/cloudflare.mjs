@@ -74,12 +74,17 @@ if (command === "setup") {
   requireDatabase();
   console.log("A Google OAuth-ügyfél titkos kulcsa (Client secret) a Google Cloud Console-ból:");
   run(["secret", "put", "GOOGLE_CLIENT_SECRET", "--config", migrationConfig()]);
+} else if (command === "gemini") {
+  // v65: számlabeolvasás – a Google Gemini API-kulcsa titokként (soha nem kerül a forráskódba vagy a böngészőbe).
+  requireDatabase();
+  console.log("A Google Gemini API-kulcs (Google AI Studio → API keys). Fizetős kulcsot használj, hogy a számlaképeket ne használják tanításra:");
+  run(["secret", "put", "GEMINI_API_KEY", "--config", migrationConfig()]);
 } else if (command === "deploy") {
   requireDatabase();
   const build = spawnSync(process.execPath, [resolve(root, "scripts/run-framework.mjs"), "build"], { cwd: root, stdio: "inherit" });
   if (build.status !== 0) process.exit(build.status ?? 1);
   run(["deploy", "--config", resolve(root, "dist/server/wrangler.json")]);
 } else {
-  console.log("Használat: node scripts/cloudflare.mjs setup | migrate | secrets | google | deploy");
+  console.log("Használat: node scripts/cloudflare.mjs setup | migrate | secrets | google | gemini | deploy");
   process.exit(command ? 1 : 0);
 }

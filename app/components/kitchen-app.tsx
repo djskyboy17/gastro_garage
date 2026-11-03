@@ -1326,6 +1326,8 @@ export default function KitchenApp() {
                     busy={busy}
                     error={error}
                     onSave={mutate}
+                    isAdmin={isAdmin(session.role)}
+                    onRefresh={() => void load()}
                     renderPlan={(create) => (
                       <OperationsWorkspace
                         tab="procurement"
