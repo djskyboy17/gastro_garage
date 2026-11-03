@@ -868,7 +868,7 @@ export default function OperationsWorkspace({
                               }
                             >
                               {t(
-                                m.kind === "count_adjustment" ? "countAdjustmentKind" : m.kind === "count_reversal" ? "countReversalKind" : m.kind === "receipt_reversal" ? "receiptReversalKind" : m.kind === "received"
+                                m.kind === "count_adjustment" ? "countAdjustmentKind" : m.kind === "count_reversal" ? "countReversalKind" : m.kind === "receipt_reversal" ? "receiptReversalKind" : m.kind === "production" ? "productionMovesKind" : m.kind === "production_reversal" ? "productionReversalKind" : m.kind === "received"
                                   ? "receivedKind"
                                   : m.kind === "waste"
                                     ? "wasteKind"

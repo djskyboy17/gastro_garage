@@ -11,6 +11,9 @@ import { needsPacking } from "../packing/domain";
 import { loadRecipeData } from "../inventory/server";
 import { latestRecipe } from "../inventory/domain";
 import { recipeInfo } from "../inventory/nutrition";
+import { snapshotOps } from "../production/domain";
+import { labelAllocation } from "../production/finished";
+import { loadFinishedLots, pendingDay } from "../production/day-close";
 import type { Product } from "../shared/domain";
 import {
   addDays,
@@ -43,7 +46,33 @@ function baseUrl(req: Request) {
   return host ? `https://${host}` : new URL(req.url).origin;
 }
 
-/** Címkék a megadott tételekhez; a recept a rendeléskor mentett változat (ha nincs, a legfrissebb). */
+type BatchRef = { id: string; day: string; productId: string; code: string; recipeId: string | null; prep: string; useBy: string | null };
+
+/**
+ * v74: melyik gyártási tételből kapják az adagjukat a nap rendelési tételei. A nap összes visszaigazolt (nem rendelésenként
+ * kiadott) tételét a rendelés ideje szerint osztja ki: előbb a korábbi napokról megmaradt, még fogyasztható adagok, utána a mai tétel.
+ * A korábbi napok maradékát csak akkor veszi figyelembe, ha azok a napok le vannak zárva (különben a maradék nem ismert).
+ */
+async function batchAllocation(days: string[], productIds: string[]) {
+  const DB = env.DB!;
+  const result = new Map<string, { batchId: string; quantity: number }[]>();
+  for (const day of days) {
+    const [items, lots, pending] = await Promise.all([
+      DB.prepare(
+        "SELECT i.id AS itemId,i.product_id AS productId,o.time AS orderTime,o.id AS orderId,i.quantity FROM order_items i JOIN orders o ON o.id=i.order_id WHERE o.date=? AND o.status='confirmed' AND i.product_id IN (SELECT value FROM json_each(?)) AND NOT EXISTS (SELECT 1 FROM stock_issues s WHERE s.order_id=o.id)",
+      )
+        .bind(day, JSON.stringify(productIds))
+        .all<{ itemId: string; productId: string; orderTime: string; orderId: string; quantity: number }>(),
+      loadFinishedLots(day, productIds),
+      pendingDay(day),
+    ]);
+    const usable = pending ? lots.filter((l) => l.day === day) : lots;
+    for (const [itemId, parts] of labelAllocation(items.results, usable, day)) result.set(itemId, parts);
+  }
+  return result;
+}
+
+/** Címkék a megadott tételekhez; a recept a gyártási tétel pillanatképe, különben a rendeléskor mentett változat (ha nincs, a legfrissebb). */
 async function buildLabels(
   rows: { item: typeof orderItems.$inferSelect; order: typeof orders.$inferSelect }[],
   req: Request,
@@ -51,29 +80,49 @@ async function buildLabels(
   if (!rows.length) return [];
   const db = getDb();
   const productIds = [...new Set(rows.map((r) => r.item.productId))];
-  const [productRows, labelRows, { settings }, ops] = await Promise.all([
+  const days = [...new Set(rows.map((r) => r.order.date))].sort();
+  const [productRows, labelRows, { settings }, ops, batches, allocation] = await Promise.all([
     db.select().from(products).where(inArray(products.id, productIds)),
     db.select().from(productLabels).where(inArray(productLabels.productId, productIds)),
     loadSettings(),
     loadRecipeData(),
+    env.DB!.prepare("SELECT id,day,product_id AS productId,code,recipe_id AS recipeId,preparation_version_ids AS prep,use_by AS useBy FROM production_batches WHERE day>=? AND day<=? AND product_id IN (SELECT value FROM json_each(?))")
+      .bind(addDays(days[0]!, -14), days[days.length - 1]!, JSON.stringify(productIds))
+      .all<BatchRef>(),
+    batchAllocation(days, productIds),
   ]);
   const base = baseUrl(req);
-  return rows.map(({ item, order }) => {
+  const make = (item: typeof orderItems.$inferSelect, order: typeof orders.$inferSelect, batch: BatchRef | undefined, quantity: number) => {
     const product = productRows.find((p) => p.id === item.productId) as Product | undefined;
+    // v73: ha van gyártási tétel, az összetevők a tétel receptpillanatképéből jönnek.
+    const batchRecipe = batch?.recipeId ? ops.recipes.find((r) => r.id === batch.recipeId) : undefined;
     const recipe =
-      (item.recipeId && ops.recipes.find((r) => r.id === item.recipeId)) || latestRecipe(item.productId, ops.recipes);
-    const info = product && recipe ? recipeInfo(product, recipe, ops) : null;
+      batchRecipe || (item.recipeId && ops.recipes.find((r) => r.id === item.recipeId)) || latestRecipe(item.productId, ops.recipes);
+    const recipeOps = batchRecipe && batch ? snapshotOps(ops, JSON.parse(batch.prep) as string[]) : ops;
+    const info = product && recipe ? recipeInfo(product, recipe, recipeOps) : null;
     return consumerLabel({
-      item,
+      item: { ...item, quantity },
       orderCode: orderCode(order.id),
-      date: order.date,
+      date: batch?.day ?? order.date,
       netGrams: product?.portion ?? 0,
       netUnit: product?.category === "soup" ? "ml" : "g",
       info,
       label: labelRows.find((l) => l.productId === item.productId) ?? null,
       settings,
       baseUrl: base,
+      batch: batch ? { code: batch.code, useBy: batch.useBy } : null,
     });
+  };
+  return rows.flatMap(({ item, order }) => {
+    // v74: a készletből kiosztott részek (akár két tételből) külön címkét kapnak, a saját tételkódjukkal és gyártási napjukkal.
+    const parts = allocation.get(item.id) ?? [];
+    const covered = parts.reduce((s, p) => s + p.quantity, 0);
+    const labels = parts.map((p) => make(item, order, batches.results.find((b) => b.id === p.batchId), p.quantity));
+    if (covered < item.quantity) {
+      const sameDay = batches.results.find((b) => b.day === order.date && b.productId === item.productId);
+      labels.push(make(item, order, sameDay, item.quantity - covered));
+    }
+    return labels;
   });
 }
 

@@ -1,6 +1,5 @@
 import { env } from "cloudflare:workers";
 import { drizzle } from "drizzle-orm/d1";
-import * as schema from "./schema";
 
 export function getDb() {
   if (!env.DB) {
@@ -9,5 +8,7 @@ export function getDb() {
     );
   }
 
-  return drizzle(env.DB, { schema });
+  // Queries pass tables explicitly; do not rebuild unused relational metadata.
+  // Keep the adapter request-local, without caching sessions or query results.
+  return drizzle(env.DB);
 }

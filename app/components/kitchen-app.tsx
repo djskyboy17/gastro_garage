@@ -1,4 +1,5 @@
 "use client";
+import { dateFormatter, numberFormatter } from "@/src/modules/shared/format";
 import PackingWorkspace from "./packing-workspace";
 import { CustomerPicker, type CustomerChoice } from "./customer-picker";
 import { TimeInput24 } from "./time-input";
@@ -56,6 +57,8 @@ import {
 import { messages } from "@/src/modules/shared/i18n";
 import OperationsWorkspace from "./operations-workspace";
 import PurchasingWorkspace from "./purchasing-workspace";
+import ProductionWorkspace, { ProductionWarning } from "./production-workspace";
+import DayCloseWorkspace from "./day-close-workspace";
 import { VersionInfo } from "./version-info";
 import FulfillmentWorkspace from "./fulfillment-workspace";
 import StocktakeWorkspace from "./stocktake-workspace";
@@ -224,7 +227,7 @@ export default function KitchenApp() {
   const t = (key: string) => messages[lang][key] ?? key;
   const can = (path:string, body:unknown = {}) => session ? canWrite(session.role,"/api/"+path,body) : false;
   const money = (n: number) =>
-    !session || !["owner","admin","dispatcher"].includes(session.role) ? "—" : new Intl.NumberFormat(lang === "hu" ? "hu-HU" : "ro-RO", {
+    !session || !["owner","admin","dispatcher"].includes(session.role) ? "—" : numberFormatter(lang === "hu" ? "hu-HU" : "ro-RO", {
       style: "currency",
       currency: "RON",
       minimumFractionDigits: 2,
@@ -379,7 +382,7 @@ export default function KitchenApp() {
     .filter((o) => o.status === "confirmed")
     .reduce((s, o) => s + readyPortions(o), 0);
   const selectedOrder = data.orders.find((o) => o.id === selected);
-  const longDate = new Intl.DateTimeFormat(lang === "hu" ? "hu-HU" : "ro-RO", {
+  const longDate = dateFormatter(lang === "hu" ? "hu-HU" : "ro-RO", {
     month: "long",
     day: "numeric",
     weekday: "long",
@@ -864,6 +867,7 @@ export default function KitchenApp() {
                 )}
                 {tab === "overview" && (
                   <>
+                    {isAdmin(session.role) && <ProductionWarning lang={lang} orders={data.orders} operations={data.operations} day={day} onOpen={() => navigate("kitchen")} />}
                     {/* v39: négy állapotkártya – narancs: még semmi sincs kész, sárga: folyamatban, zöld: kész. */}
                     <div className="status-cards">
                       {overviewCards(daily).map((c) => {
@@ -1058,6 +1062,7 @@ export default function KitchenApp() {
                 )}
                 {tab === "kitchen" && (
                   <>
+                    {isAdmin(session.role) && <ProductionWarning lang={lang} orders={data.orders} operations={data.operations} day={day} />}
                     <div className="kitchen-summary">
                       <ChefHat size={24} />
                       <strong>{summary.reduce((s, r) => s + r.remaining, 0)}</strong>
@@ -1132,6 +1137,8 @@ export default function KitchenApp() {
                         </article>
                       ))}
                     </div>
+                    {isAdmin(session.role) && <ProductionWorkspace key={day} lang={lang} initialDay={day} onChanged={() => void load()} />}
+                    {(isAdmin(session.role) || session.role === "kitchen" || session.role === "warehouse") && <DayCloseWorkspace key={"close-" + day} lang={lang} initialDay={day} admin={isAdmin(session.role)} onChanged={() => void load()} />}
                   </>
                 )}
                 {tab === "delivery" && (
@@ -1416,7 +1423,7 @@ export default function KitchenApp() {
                             </p>
                           </div>
                           <time>
-                            {new Intl.DateTimeFormat(
+                            {dateFormatter(
                               lang === "hu" ? "hu-HU" : "ro-RO",
                               {
                                 dateStyle: "short",

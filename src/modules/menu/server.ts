@@ -1,12 +1,13 @@
 import {env} from 'cloudflare:workers';
 import {getDb} from '@/db';
 import {menuDays,menuSettings,products} from '@/db/schema';
-import {eq} from 'drizzle-orm';
+import {eq,inArray} from 'drizzle-orm';
 import {z} from 'zod';
 import {today} from '../shared/domain';
 import {publicProduct} from '../portal/domain';
 import {publicDishInfos} from '../inventory/server';
-import {validDay,addDays,cutoffInstant,menuSetError,remaining,UNLIMITED,type MenuData,type MenuSettings} from './domain';
+import {validDay,addDays,portalMenuDates,cutoffInstant,menuSetError,remaining,UNLIMITED,type MenuData,type MenuSettings} from './domain';
+import {groupRows} from '../shared/collections';
 export class MenuError extends Error{constructor(public code:string,public status=400){super(code);}}
 const usage=`SELECT COALESCE(SUM(i.quantity),0) FROM order_items i JOIN orders o ON o.id=i.order_id WHERE o.date=l.date AND i.product_id=l.product_id AND o.status IN ('requested','confirmed')`;
 /** A napi menü ára, az alapértelmezett határidő és a változat (v49, v54). Ha a sor hiányzik: 0 ár, 09:00. */
@@ -24,23 +25,55 @@ export async function loadMenu():Promise<MenuData>{
  * `auto` jelzi a nem mentett napot; ilyenkor `cutoffAt` az alapértelmezett határidő.
  */
 export async function publicMenu(date:string){
-  if(!validDay(date)||date<today()||date>addDays(today(),30))throw new MenuError('MENU_DATE');
-  const [days,catalog,lines,settings]=await Promise.all([getDb().select().from(menuDays).where(eq(menuDays.date,date)),getDb().select().from(products),env.DB!.prepare(`SELECT l.product_id AS productId,l.capacity,(${usage}) AS reserved FROM menu_lines l WHERE l.date=?`).bind(date).all(),loadMenuSettings()]);
-  const day=days[0];
-  if(!day){
-    const cutoffAt=cutoffInstant(date+'T'+settings.defaultCutoff);
-    const offered=catalog.filter(p=>p.active===1&&(p.section??'alacarte')==='alacarte');
-    const infos=await publicDishInfos(offered);
-    return {date,auto:true,open:!!cutoffAt&&Date.now()<Date.parse(cutoffAt),cutoffAt,items:offered.map(p=>({...publicProduct(p),info:infos.get(p.id)??null,remaining:UNLIMITED})),set:null};
+  return (await publicMenus([date]))[0]!;
+}
+/** One request-local read for the portal board; no availability or private-data cache. */
+export async function publicMenuBoard(date:string){
+  if(!validDay(date))throw new MenuError('MENU_DATE');
+  const {dates,week}=portalMenuDates(date);
+  const menus=await publicMenus(dates);
+  const byDate=new Map(menus.map(menu=>[menu.date,menu]));
+  return {today:byDate.get(date)!,week:week.map(date=>{
+    const menu=byDate.get(date)!;
+    return {date,set:menu.set,open:menu.open};
+  })};
+}
+async function publicMenus(dates:string[]){
+  const current=today();
+  if(!dates.length||dates.length>7||dates.some(date=>!validDay(date)||date<current||date>addDays(current,30)))throw new MenuError('MENU_DATE');
+  const db=getDb();
+  const [days,catalog,lineResult,settings]=await Promise.all([
+    db.select().from(menuDays).where(inArray(menuDays.date,dates)),
+    db.select().from(products).where(eq(products.active,1)),
+    env.DB!.prepare(`SELECT l.date,l.product_id AS productId,l.capacity,(${usage}) AS reserved FROM menu_lines l WHERE l.date IN (${dates.map(()=>'?').join(',')})`).bind(...dates).all(),
+    loadMenuSettings(),
+  ]);
+  const byDate=new Map(days.map(day=>[day.date,day]));
+  const linesByDate=groupRows(lineResult.results as MenuData['lines'],line=>line.date);
+  const byProduct=new Map(catalog.map(p=>[p.id,p]));
+  const automatic=catalog.filter(p=>(p.section??'alacarte')==='alacarte');
+  const offeredIds=new Set<string>();
+  for(const date of dates){
+    const day=byDate.get(date);
+    if(!day)for(const p of automatic)offeredIds.add(p.id);
+    else if(day.active)for(const line of linesByDate.get(date)??[])offeredIds.add(line.productId);
   }
-  if(!day.active)return {date,auto:false,open:false,cutoffAt:null,items:[],set:null};
-  const offered=catalog.filter(p=>p.active===1&&lines.results.some(l=>l.productId===p.id));
-  const infos=await publicDishInfos(offered);
-  const items=lines.results.flatMap(l=>{const p=offered.find(p=>p.id===l.productId);return p?[{...publicProduct(p),info:infos.get(p.id)??null,remaining:remaining(Number(l.capacity),Number(l.reserved))}]:[];});
-  // Napi menü (v49, v54): csak ha a leves és a főétel be van állítva és rendelhető, és van menüár.
-  const parts=[day.setSoupId,day.setMainId].map(id=>items.find(i=>i.id===id));
-  const set=settings.setPrice>0&&parts.every(Boolean)?{price:settings.setPrice,priceRevision:settings.revision,soup:parts[0]!,main:parts[1]!,remaining:Math.min(...parts.map(p=>p!.remaining))}:null;
-  return {date,auto:false,open:Date.now()<Date.parse(day.cutoffAt),cutoffAt:day.cutoffAt,items,set};
+  const infos=await publicDishInfos(catalog.filter(p=>offeredIds.has(p.id)));
+  return dates.map(date=>{
+    const day=byDate.get(date);
+    if(!day){
+      const cutoffAt=cutoffInstant(date+'T'+settings.defaultCutoff);
+      return {date,auto:true,open:!!cutoffAt&&Date.now()<Date.parse(cutoffAt),cutoffAt,items:automatic.map(p=>({...publicProduct(p),info:infos.get(p.id)??null,remaining:UNLIMITED})),set:null};
+    }
+    if(!day.active)return {date,auto:false,open:false,cutoffAt:null,items:[],set:null};
+    const items=(linesByDate.get(date)??[]).flatMap(line=>{
+      const p=byProduct.get(line.productId);
+      return p?[{...publicProduct(p),info:infos.get(p.id)??null,remaining:remaining(Number(line.capacity),Number(line.reserved))}]:[];
+    });
+    const parts=[day.setSoupId,day.setMainId].map(id=>items.find(i=>i.id===id));
+    const set=settings.setPrice>0&&parts.every(Boolean)?{price:settings.setPrice,priceRevision:settings.revision,soup:parts[0]!,main:parts[1]!,remaining:Math.min(...parts.map(p=>p!.remaining))}:null;
+    return {date,auto:false,open:Date.now()<Date.parse(day.cutoffAt),cutoffAt:day.cutoffAt,items,set};
+  });
 }
 const setInput=z.object({soupId:z.string().min(1).max(200),mainId:z.string().min(1).max(200)}).strict();
 const input=z.object({date:z.string().refine(validDay),revision:z.number().int().min(0).nullable(),cutoff:z.string(),active:z.number().int().min(0).max(1),items:z.array(z.object({productId:z.string().min(1).max(200),capacity:z.number().int().min(0).max(UNLIMITED)}).strict()).min(1).max(100),set:setInput.nullable().default(null)}).strict();

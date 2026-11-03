@@ -1,3 +1,4 @@
+import { dateFormatter } from "../shared/format.ts";
 import {orderFulfillment,type FulfillmentSnapshot} from "../fulfillment/domain.ts";
 import type {Product,Order,Language} from "../shared/domain";
 export type PublicProduct = Pick<Product,"id"|"hu"|"ro"|"descriptionHu"|"descriptionRo"|"category"|"price"|"portion"|"allergens"|"hasImage"|"imageRevision">&{section:string;info?:import("../inventory/nutrition").PublicDishInfo|null};
@@ -17,9 +18,9 @@ export function publicOrder(o:Order):PortalOrder {
 export function validPortalSlot(date:string,time:string,now=new Date()){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(time))return false;
   const target=new Date(date+"T12:00:00Z");if(isNaN(target.getTime())||target.toISOString().slice(0,10)!==date)return false;
-  const localDay=new Intl.DateTimeFormat("sv-SE",{timeZone:"Europe/Bucharest"}).format(now);
+  const localDay=dateFormatter("sv-SE",{timeZone:"Europe/Bucharest"}).format(now);
   // v50: a portálon csak mai napra lehet rendelni (Europe/Bucharest szerint), későbbi időpontra.
-  const localTime=new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/Bucharest",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(now);
+  const localTime=dateFormatter("en-GB",{timeZone:"Europe/Bucharest",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(now);
   return date===localDay && time>localTime;
 }
 export function portalItemName(item:{hu:string;ro:string},lang:Language){return item[lang];}

@@ -1,5 +1,12 @@
 # Shared domain and first vertical slice
 
+## Local performance update, 2026-11-03
+
+- Explicit-table Drizzle queries do not initialize unused relational-query metadata. Database adapters stay request-local; identity/session/query results are never cached.
+- Only immutable Intl formatters are reused, in bounded caches. Formatting still uses the current date/value and the original HU/RO locale and Bucharest timezone.
+- Parent/child rows are grouped once per response, preserving order, duplicates and historical snapshots. No history is truncated to improve performance.
+- `/api/data` skips loaders for data that `projectData` would discard for the current role. The final role projection and authorization still run. Administrators retain all existing modules, including local v73 production.
+
 ## Implemented boundaries
 
 - Catalog: bilingual names/descriptions, category, gross integer-bani price, gram portion, explicit 14-allergen selection.

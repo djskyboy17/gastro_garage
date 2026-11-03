@@ -121,6 +121,8 @@ export function consumerLabel(input: {
   label: { shelfLifeDays: number; storageRo: string; storageHu: string } | null;
   settings: LabelSettings;
   baseUrl: string;
+  /** v73: a gyártási tétel adatai (tételkód, fogyaszthatóság), ha van tétel. */
+  batch?: { code: string; useBy: string | null } | null;
 }): ConsumerLabel {
   const { item, info, label, settings } = input;
   const ingredients = info ? labelNodes(info.ingredients) : [];
@@ -149,9 +151,9 @@ export function consumerLabel(input: {
     nutritionPer100g: info?.nutritionPer100g ?? null,
     frozen: anyFrozen(ingredients),
     productionDate: input.date,
-    useBy: label ? addDays(input.date, label.shelfLifeDays) : null,
+    useBy: input.batch?.useBy ?? (label ? addDays(input.date, label.shelfLifeDays) : null),
     storage,
-    lot: lotCode(input.date, item.productId),
+    lot: input.batch?.code ?? lotCode(input.date, item.productId),
     producer: { name: settings.producerName, address: settings.producerAddress, extra: settings.producerExtra },
     url: `${input.baseUrl}/label?id=${encodeURIComponent(item.id)}`,
     missing,

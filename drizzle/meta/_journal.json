@@ -204,6 +204,20 @@
       "when": 1793736392774,
       "tag": "0028_nir",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1793738724221,
+      "tag": "0029_production_batches",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1793743325118,
+      "tag": "0030_finished_stock",
+      "breakpoints": true
     }
   ]
 }

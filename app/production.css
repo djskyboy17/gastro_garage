@@ -1,0 +1,40 @@
+/* v73: Konyhai terv → Gyártási tételek (bon de consum) */
+.production-panel{margin-top:18px}
+.production-panel .panel-heading h2{display:flex;align-items:center;gap:8px}
+.production-panel .panel-heading p{color:var(--muted);line-height:1.6;margin:6px 0 0}
+.production-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:10px 14px;padding:0 17px 14px}
+.production-toolbar label{display:grid;gap:5px;font-size:13px;color:var(--muted);font-weight:600}
+.production-toolbar input{border:1px solid var(--line);border-radius:7px;padding:8px 9px;background:#fff;max-width:160px}
+.production-table{width:100%;border-collapse:collapse}
+.production-table th,.production-table td{border-top:1px solid var(--line);padding:10px 9px;text-align:left;vertical-align:top}
+.production-table th{font-size:12px;color:var(--muted);font-weight:600}
+.production-table .number{text-align:right;white-space:nowrap}
+.production-table td small{display:block;color:var(--muted);margin-top:4px;font-size:12px}
+.production-num{width:84px;border:1px solid var(--line);border-radius:7px;padding:7px 8px;text-align:right;background:#fff}
+.production-actions{display:flex;flex-wrap:wrap;gap:7px;justify-content:flex-end}
+.production-actions .button,.production-actions .danger-button{display:inline-flex;align-items:center;gap:6px}
+.production-docs{display:flex!important;flex-wrap:wrap;gap:4px 10px}
+.production-docs a{display:inline-flex;align-items:center;gap:4px;color:#2d4933;font-weight:600}
+.production-docs a.is-reversed{text-decoration:line-through;color:var(--muted)}
+.production-review{margin:14px 17px 17px;padding:14px;border:1px solid #f0dfad;background:#fffbef;border-radius:10px;display:grid;gap:12px}
+.production-review h3{margin:0;font-size:16px}
+.production-short{color:#a33}
+.production-note{display:grid;gap:6px;font-size:13px;color:var(--muted);font-weight:600}
+.production-note textarea{min-height:60px;border:1px solid var(--line);border-radius:7px;padding:8px;font:inherit}
+.production-warning{display:flex;align-items:flex-start;gap:10px;background:#fff4d2;border:1px solid #f0dfad;color:#7a5a00;border-radius:9px;padding:11px 13px;margin-bottom:14px}
+.production-warning>div{flex:1;display:grid;gap:3px}
+.production-warning small{color:#8a6a10}
+@media(max-width:700px){.production-toolbar{padding:0 12px 12px}.production-review{margin:12px}.production-actions{justify-content:flex-start}}
+/* v74: Napi zárás */
+.production-row-error td{background:#fff6f4}
+.production-reason{display:block;margin:6px 0 0 auto;width:160px;border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:12px}
+.production-footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:14px 17px}
+.production-footer .button{display:inline-flex;align-items:center;gap:6px}
+.production-settings{margin:0 17px 17px;padding:12px 14px;border:1px solid var(--line);border-radius:9px;background:#f8f9f5;display:grid;gap:10px}
+.production-settings summary{cursor:pointer;font-weight:600}
+.production-settings label{display:grid;gap:6px;font-size:13px;color:var(--muted);font-weight:600}
+.production-settings textarea{min-height:64px;border:1px solid var(--line);border-radius:7px;padding:8px;font:inherit}
+.production-settings .production-check{display:flex;align-items:center;gap:8px}
+.production-settings .button{justify-self:start;display:inline-flex;align-items:center;gap:6px}
+.production-toolbar .badge{display:inline-flex;align-items:center;gap:5px}
+@media(max-width:700px){.production-footer{padding:12px}.production-settings{margin:0 12px 12px}}

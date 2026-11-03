@@ -1,9 +1,10 @@
 "use client";
+import { dateFormatter, numberFormatter } from "@/src/modules/shared/format";
 import {useCallback,useEffect,useState} from "react";
 import {ShoppingBag,Plus,Minus,ArrowRight,CheckCircle2,RefreshCw,KeyRound,LogOut,Truck,MapPin,Soup,UserRound,X,Hamburger,BookOpen,PartyPopper,Phone,ArrowUpRight} from "lucide-react";
 import {messages} from "@/src/modules/shared/i18n";
 import {today,orderCode,groupSetItems,portionUnit,SET_CART_ID,type Language} from "@/src/modules/shared/domain";
-import {isUnlimited,addDays} from "@/src/modules/menu/domain";
+import {isUnlimited} from "@/src/modules/menu/domain";
 import {orderProgress,type PublicProduct,type PortalData,type PortalOrder,type PortalProfile,type PortalPreview} from "@/src/modules/portal/domain";
 import {ProductImage} from "./product-image";
 import {TimeInput24} from "./time-input";
@@ -34,11 +35,11 @@ export default function ClientPortal(){
   const date=today();
   const t=(key:string)=>messages[lang][key]??key;
   const locale=lang==="hu"?"hu-HU":"ro-RO";
-  const money=(n:number)=>new Intl.NumberFormat(locale,{style:"currency",currency:"RON"}).format(n/100);
+  const money=(n:number)=>numberFormatter(locale,{style:"currency",currency:"RON"}).format(n/100);
   // Nagy árkiírás: „28 lei” (fillér csak ha van).
   const lei=(n:number)=>(n%100?(n/100).toFixed(2).replace(".",","):String(n/100));
-  const clock=(iso:string)=>new Intl.DateTimeFormat(locale,{timeZone:"Europe/Bucharest",hour:"2-digit",minute:"2-digit"}).format(new Date(iso));
-  const dayName=(d:string,l:Language=lang)=>new Intl.DateTimeFormat(l==="hu"?"hu-HU":"ro-RO",{weekday:"long",timeZone:"UTC"}).format(new Date(d+"T12:00:00Z"));
+  const clock=(iso:string)=>dateFormatter(locale,{timeZone:"Europe/Bucharest",hour:"2-digit",minute:"2-digit"}).format(new Date(iso));
+  const dayName=(d:string,l:Language=lang)=>dateFormatter(l==="hu"?"hu-HU":"ro-RO",{weekday:"long",timeZone:"UTC"}).format(new Date(d+"T12:00:00Z"));
   const shortDate=(d:string)=>d.slice(8,10)+"."+d.slice(5,7);
   const fill=(s:string,v:Record<string,string>)=>s.replace(/\{(\w+)\}/g,(m,k:string)=>v[k]??m);
   useEffect(()=>{
@@ -73,19 +74,19 @@ export default function ClientPortal(){
     return ()=>{clearInterval(timer);document.removeEventListener("visibilitychange",onVisible);};
   },[authenticated]);
   const [menuRefresh,setMenuRefresh]=useState(0);
-  useEffect(()=>{let ignore=false;setMenuLoading(true);setMenuOpen(false);setCatalog([]);setMenuSet(null);setCutoff(null);setPreview(null);
-    void (async()=>{try{const r=await fetch('/api/portal/menu?date='+encodeURIComponent(date),{cache:'no-store'}),d=await r.json() as {items:MenuProduct[];open:boolean;cutoffAt:string|null;set:MenuSetOffer|null;error?:string};if(!r.ok)throw Error(d.error??'loadError');if(!ignore){setCatalog(d.items);setMenuSet(d.set??null);setMenuOpen(d.open);setCutoff(d.cutoffAt);}}catch(e){if(!ignore)setError(e instanceof Error?e.message:'loadError');}finally{if(!ignore)setMenuLoading(false);}})();return ()=>{ignore=true;};
+  useEffect(()=>{let ignore=false;setMenuLoading(true);setMenuOpen(false);setCatalog([]);setMenuSet(null);setCutoff(null);setPreview(null);setWeek([]);
+    void (async()=>{
+      try{
+        const r=await fetch('/api/portal/menu-board?date='+encodeURIComponent(date),{cache:'no-store'});
+        const board=await r.json() as {today:{items:MenuProduct[];open:boolean;cutoffAt:string|null;set:MenuSetOffer|null};week:WeekDay[];error?:string};
+        if(!r.ok)throw Error(board.error??'loadError');
+        if(!ignore){const d=board.today;setCatalog(d.items);setMenuSet(d.set??null);setMenuOpen(d.open);setCutoff(d.cutoffAt);setWeek(board.week);}
+      }catch(e){if(!ignore)setError(e instanceof Error?e.message:'loadError');}
+      finally{if(!ignore)setMenuLoading(false);}
+    })();return ()=>{ignore=true;};
   },[date,menuRefresh]);
   useEffect(()=>{let ignore=false;setFulfillLoading(true);setFulfillment(null);setPreview(null);
     void (async()=>{try{const r=await fetch('/api/portal/fulfillment?date='+encodeURIComponent(date),{cache:'no-store'}),d=await r.json() as PublicFulfillment&{error?:string};if(!r.ok)throw Error(d.error??'loadError');if(!ignore){setFulfillment(d);if(!d.policy.deliveryEnabled&&d.policy.pickupEnabled)setMode('pickup');}}catch(e){if(!ignore)setError(e instanceof Error?e.message:'loadError');}finally{if(!ignore)setFulfillLoading(false);}})();return ()=>{ignore=true;};
-  },[date,menuRefresh]);
-  // Heti menü (v57): a hét hátralévő napjai (hétfő–szombat; vasárnap a következő hét). Elmúlt napra a portál nem ad menüt.
-  useEffect(()=>{let ignore=false;
-    const dow=new Date(date+"T12:00:00Z").getUTCDay();
-    const monday=dow===0?addDays(date,1):addDays(date,1-dow);
-    const days=[0,1,2,3,4,5].map(i=>addDays(monday,i)).filter(d=>d>=date);
-    void Promise.all(days.map(async d=>{try{const r=await fetch('/api/portal/menu?date='+d,{cache:'no-store'});if(!r.ok)return {date:d,set:null,open:false};const m=await r.json() as {set:MenuSetOffer|null;open:boolean};return {date:d,set:m.set??null,open:m.open};}catch{return {date:d,set:null,open:false};}})).then(w=>{if(!ignore)setWeek(w);});
-    return ()=>{ignore=true;};
   },[date,menuRefresh]);
   useEffect(()=>{if(success==="portalSent")document.getElementById("gp-orders")?.scrollIntoView({behavior:"smooth",block:"start"});},[success]);
   useEffect(()=>{if(!sheetOpen)return;const onKey=(e:KeyboardEvent)=>{if(e.key==="Escape")setSheetOpen(false);};document.addEventListener("keydown",onKey);return ()=>document.removeEventListener("keydown",onKey);},[sheetOpen]);

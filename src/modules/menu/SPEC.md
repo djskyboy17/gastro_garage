@@ -1,5 +1,12 @@
 # Scheduled menu
 
+## Local performance update, 2026-11-03
+
+- Public `GET /api/portal/menu-board?date=YYYY-MM-DD` returns `{today, week}` using one bounded read of at most seven dates. `week` preserves the remaining Monday–Saturday days; Sunday shows next week. Today and weekly cards share recipe/nutrition calculations within that request.
+- Single-day `/api/portal/menu` remains supported, including authoritative order previews. Both paths preserve active/closed/automatic days, price revision, capacities, reservations, recipe/allergen disclosure and Bucharest/DST cutoff handling.
+- Responses remain `no-store`; no cross-request availability or account cache. Invalid/past/out-of-range dates fail before database reads. Writes and transaction guards are unchanged.
+- Acceptance: board.today equals the single-day result; every weekly card equals that day's set/open values; refresh after a change reads current data; public output contains no customer or internal stock data.
+
 > **Érvényes állapot (v71).** Ez az összefoglaló a mérvadó; az alábbi, korábbi változatokból maradt szöveg ahol ellentmond neki, elavult.
 > - Napi menü: leves + főétel egy fix áron (menüár a beállításokban); desszert nincs. A Napi menü részbe tartozó étel csak a menü részeként rendelhető (v49–v54).
 > - Az Étlap ételei minden nap maguktól, korlátlan adaggal rendelhetők, mentés nélkül is, az alapértelmezett határidőig; egy napot csak eltérés esetén kell menteni (v54).

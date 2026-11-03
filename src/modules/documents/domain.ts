@@ -12,6 +12,8 @@ export const DOCUMENT_TYPES = {
   invoice: "FCT",
   receipt: "CHT",
   write_off: "PVC",
+  /** v74: bon de predare (kész étel átadása a készletbe). [ELLENŐRIZENDŐ] a könyvelővel. */
+  handover: "BP",
 } as const;
 export type DocumentType = keyof typeof DOCUMENT_TYPES;
 

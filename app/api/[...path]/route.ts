@@ -5,8 +5,9 @@ import {serveProductImage,handleProductImage,ImageError} from "@/src/modules/ima
 import {handleCourier,CourierError} from "@/src/modules/courier/server";
 import {fulfillmentOptions,loadPolicy,savePolicy,FulfillmentError} from '@/src/modules/fulfillment/server';
 import {loadStocktakes,handleStocktake,StocktakeError} from '@/src/modules/stocktake/server';
-import {loadMenu,publicMenu,saveMenu,saveMenuSettings,MenuError} from '@/src/modules/menu/server';
+import {loadMenu,publicMenu,publicMenuBoard,saveMenu,saveMenuSettings,MenuError} from '@/src/modules/menu/server';
 import {handleInvoices,InvoiceError} from "@/src/modules/invoices/server";
+import {handleProduction,ProductionError} from "@/src/modules/production/server";
 import { env } from "cloudflare:workers";
 import { currentUser, handleAuth, AuthError } from "@/src/modules/auth/server";
 import { sessionFor, handleAccess, loadMembers, AccessError } from "@/src/modules/access/server";
@@ -15,8 +16,8 @@ import { getDb } from "@/db";
 import { loadPublicCatalog, handlePortal, PortalError } from "@/src/modules/portal/server";
 import { loadRecurring, handleRecurring, RecurringError } from "@/src/modules/recurring/server";
 import { loadSafety, handleSafety, SafetyError } from "@/src/modules/safety/server";
-import { products, customers, orders, orderItems, audit, workspaceOwners } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { products, customers, orders, orderItems, audit, workspaceOwners, recipes } from "@/db/schema";
+import { desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { nextState, today, CATEGORIES, DAILY_CATEGORIES, SECTIONS, type Order } from "@/src/modules/shared/domain";
 import { hardDeleteOrder } from "@/src/modules/shared/order-delete";
@@ -26,7 +27,8 @@ import {
   handleOperations,
   OperationError,
 } from "@/src/modules/inventory/server";
-import { latestRecipe } from "@/src/modules/inventory/domain";
+import { latestRecipe, emptyOperations } from "@/src/modules/inventory/domain";
+import { groupRows } from "@/src/modules/shared/collections";
 import { loadDelivery, handleDelivery, courierUserName, DeliveryError } from "@/src/modules/delivery/server";
 import {
   loadPurchasing,
@@ -49,6 +51,7 @@ async function handle(req: Request, write: boolean) {
     const path = new URL(req.url).pathname;
     if (!write && path === "/api/portal/fulfillment") return json(await fulfillmentOptions(new URL(req.url).searchParams.get("date")??today()));
     if (!write && path === "/api/portal/menu") return json(await publicMenu(new URL(req.url).searchParams.get("date")??today()));
+    if (!write && path === "/api/portal/menu-board") return json(await publicMenuBoard(new URL(req.url).searchParams.get("date")??today()));
     if (!write && path === "/api/portal/catalog") return json(await loadPublicCatalog());
     if (!write && path === "/api/public/label") return await publicLabel(req);
     if (!write && path === "/api/products/image") return await serveProductImage(req, async () => {
@@ -110,6 +113,11 @@ async function handle(req: Request, write: boolean) {
       if(write){const raw=await req.text();if(raw.length>(path==="/api/invoices/scan"?2_000_000:300_000))return json({error:"INVOICE_FILE_TOO_LARGE"},413);body=JSON.parse(raw);if(!canWrite(session.role,path,body))return json({error:"FORBIDDEN"},403);}
       return await handleInvoices(path,body,session,write,req);
     }
+    // v73: gyártási tételek és bon de consum (csak admin; a modul ellenőrzi).
+    if(path==="/api/production"||path.startsWith("/api/production/")){
+      let body:unknown;if(write){const raw=await req.text();if(raw.length>100000)return json({error:"TOO_LARGE"},413);body=JSON.parse(raw);}
+      return await handleProduction(path,body,session,write,req);
+    }
     if(path==='/api/packing'||path.startsWith('/api/packing/')){
       let body:unknown;if(write){const raw=await req.text();if(raw.length>40000)return json({error:'TOO_LARGE'},413);body=JSON.parse(raw);}
       return await handlePacking(path,body,session,write,new URL(req.url).searchParams.get('date')??today());
@@ -143,18 +151,22 @@ async function handle(req: Request, write: boolean) {
       return json(await loadMenu());
     }
     if (!write && path === "/api/data") {
+      const admin = isAdmin(session.role);
+      const stock = admin || isKitchenStaff(session.role);
+      const sales = admin || session.role === "dispatcher";
       const [p, c, o, i, a, operations, purchasing, logistics, safety, recurring] = await Promise.all([
         db.select().from(products),
-        db.select().from(customers),
+        sales ? db.select().from(customers) : [],
         db.select().from(orders),
         db.select().from(orderItems),
-        db.select().from(audit).orderBy(desc(audit.createdAt)).limit(60),
-        loadOperations(),
-        loadPurchasing(),
+        admin ? db.select().from(audit).orderBy(desc(audit.createdAt)).limit(60) : [],
+        stock ? loadOperations() : emptyOperations,
+        stock ? loadPurchasing() : {suppliers:[],orders:[],events:[]},
         loadDelivery(),
-        loadSafety(),
-        loadRecurring(),
+        stock ? loadSafety() : {points:[],records:[]},
+        sales ? loadRecurring() : {templates:[],occurrences:[]},
       ]);
+      const itemsByOrder = groupRows(i, item => item.orderId);
       return json(projectData({
         recurring,
         safety,
@@ -165,7 +177,7 @@ async function handle(req: Request, write: boolean) {
         customers: c,
         orders: o.map((row) => ({
           ...row,
-          items: i.filter((item) => item.orderId === row.id),
+          items: itemsByOrder.get(row.id) ?? [],
         })),
         audit: a,
       }, session.role));
@@ -457,7 +469,9 @@ async function handle(req: Request, write: boolean) {
       const c = created ?? found;
       if (!c) return json({ error: "CUSTOMER_MISSING" }, 400);
       const catalog = await db.select().from(products);
-      const recipeCatalog = (await loadOperations()).recipes;
+      // Order snapshots need recipe identifiers, not lots, movements or production history.
+      const recipeCatalog = (await db.select().from(recipes).where(inArray(recipes.productId,d.items.map(item=>item.productId))))
+        .map(recipe=>({...recipe,lines:[]}));
       const seen = new Set<string>();
       const items = d.items.map((i) => {
         const p = catalog.find((p) => p.id === i.productId && p.active);
@@ -581,6 +595,7 @@ async function handle(req: Request, write: boolean) {
     if (e instanceof DeliveryError) return json({ error: e.code }, e.status);
     if (e instanceof PurchaseError) return json({ error: e.code }, e.status);
     if (e instanceof InvoiceError) return json({ error: e.code }, e.status);
+    if (e instanceof ProductionError) return json({ error: e.code }, e.status);
     if (e instanceof OperationError) return json({ error: e.code }, e.status);
     if (e instanceof z.ZodError || e instanceof SyntaxError)
       return json({ error: "VALIDATION" }, 400);

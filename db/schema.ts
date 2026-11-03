@@ -6,6 +6,7 @@ import {
   uniqueIndex,
   index,
   primaryKey,
+  type AnySQLiteColumn,
 } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 export const products = sqliteTable("products", {
@@ -268,6 +269,8 @@ export const stockMoves = sqliteTable("stock_moves", {
     .notNull()
     .references(() => stockLots.id),
   issueId: text("issue_id").references(() => stockIssues.id),
+  /** v73: a gyártási tétel anyagkiadása / sztornója. */
+  batchId: text("batch_id").references((): AnySQLiteColumn => productionBatches.id),
   quantity: integer("quantity").notNull(),
   kind: text("kind").notNull(),
   note: text("note").notNull(),
@@ -697,5 +700,153 @@ export const nirDocuments = sqliteTable(
     index("nir_invoice").on(t.invoiceId),
     check("nir_kind", sql`${t.kind} IN ('receipt','reversal')`),
     check("nir_status", sql`${t.status} IN ('issued','reversed')`),
+  ],
+);
+
+/**
+ * Gyártási tétel (v73): ételenként és gyártási naponként egy (egyszerre főzik a nap összes adagját).
+ * A tételkód a címkén is szereplő lotCode(nap, étel). A receptváltozat és az al-receptek változata a felvételkor
+ * (nyitott tételnél mentéskor frissül) rögzül; lezáráskor erre a tényleges adagszámra adja ki az anyagot (bon de consum).
+ */
+export const productionBatches = sqliteTable(
+  "production_batches",
+  {
+    id: text("id").primaryKey(),
+    day: text("day").notNull(),
+    productId: text("product_id").notNull().references(() => products.id),
+    code: text("code").notNull(),
+    recipeId: text("recipe_id").references(() => recipes.id),
+    /** JSON tömb: a felhasznált al-receptváltozatok azonosítói. */
+    preparationVersionIds: text("preparation_version_ids").notNull().default("[]"),
+    ordered: integer("ordered").notNull().default(0),
+    planned: integer("planned").notNull().default(0),
+    actual: integer("actual"),
+    /** A lezáráskor a rendelésenként már korábban kiadott adagok (ezekre nem fogy újra anyag). */
+    issuedBefore: integer("issued_before").notNull().default(0),
+    status: text("status").notNull().default("open"),
+    revision: integer("revision").notNull().default(0),
+    consumptionId: text("consumption_id"),
+    useBy: text("use_by"),
+    note: text("note").notNull().default(""),
+    createdBy: text("created_by").notNull(),
+    createdAt: text("created_at").notNull(),
+    closedBy: text("closed_by"),
+    closedAt: text("closed_at"),
+  },
+  (t) => [
+    uniqueIndex("production_batch_day_product").on(t.day, t.productId),
+    check("production_batch_status", sql`${t.status} IN ('open','closed')`),
+    check("production_batch_quantities", sql`${t.planned}>=0 AND ${t.ordered}>=0 AND (${t.actual} IS NULL OR ${t.actual}>=0)`),
+  ],
+);
+
+/**
+ * Bon de consum (v73): a gyártási tétel anyagkiadásának sorszámozott bizonylata (document_series: consumption).
+ * Pillanatkép (étel, adag, alapanyagok, raktári tételek, érték). Végleges, csak sztornó-BC-vel érvényteleníthető.
+ */
+export const consumptionDocuments = sqliteTable(
+  "consumption_documents",
+  {
+    id: text("id").primaryKey(),
+    batchId: text("batch_id").notNull().references(() => productionBatches.id),
+    year: integer("year").notNull(),
+    number: integer("number").notNull(),
+    kind: text("kind").notNull().default("consumption"),
+    status: text("status").notNull().default("issued"),
+    reversalOf: text("reversal_of"),
+    reversedBy: text("reversed_by"),
+    issueDate: text("issue_date").notNull(),
+    content: text("content").notNull(),
+    createdBy: text("created_by").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("consumption_number").on(t.year, t.number),
+    index("consumption_batch").on(t.batchId),
+    check("consumption_kind", sql`${t.kind} IN ('consumption','reversal')`),
+    check("consumption_status", sql`${t.status} IN ('issued','reversed')`),
+  ],
+);
+
+/** Gyártási beállítás (egyetlen sor, v73): a javasolt adagszám ráhagyása bázispontban (1000 = 10%). */
+export const productionSettings = sqliteTable(
+  "production_settings",
+  {
+    id: integer("id").primaryKey(),
+    marginBps: integer("margin_bps").notNull().default(1000),
+    revision: integer("revision").notNull().default(0),
+    /** v74: a selejt-PV aláírói (soronként egy név). */
+    writeOffCommittee: text("write_off_committee").notNull().default(""),
+    /** v74: bon de predare készüljön-e a tétel lezárásakor. [ELLENŐRIZENDŐ] a könyvelővel – alapból ki. */
+    handoverEnabled: integer("handover_enabled").notNull().default(0),
+  },
+  (t) => [check("production_settings_singleton", sql`${t.id}=1`), check("production_settings_margin", sql`${t.marginBps}>=0 AND ${t.marginBps}<=10000`)],
+);
+
+/**
+ * Készétel-mozgás (v74): a napi záráskor rögzített kiadás egy gyártási tételből – eladás, dolgozói étkezés, selejt, adomány.
+ * A tétel készlete = tényleges adag − a mozgások összege. A nap visszanyitása törli a nap mozgásait (a napló és a PV megmarad).
+ */
+export const finishedMoves = sqliteTable(
+  "finished_moves",
+  {
+    id: text("id").primaryKey(),
+    batchId: text("batch_id").notNull().references(() => productionBatches.id),
+    day: text("day").notNull(),
+    kind: text("kind").notNull(),
+    quantity: integer("quantity").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    index("finished_moves_batch").on(t.batchId),
+    index("finished_moves_day").on(t.day),
+    check("finished_moves_kind", sql`${t.kind} IN ('sold','staff','waste','donation')`),
+    check("finished_moves_quantity", sql`${t.quantity}>0`),
+  ],
+);
+
+/** Napi zárás (v74): naponta egy sor; a konyha zárja le, az admin nyithatja vissza. A lezárt nap egyenlege pillanatképként. */
+export const productionDayCloses = sqliteTable(
+  "production_day_closes",
+  {
+    day: text("day").primaryKey(),
+    status: text("status").notNull().default("open"),
+    revision: integer("revision").notNull().default(0),
+    content: text("content").notNull().default("{}"),
+    writeOffId: text("write_off_id"),
+    closedBy: text("closed_by"),
+    closedAt: text("closed_at"),
+  },
+  (t) => [check("production_day_close_status", sql`${t.status} IN ('open','closed')`)],
+);
+
+/**
+ * Gyártási bizonylatok (v74): selejt-PV (proces-verbal de casare, sorozat write_off) és bon de predare (sorozat handover).
+ * Végleges, csak sztornóval érvényteleníthető.
+ */
+export const productionDocuments = sqliteTable(
+  "production_documents",
+  {
+    id: text("id").primaryKey(),
+    docType: text("doc_type").notNull(),
+    year: integer("year").notNull(),
+    number: integer("number").notNull(),
+    kind: text("kind").notNull().default("issue"),
+    status: text("status").notNull().default("issued"),
+    reversalOf: text("reversal_of"),
+    reversedBy: text("reversed_by"),
+    issueDate: text("issue_date").notNull(),
+    day: text("day").notNull(),
+    batchId: text("batch_id").references(() => productionBatches.id),
+    content: text("content").notNull(),
+    createdBy: text("created_by").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("production_document_number").on(t.docType, t.year, t.number),
+    index("production_document_day").on(t.day),
+    check("production_document_type", sql`${t.docType} IN ('write_off','handover')`),
+    check("production_document_kind", sql`${t.kind} IN ('issue','reversal')`),
+    check("production_document_status", sql`${t.status} IN ('issued','reversed')`),
   ],
 );

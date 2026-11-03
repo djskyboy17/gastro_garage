@@ -29,7 +29,7 @@ Semmit nem töltünk ki csendben. A címkenézet ételenként felsorolja, mi hi�
 
 ## Nincs még benne
 - Jóváhagyott (nem számolt) tápérték, adalékanyagok, „poate conține” keresztszennyeződés-jelölés.
-- Gyártási tételek valódi nyilvántartása (a tételszám számolt).
+- Gyártási tétel nélkül a tételszám továbbra is számolt (nap + étel); v73 óta, ha van tétel, a címke a tétel kódját, fogyaszthatóságát és receptpillanatképét mutatja; v74 óta a korábbi rendelések a maradék (régebbi) tétel adatait kapják, két tételre eső rendelési tételnél két címke készül (src/modules/production/SPEC.md).
 - A QR-kód nem helyettesíti a nyomtatott kötelező adatokat.
 
 ## Ellenőrző példák

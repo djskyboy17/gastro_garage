@@ -16,6 +16,7 @@ import "./fulfillment.css";
 import "./courier.css";
 import "./packing.css";
 import "./labels.css";
+import "./production.css";
 
 export const metadata: Metadata = {
   title: "Gastro-Garage · Catering",

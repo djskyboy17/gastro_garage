@@ -1,3 +1,4 @@
+import { dateFormatter } from "../shared/format.ts";
 export type MenuDay={date:string;cutoffAt:string;active:number;revision:number;setSoupId?:string|null;setMainId?:string|null;setDessertId?:string|null};
 export type MenuLine={date:string;productId:string;capacity:number;reserved:number};
 /**
@@ -16,8 +17,15 @@ export const UNLIMITED=100000;
 export const isUnlimited=(capacity:number)=>capacity>=UNLIMITED;
 export function validDay(v:string){return /^\d{4}-\d{2}-\d{2}$/.test(v)&&!isNaN(Date.parse(v+'T12:00:00Z'))&&new Date(v+'T12:00:00Z').toISOString().slice(0,10)===v;}
 export function addDays(v:string,n:number){const d=new Date(v+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);}
+/** Today plus the visible Monday–Saturday menu, at most seven distinct dates. */
+export function portalMenuDates(date:string){
+  const dow=new Date(date+'T12:00:00Z').getUTCDay();
+  const monday=dow===0?addDays(date,1):addDays(date,1-dow);
+  const week=[0,1,2,3,4,5].map(i=>addDays(monday,i)).filter(day=>day>=date);
+  return {week,dates:[...new Set([date,...week])]};
+}
 export function kitchenWallTime(now=new Date()){
-  const p=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Bucharest',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(now);
+  const p=dateFormatter('sv-SE',{timeZone:'Europe/Bucharest',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(now);
   const get=(key:string)=>p.find(v=>v.type===key)!.value;
   return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
 }

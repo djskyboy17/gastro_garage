@@ -11,6 +11,7 @@ import {
   stockLots,
 } from "@/db/schema";
 import { today } from "../shared/domain";
+import { groupRows } from "../shared/collections";
 import {
   purchaseTransition,
   type PurchasingData,
@@ -47,11 +48,12 @@ export async function loadPurchasing(): Promise<PurchasingData> {
       .orderBy(desc(purchaseEvents.createdAt))
       .limit(200),
   ]);
+  const linesByPurchase = groupRows(l, line => line.purchaseId);
   return {
     suppliers: s,
     orders: o.map((p) => ({
       ...p,
-      lines: l.filter((line) => line.purchaseId === p.id),
+      lines: linesByPurchase.get(p.id) ?? [],
     })),
     events: e,
   };

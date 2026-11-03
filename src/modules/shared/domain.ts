@@ -1,3 +1,4 @@
+import { dateFormatter } from "./format.ts";
 export type Language = "hu" | "ro";
 export function nextStocktakeState(status:string,action:'post'|'cancel'|'reverse'){
   if(status==='draft'&&action==='post')return 'posted';
@@ -121,7 +122,7 @@ export type AppData = {
   audit: Audit[];
 };
 export function today() {
-  return new Intl.DateTimeFormat("sv-SE", {
+  return dateFormatter("sv-SE", {
     timeZone: "Europe/Bucharest",
   }).format(new Date());
 }

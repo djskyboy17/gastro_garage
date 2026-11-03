@@ -1,3 +1,4 @@
+import { dateFormatter } from "../shared/format.ts";
 import { displayMessages, type DisplayLang } from "./i18n.ts";
 import { DISPLAY_SCRIPT, clientVersion } from "./client.ts";
 import { DISPLAY_CSS } from "./style.ts";
@@ -9,7 +10,7 @@ import { DISPLAY_CSS } from "./style.ts";
 export const DAY_POLL_MS = 5000;
 export const NIGHT_POLL_MS = 30000;
 export function pollInterval(now = new Date()) {
-  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Bucharest", hour: "2-digit", hourCycle: "h23" }).format(now));
+  const hour = Number(dateFormatter("en-GB", { timeZone: "Europe/Bucharest", hour: "2-digit", hourCycle: "h23" }).format(now));
   return hour >= 7 && hour < 19 ? DAY_POLL_MS : NIGHT_POLL_MS;
 }
 

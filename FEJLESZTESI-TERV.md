@@ -38,15 +38,15 @@ Ellenőrzött hiányosságok a meglévő részekben:
 - **(Opcionális) beszerzési rendelés párosítása:** a számlasorok a rendelés soraihoz köthetők, részátvétellel.
 - *Elfogadás:* ugyanaz a számla két feltöltéssel sem kerül be kétszer; a NIR száma folytonos; a NIR sztornója a készletet is visszaveszi; nem RON-os számla nem bevételezhető.
 
-### 2. Gyártási tétel + bon de consum (nagy, 3–4 munkamenet)
+### 2. Gyártási tétel + bon de consum (nagy, 3–4 munkamenet) — ✅ kész (v73), részletek: src/modules/production/SPEC.md
 - **Gyártási tétel** (`production_batches`): nap, étel, receptverzió-pillanatkép, tervezett és tényleges adagszám, tételszám, gyártási idő, fogyaszthatóság.
 - **Anyagkiadás a tételhez** (FEFO szerint), egyszer: a rendelésenkénti mostani kiadás helyett vagy mellett a tétel fogyaszt, kettős levonás nélkül.
 - **Bon de consum:** sorszámozott, a tétel anyagkiadásából keletkezik, nyomtatható, sztornózható.
-- **Konyhai „Elkészült”:** gyártási tételhez kötött. Döntendő, hogy kötelező legyen, vagy jól látható eltérésként jelenjen meg.
+- **Konyhai „Elkészült”:** gyártási tételhez kötött. Döntés (2026-11-03): nem kötelező, jól látható figyelmeztetésként jelenik meg.
 - **Címke:** a tényleges tétel adataiból (gyártási dátum, összetétel-pillanatkép, tömeg, eltarthatóság).
 - *Elfogadás:* 1 tétel több rendelést kiszolgál; az alapanyag egyszer fogy; a címke a tétel adatait mutatja.
 
-### 3. Készételkészlet, maradék, selejt (közepes, 2–3 munkamenet)
+### 3. Készételkészlet, maradék, selejt (közepes, 2–3 munkamenet) — ✅ kész (v74), részletek: src/modules/production/SPEC.md; a bon de predare beállítható, alapból ki (könyvelővel egyeztetendő)
 - **Késztermék-bevételezés** (bon de predare / termelési jelentés, a könyvelővel egyeztetett modell szerint) a gyártási tételből.
 - **Készétel-készlet** tételenként; kiadás a rendelésekre és a kiszállításra.
 - **Kiadási jogcímek:** eladás, maradék (következő napra, ha szabályos), selejt (proces-verbal de casare: indok, jóváhagyás), dolgozói étkezés, adomány.

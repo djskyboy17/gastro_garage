@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, gte } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
 import {
@@ -17,6 +17,7 @@ import {
   preparationVersions,
   preparationLines,
   recipePreparationLines,
+  productionBatches,
 } from "@/db/schema";
 import {
   allocate,
@@ -36,7 +37,13 @@ import {
 } from "./nutrition";
 import type { Product } from "../shared/domain";
 import { today, type Order } from "../shared/domain";
+import { groupRows } from "../shared/collections";
 import { sampleIngredients, sampleRecipes } from "./seed";
+const addDaysIso = (date: string, days: number) => {
+  const d = new Date(date + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+};
 const json = (v: unknown, status = 200) =>
   Response.json(v, { status, headers: { "Cache-Control": "no-store" } });
 const text = (max = 200) => z.string().trim().min(1).max(max);
@@ -74,7 +81,7 @@ export class OperationError extends Error {
 }
 export async function loadOperations(): Promise<OperationsData> {
   const db = getDb();
-  const [i, r, l, lots, issues, moves, preps, versions, prepLines, recipePreps] = await Promise.all([
+  const [i, r, l, lots, issues, moves, preps, versions, prepLines, recipePreps, batches] = await Promise.all([
     db.select().from(ingredients),
     db.select().from(recipes),
     db.select().from(recipeLines),
@@ -85,13 +92,18 @@ export async function loadOperations(): Promise<OperationsData> {
     db.select().from(preparationVersions),
     db.select().from(preparationLines),
     db.select().from(recipePreparationLines),
+    db.select({ day: productionBatches.day, productId: productionBatches.productId, status: productionBatches.status }).from(productionBatches).where(gte(productionBatches.day, addDaysIso(today(), -14))),
   ]);
+  const linesByRecipe = groupRows(l, line => line.recipeId);
+  const prepsByRecipe = groupRows(recipePreps, line => line.recipeId);
+  const linesByVersion = groupRows(prepLines, line => line.versionId);
   return {
+    batches: batches as OperationsData["batches"],
     ingredients: i,
     recipes: r.map((recipe) => ({
       ...recipe,
-      lines: l.filter((line) => line.recipeId === recipe.id),
-      preparations: recipePreps.filter((line) => line.recipeId === recipe.id),
+      lines: linesByRecipe.get(recipe.id) ?? [],
+      preparations: prepsByRecipe.get(recipe.id) ?? [],
     })),
     lots,
     issues,
@@ -99,7 +111,7 @@ export async function loadOperations(): Promise<OperationsData> {
     preparations: preps,
     preparationVersions: versions.map((v) => ({
       ...v,
-      lines: prepLines.filter((line) => line.versionId === v.id),
+      lines: linesByVersion.get(v.id) ?? [],
     })),
   };
 }
@@ -115,16 +127,19 @@ export async function loadRecipeData(): Promise<OperationsData> {
     db.select().from(preparationLines),
     db.select().from(recipePreparationLines),
   ]);
+  const linesByRecipe = groupRows(l, line => line.recipeId);
+  const prepsByRecipe = groupRows(recipePreps, line => line.recipeId);
+  const linesByVersion = groupRows(prepLines, line => line.versionId);
   return {
     ...emptyOperations,
     ingredients: i,
     recipes: r.map((recipe) => ({
       ...recipe,
-      lines: l.filter((line) => line.recipeId === recipe.id),
-      preparations: recipePreps.filter((line) => line.recipeId === recipe.id),
+      lines: linesByRecipe.get(recipe.id) ?? [],
+      preparations: prepsByRecipe.get(recipe.id) ?? [],
     })),
     preparations: preps,
-    preparationVersions: versions.map((v) => ({ ...v, lines: prepLines.filter((line) => line.versionId === v.id) })),
+    preparationVersions: versions.map((v) => ({ ...v, lines: linesByVersion.get(v.id) ?? [] })),
   };
 }
 /**
@@ -636,6 +651,12 @@ export async function handleOperations(
       .select()
       .from(orderItems)
       .where(eq(orderItems.orderId, d.orderId));
+    // v73: ha az ételhez aznapra gyártási tétel van, az anyag a tétellel fogy – rendelésenként nem adható ki (kettős levonás ellen).
+    const batched = await env
+      .DB!.prepare("SELECT 1 FROM production_batches WHERE day=? AND product_id IN (SELECT value FROM json_each(?)) LIMIT 1")
+      .bind(row.date, JSON.stringify(items.map((i) => i.productId)))
+      .first();
+    if (batched) throw new OperationError("ISSUE_BATCHED", 409);
     const ops = await loadOperations();
     const req = requirements({ ...row, items } as Order, ops.recipes, ops.preparationVersions);
     if (req.missing.length) throw new OperationError("MISSING_RECIPE");
@@ -668,9 +689,9 @@ export async function handleOperations(
     const commands = [
       env
         .DB!.prepare(
-          "INSERT INTO stock_issues (id,order_id,recipe_snapshot,created_at,actor) VALUES (?,?,CASE WHEN EXISTS (SELECT 1 FROM orders WHERE id=? AND revision=? AND status='confirmed' AND production IN ('queued','cooking') AND delivery='pending') THEN ? ELSE NULL END,?,?)",
+          "INSERT INTO stock_issues (id,order_id,recipe_snapshot,created_at,actor) VALUES (?,?,CASE WHEN EXISTS (SELECT 1 FROM orders WHERE id=? AND revision=? AND status='confirmed' AND production IN ('queued','cooking') AND delivery='pending') AND NOT EXISTS (SELECT 1 FROM production_batches b JOIN order_items i ON i.product_id=b.product_id AND i.order_id=? WHERE b.day=?) THEN ? ELSE NULL END,?,?)",
         )
-        .bind(id, d.orderId, d.orderId, d.revision, snapshot, now, actor),
+        .bind(id, d.orderId, d.orderId, d.revision, d.orderId, row.date, snapshot, now, actor),
       env
         .DB!.prepare(
           "UPDATE orders SET production='cooking',revision=revision+1 WHERE id=? AND revision=?",

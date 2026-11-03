@@ -100,7 +100,20 @@ export type OperationsData = {
   moves: StockMove[];
   preparations: Preparation[];
   preparationVersions: PreparationVersion[];
+  /** v73: gyártási tételek (nap + étel + állapot) – a lezárt tétel anyaga már ki van adva. */
+  batches?: BatchMark[];
 };
+/** Egy gyártási tétel jelölése (v73); a részletek a production modulban. */
+export type BatchMark = { day: string; productId: string; status: "open" | "closed" };
+/**
+ * A rendelés tételei, amelyek anyagigénye még nincs kiadva: a lezárt gyártási tételhez (nap + étel) tartozó
+ * tételek anyaga a tétel bon de consumjával már fogyott, ezért a beszerzési terv nem számolja újra.
+ */
+export function pendingOrder(order: Order, batches: BatchMark[] = []): Order {
+  if (!batches.length) return order;
+  const closed = new Set(batches.filter((b) => b.status === "closed" && b.day === order.date).map((b) => b.productId));
+  return closed.size ? { ...order, items: order.items.filter((i) => !closed.has(i.productId)) } : order;
+}
 export const emptyOperations: OperationsData = {
   ingredients: [],
   recipes: [],
@@ -280,7 +293,7 @@ export function procurementPlan(
       o.delivery === "pending" &&
       !issued.has(o.id),
   )) {
-    const req = requirements(o, ops.recipes, ops.preparationVersions ?? []);
+    const req = requirements(pendingOrder(o, ops.batches), ops.recipes, ops.preparationVersions ?? []);
     missing.push(...req.missing);
     for (const [id, qty] of req.needs)
       needed.set(id, (needed.get(id) ?? 0) + qty);
@@ -370,7 +383,7 @@ export function forwardProcurement(
     const needs = new Map<string, number>();
     const missing = new Set<string>();
     for (const o of dayOrders) {
-      const req = requirements(o, ops.recipes, ops.preparationVersions ?? []);
+      const req = requirements(pendingOrder(o, ops.batches), ops.recipes, ops.preparationVersions ?? []);
       req.missing.forEach((id) => missing.add(id));
       for (const [id, q] of req.needs) needs.set(id, (needs.get(id) ?? 0) + q);
     }

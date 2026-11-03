@@ -14,6 +14,7 @@ import {publicProduct,publicOrder,validPortalSlot,type PortalData,type PortalAcc
 import {publicDishInfos} from "../inventory/server";
 import {today,SET_CART_ID,SET_GROUP,splitSetPrice} from "../shared/domain";
 import {hardDeleteOrder} from "../shared/order-delete";
+import {groupRows} from "../shared/collections";
 export class PortalError extends Error {constructor(public code:string,public status=400){super(code);}}
 const json=(v:unknown,status=200)=>Response.json(v,{status,headers:{"Cache-Control":"no-store"}});
 const profileInput=z.object({revision:z.number().int().min(0).optional(),name:z.string().trim().min(1).max(200),address:z.string().trim().max(500).refine(v=>v.length===0||v.length>=5),phone:z.string().trim().regex(/^[+0-9 ()-]{6,40}$/)}).strict();
@@ -81,7 +82,8 @@ export async function handlePortal(path:string,body:unknown|undefined,user:Ident
     const open=and(eq(orders.portalUserId,user.userId),ne(orders.delivery,"delivered"),sql`(${orders.status} NOT IN ('cancelled','rejected') OR ${orders.createdAt}>=${dayAgo} OR EXISTS (SELECT 1 FROM audit a WHERE a.entity=${orders.id} AND a.created_at>=${dayAgo}))`);
     const mine=await db.select().from(orders).where(open).orderBy(desc(orders.createdAt));
     const items=mine.length?(await db.select({item:orderItems}).from(orderItems).innerJoin(orders,eq(orders.id,orderItems.orderId)).where(open)).map(r=>r.item):[];
-    const data:PortalData={profile:p?profile(p):null,orders:mine.map(o=>publicOrder({...o,items:items.filter(i=>i.orderId===o.id)}))};return json(data);
+    const itemsByOrder=groupRows(items,i=>i.orderId);
+    const data:PortalData={profile:p?profile(p):null,orders:mine.map(o=>publicOrder({...o,items:itemsByOrder.get(o.id)??[]}))};return json(data);
   }
   if(!write&&path==="/api/portal/accounts"){
     if(!manager)throw new PortalError("FORBIDDEN",403);
