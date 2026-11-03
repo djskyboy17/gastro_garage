@@ -343,7 +343,8 @@ export function normalizeExtraction(raw: unknown): ExtractedInvoice {
   const kind: InvoiceKind = /bon/i.test(r.document_type ?? "") ? "bon_fiscal" : "factura";
   const lines = (r.lines ?? [])
     .map((l, index) => {
-      const description = (l.description ?? "").trim().slice(0, 300);
+      // v70: a többsoros megnevezés egy sorba (a beviteli mező amúgy is egy soros, és a párosítás kulcsa is így stabil).
+      const description = (l.description ?? "").replace(/\s+/g, " ").trim().slice(0, 300);
       const vatRate = parseVatRate(l.vat_rate);
       let lineNet = parseMoney(l.line_net),
         lineGross = parseMoney(l.line_gross);

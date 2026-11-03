@@ -104,9 +104,10 @@ async function googleError(response: Response) {
  * v68: ha a modell nem ismeri a gondolkodási beállítást (400), egyszer nélküle; időtúllépés: INVOICE_AI_TIMEOUT.
  * v69: modellsor (beállított → gemini-flash-latest → gemini-flash-lite-latest): 404-nél azonnal, túlterhelésnél (500/503)
  * egy újrapróbálás után a következő modell jön. Ha mind túlterhelt: INVOICE_AI_BUSY.
+ * v70: összesen legfeljebb 40 másodperc (alacsony gondolkodással egy számla kb. 5 mp).
  * A Google hibakódja és üzenete a Worker naplójába kerül (`wrangler tail`).
  */
-export async function extractWithGemini({ apiKey, mime, base64, model = GEMINI_MODEL, fetchImpl = fetch, timeoutMs = 90_000, retryDelayMs = 1500 }: GeminiInput & { retryDelayMs?: number }): Promise<unknown> {
+export async function extractWithGemini({ apiKey, mime, base64, model = GEMINI_MODEL, fetchImpl = fetch, timeoutMs = 40_000, retryDelayMs = 1500 }: GeminiInput & { retryDelayMs?: number }): Promise<unknown> {
   if (!apiKey) throw new InvoiceError("INVOICE_AI_DISABLED", 503);
   const started = Date.now(),
     deadline = started + timeoutMs;

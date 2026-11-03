@@ -73,7 +73,7 @@ test("Gemini output is normalized: seller, bani, ISO date, deposit lines skipped
     sgr_total: null,
     total: "1.111,00",
     lines: [
-      { description: "Piept de pui", quantity: "2,5", unit: "KG", line_net: "100,00", vat_rate: "11%", is_deposit: false },
+      { description: "Piept de pui\n(fără os)  proaspăt", quantity: "2,5", unit: "KG", line_net: "100,00", vat_rate: "11%", is_deposit: false },
       { description: "Apa plata 0,5L", quantity: "2", unit: "buc", unit_price: "2,00", vat_rate: "21", is_deposit: false },
       { description: "Garantie SGR", quantity: "2", unit: "buc", line_gross: "1,00", vat_rate: "0", is_deposit: false },
     ],
@@ -84,6 +84,7 @@ test("Gemini output is normalized: seller, bani, ISO date, deposit lines skipped
   assert.equal(x.number, "000123");
   assert.equal(x.issueDate, "2026-11-02");
   assert.equal(x.total, 111100);
+  assert.equal(x.lines[0]!.description, "Piept de pui (fără os) proaspăt");
   assert.equal(x.lines[0]!.invoiceQuantity, 2500);
   assert.equal(x.lines[0]!.invoiceUnit, "kg");
   assert.equal(x.lines[0]!.vatRate, 1100);

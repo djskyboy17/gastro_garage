@@ -35,3 +35,10 @@ A Beszerzés „Számlák” lapja. Román Factură és Bon Fiscal fotóról vag
 4. Factura: 2,5 kg csirke nettó 50,00 (11%) és 30 db tojás bruttó 33,30 (11%), nettó alapon → raktártételek 2500 g / 50,00 RON és 30 db / 30,00 RON; az SGR-sor nem kerül raktárba. Második bevételezés → `CONFLICT`. Bevételezett számla nem vethető el.
 5. A következő számlán ugyanattól a szállítótól ugyanaz a megnevezés → a megjegyzett alapanyag és átváltás javaslatként jelenik meg.
 6. Futár szerepkör: lista, beolvasás és fájl → 403.
+
+## Gemini-hívás finomítása — v66–v70
+- Modell: `gemini-3.8-flash` (a 2.5-ös Flash új felhasználóknak már nem elérhető). Alacsony gondolkodási szint (`thinkingLevel: "low"`); ha a modell nem ismeri, egyszer nélküle.
+- Modellsor: beállított → `gemini-flash-latest` → `gemini-flash-lite-latest`; 404-nél azonnal, túlterhelésnél (500/503) egy újrapróbálás után a következő. Mind túlterhelt → `INVOICE_AI_BUSY`; időtúllépés → `INVOICE_AI_TIMEOUT`; nem létező modell → `INVOICE_AI_MODEL`.
+- Időkeret összesen 40 másodperc (mért: egy számla kb. 5 mp alacsony gondolkodással).
+- A Google hibakódja és üzenete, valamint a sikeres hívás ideje a Worker naplójába kerül (`wrangler tail`); a kulcs soha.
+- A többsoros megnevezés egy sorba kerül (sortörés és többszörös szóköz → egy szóköz).
