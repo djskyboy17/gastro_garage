@@ -160,3 +160,20 @@ test("Gemini adapter falls back to the latest Flash model on 404 and retries onc
   const down = (async () => new Response("{}", { status: 503 })) as unknown as typeof fetch;
   await assert.rejects(extractWithGemini({ apiKey: "k", mime: "image/jpeg", base64: "AAAA", fetchImpl: down, retryDelayMs: 1 }), /INVOICE_AI_UNAVAILABLE/);
 });
+
+test("Gemini request asks for low thinking; drops it if the model rejects the setting; slow answers time out", async () => {
+  assert.deepEqual((geminiRequestBody("image/jpeg", "AAAA").generationConfig as { thinkingConfig?: unknown }).thinkingConfig, { thinkingLevel: "low" });
+  assert.equal("thinkingConfig" in geminiRequestBody("image/jpeg", "AAAA", false).generationConfig, false);
+  const bodies: string[] = [];
+  const noThinking = (async (_url: string, init: RequestInit) => {
+    bodies.push(String(init.body));
+    return bodies.length === 1
+      ? new Response(JSON.stringify({ error: { status: "INVALID_ARGUMENT", message: "Unknown name thinkingLevel in thinking_config" } }), { status: 400 })
+      : new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"document_type":"factura","lines":[]}' }] } }] }), { status: 200 });
+  }) as unknown as typeof fetch;
+  assert.deepEqual(await extractWithGemini({ apiKey: "k", mime: "image/jpeg", base64: "AAAA", fetchImpl: noThinking }), { document_type: "factura", lines: [] });
+  assert.match(bodies[0]!, /thinkingLevel/);
+  assert.doesNotMatch(bodies[1]!, /thinkingLevel/);
+  const slow = ((_url: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }))))) as unknown as typeof fetch;
+  await assert.rejects(extractWithGemini({ apiKey: "k", mime: "image/jpeg", base64: "AAAA", fetchImpl: slow, timeoutMs: 20 }), /INVOICE_AI_TIMEOUT/);
+});

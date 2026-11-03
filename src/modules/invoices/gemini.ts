@@ -72,11 +72,14 @@ export type GeminiInput = {
   timeoutMs?: number;
 };
 
-/** A Gemini-kérés törzse (külön, hogy tesztelhető legyen). */
-export function geminiRequestBody(mime: string, base64: string) {
+/**
+ * A Gemini-kérés törzse (külön, hogy tesztelhető legyen).
+ * v68: a Gemini 3 modellek alapból sokat „gondolkodnak” – a számla kiolvasásához alacsony szint elég, és sokkal gyorsabb.
+ */
+export function geminiRequestBody(mime: string, base64: string, lowThinking = true) {
   return {
     contents: [{ role: "user", parts: [{ text: INVOICE_PROMPT }, { inline_data: { mime_type: mime, data: base64 } }] }],
-    generationConfig: { temperature: 0, responseMimeType: "application/json", responseSchema: INVOICE_SCHEMA },
+    generationConfig: { temperature: 0, responseMimeType: "application/json", responseSchema: INVOICE_SCHEMA, ...(lowThinking ? { thinkingConfig: { thinkingLevel: "low" } } : {}) },
   };
 }
 
@@ -96,16 +99,18 @@ async function googleError(response: Response) {
 /**
  * Meghívja a Geminit, és a válasz JSON-objektumát adja vissza. Hiba esetén `InvoiceError` (a kulcs soha nem kerül a hibaüzenetbe).
  * v66: ha a modell nem érhető el (404), egyszer a pótmodellel; ha a Google túlterhelt (500/503), egy rövid szünet után még egyszer próbál.
+ * v68: ha a modell nem ismeri a gondolkodási beállítást (400), egyszer nélküle; időtúllépés: INVOICE_AI_TIMEOUT.
  * A Google hibakódja és üzenete a Worker naplójába kerül (`wrangler tail`).
  */
-export async function extractWithGemini({ apiKey, mime, base64, model = GEMINI_MODEL, fetchImpl = fetch, timeoutMs = 55_000, retryDelayMs = 1500 }: GeminiInput & { retryDelayMs?: number }): Promise<unknown> {
+export async function extractWithGemini({ apiKey, mime, base64, model = GEMINI_MODEL, fetchImpl = fetch, timeoutMs = 90_000, retryDelayMs = 1500 }: GeminiInput & { retryDelayMs?: number }): Promise<unknown> {
   if (!apiKey) throw new InvoiceError("INVOICE_AI_DISABLED", 503);
-  const body = JSON.stringify(geminiRequestBody(mime, base64));
   const deadline = Date.now() + timeoutMs;
   let current = model,
     retried = false,
+    lowThinking = true,
     response: Response | null = null;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const body = JSON.stringify(geminiRequestBody(mime, base64, lowThinking));
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), Math.max(1000, deadline - Date.now()));
     try {
@@ -117,13 +122,17 @@ export async function extractWithGemini({ apiKey, mime, base64, model = GEMINI_M
       });
     } catch (e) {
       console.warn("gemini fetch failed", current, e instanceof Error ? e.name + " " + e.message.slice(0, 200) : "");
-      throw new InvoiceError("INVOICE_AI_UNAVAILABLE", 502);
+      throw new InvoiceError(e instanceof Error && e.name === "AbortError" ? "INVOICE_AI_TIMEOUT" : "INVOICE_AI_UNAVAILABLE", 502);
     } finally {
       clearTimeout(timer);
     }
     if (response.ok) break;
     const detail = await googleError(response);
     console.warn("gemini error", current, response.status, detail);
+    if (response.status === 400 && lowThinking && /thinking/i.test(detail)) {
+      lowThinking = false;
+      continue;
+    }
     if (response.status === 404 && current !== GEMINI_FALLBACK_MODEL) {
       current = GEMINI_FALLBACK_MODEL;
       continue;
