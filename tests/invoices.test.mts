@@ -141,3 +141,22 @@ test("Gemini adapter sends the file with a JSON schema and returns parsed JSON; 
   const garbage = (async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "not json" }] } }] }), { status: 200 })) as unknown as typeof fetch;
   await assert.rejects(extractWithGemini({ apiKey: "k", mime: "image/jpeg", base64: "AAAA", fetchImpl: garbage }), /INVOICE_AI_INVALID/);
 });
+
+test("Gemini adapter falls back to the latest Flash model on 404 and retries once when overloaded", async () => {
+  const answer = () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"document_type":"factura","lines":[]}' }] } }] }), { status: 200 });
+  const urls: string[] = [];
+  const fallback = (async (url: string) => {
+    urls.push(url);
+    return url.includes("gemini-2.5-flash") ? new Response(JSON.stringify({ error: { status: "NOT_FOUND", message: "model not found" } }), { status: 404 }) : answer();
+  }) as unknown as typeof fetch;
+  assert.deepEqual(await extractWithGemini({ apiKey: "k", mime: "image/jpeg", base64: "AAAA", fetchImpl: fallback }), { document_type: "factura", lines: [] });
+  assert.match(urls[1]!, /gemini-flash-latest:generateContent$/);
+  let calls = 0;
+  const overloaded = (async () => (++calls === 1 ? new Response(JSON.stringify({ error: { status: "UNAVAILABLE", message: "overloaded" } }), { status: 503 }) : answer())) as unknown as typeof fetch;
+  assert.deepEqual(await extractWithGemini({ apiKey: "k", mime: "image/jpeg", base64: "AAAA", fetchImpl: overloaded, retryDelayMs: 1 }), { document_type: "factura", lines: [] });
+  assert.equal(calls, 2);
+  const missing = (async () => new Response("{}", { status: 404 })) as unknown as typeof fetch;
+  await assert.rejects(extractWithGemini({ apiKey: "k", mime: "image/jpeg", base64: "AAAA", fetchImpl: missing }), /INVOICE_AI_MODEL/);
+  const down = (async () => new Response("{}", { status: 503 })) as unknown as typeof fetch;
+  await assert.rejects(extractWithGemini({ apiKey: "k", mime: "image/jpeg", base64: "AAAA", fetchImpl: down, retryDelayMs: 1 }), /INVOICE_AI_UNAVAILABLE/);
+});

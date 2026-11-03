@@ -79,26 +79,65 @@ export function geminiRequestBody(mime: string, base64: string) {
   };
 }
 
-/** Meghívja a Geminit, és a válasz JSON-objektumát adja vissza. Hiba esetén `InvoiceError` (a kulcs soha nem kerül a hibaüzenetbe). */
-export async function extractWithGemini({ apiKey, mime, base64, model = GEMINI_MODEL, fetchImpl = fetch, timeoutMs = 55_000 }: GeminiInput): Promise<unknown> {
-  if (!apiKey) throw new InvoiceError("INVOICE_AI_DISABLED", 503);
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  let response: Response;
+/** Pótmodell, ha a beállított modell nem érhető el (404): a Google mindig a legújabb Flash modellre irányítja. */
+export const GEMINI_FALLBACK_MODEL = "gemini-flash-latest";
+
+/** A Google hibaválaszának rövid leírása a naplóba (a kulcs soha nincs benne: az csak a kérés fejlécében megy). */
+async function googleError(response: Response) {
   try {
-    response = await fetchImpl(ENDPOINT + encodeURIComponent(model) + ":generateContent", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: JSON.stringify(geminiRequestBody(mime, base64)),
-      signal: controller.signal,
-    });
+    const body = (await response.json()) as { error?: { status?: string; message?: string } };
+    return [body.error?.status, body.error?.message?.slice(0, 300)].filter(Boolean).join(": ");
   } catch {
-    throw new InvoiceError("INVOICE_AI_UNAVAILABLE", 502);
-  } finally {
-    clearTimeout(timer);
+    return "";
   }
+}
+
+/**
+ * Meghívja a Geminit, és a válasz JSON-objektumát adja vissza. Hiba esetén `InvoiceError` (a kulcs soha nem kerül a hibaüzenetbe).
+ * v66: ha a modell nem érhető el (404), egyszer a pótmodellel; ha a Google túlterhelt (500/503), egy rövid szünet után még egyszer próbál.
+ * A Google hibakódja és üzenete a Worker naplójába kerül (`wrangler tail`).
+ */
+export async function extractWithGemini({ apiKey, mime, base64, model = GEMINI_MODEL, fetchImpl = fetch, timeoutMs = 55_000, retryDelayMs = 1500 }: GeminiInput & { retryDelayMs?: number }): Promise<unknown> {
+  if (!apiKey) throw new InvoiceError("INVOICE_AI_DISABLED", 503);
+  const body = JSON.stringify(geminiRequestBody(mime, base64));
+  const deadline = Date.now() + timeoutMs;
+  let current = model,
+    retried = false,
+    response: Response | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), Math.max(1000, deadline - Date.now()));
+    try {
+      response = await fetchImpl(ENDPOINT + encodeURIComponent(current) + ":generateContent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        body,
+        signal: controller.signal,
+      });
+    } catch (e) {
+      console.warn("gemini fetch failed", current, e instanceof Error ? e.name + " " + e.message.slice(0, 200) : "");
+      throw new InvoiceError("INVOICE_AI_UNAVAILABLE", 502);
+    } finally {
+      clearTimeout(timer);
+    }
+    if (response.ok) break;
+    const detail = await googleError(response);
+    console.warn("gemini error", current, response.status, detail);
+    if (response.status === 404 && current !== GEMINI_FALLBACK_MODEL) {
+      current = GEMINI_FALLBACK_MODEL;
+      continue;
+    }
+    if ((response.status === 500 || response.status === 503) && !retried && deadline - Date.now() > retryDelayMs + 5000) {
+      retried = true;
+      await new Promise((r) => setTimeout(r, retryDelayMs));
+      continue;
+    }
+    break;
+  }
+  if (!response) throw new InvoiceError("INVOICE_AI_UNAVAILABLE", 502);
   if (response.status === 429) throw new InvoiceError("INVOICE_AI_BUSY", 503);
   if (response.status === 400 || response.status === 401 || response.status === 403) throw new InvoiceError("INVOICE_AI_REJECTED", 502);
+  if (response.status === 404) throw new InvoiceError("INVOICE_AI_MODEL", 502);
   if (!response.ok) throw new InvoiceError("INVOICE_AI_UNAVAILABLE", 502);
   let payload: unknown;
   try {
@@ -108,10 +147,14 @@ export async function extractWithGemini({ apiKey, mime, base64, model = GEMINI_M
   }
   const candidate = (payload as { candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[] })?.candidates?.[0];
   const text = candidate?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-  if (!text) throw new InvoiceError(candidate?.finishReason === "SAFETY" ? "INVOICE_AI_REJECTED" : "INVOICE_AI_INVALID", 502);
+  if (!text) {
+    console.warn("gemini empty answer", current, candidate?.finishReason ?? "no candidate");
+    throw new InvoiceError(candidate?.finishReason === "SAFETY" ? "INVOICE_AI_REJECTED" : "INVOICE_AI_INVALID", 502);
+  }
   try {
     return JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, ""));
   } catch {
+    console.warn("gemini non-json answer", current, text.slice(0, 120));
     throw new InvoiceError("INVOICE_AI_INVALID", 502);
   }
 }
