@@ -5,7 +5,8 @@ import { InvoiceError } from "./domain.ts";
  * A kulcs csak szerveroldalon él (Cloudflare secret: GEMINI_API_KEY). A hívás nem adatbázis-tranzakción belül történik.
  * Az eredményt mindig embernek kell ellenőriznie: nincs automatikus bevételezés.
  */
-export const GEMINI_MODEL = "gemini-2.5-flash";
+/** v67: a 2.5-ös Flash új felhasználóknak már nem elérhető; a Google a 3.8-as Flasht ajánlja (felülírható: GEMINI_MODEL). */
+export const GEMINI_MODEL = "gemini-3.8-flash";
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/";
 
 export const INVOICE_PROMPT = `You extract data from ONE Romanian purchase document: a "Factură" (invoice) or a "Bon fiscal" (cash register receipt).

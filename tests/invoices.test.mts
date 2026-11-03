@@ -132,7 +132,7 @@ test("Gemini adapter sends the file with a JSON schema and returns parsed JSON; 
     return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"document_type":"bon_fiscal","lines":[]}' }] } }] }), { status: 200 });
   }) as unknown as typeof fetch;
   assert.deepEqual(await extractWithGemini({ apiKey: "test-key", mime: "image/jpeg", base64: "AAAA", fetchImpl: ok }), { document_type: "bon_fiscal", lines: [] });
-  assert.match(seen!.url, /gemini-2\.5-flash:generateContent$/);
+  assert.match(seen!.url, /gemini-3.8-flash:generateContent$/);
   assert.equal(seen!.key, "test-key");
   const status = (code: number) => (async () => new Response("{}", { status: code })) as unknown as typeof fetch;
   await assert.rejects(extractWithGemini({ apiKey: "k", mime: "image/jpeg", base64: "AAAA", fetchImpl: status(429) }), /INVOICE_AI_BUSY/);
@@ -147,7 +147,7 @@ test("Gemini adapter falls back to the latest Flash model on 404 and retries onc
   const urls: string[] = [];
   const fallback = (async (url: string) => {
     urls.push(url);
-    return url.includes("gemini-2.5-flash") ? new Response(JSON.stringify({ error: { status: "NOT_FOUND", message: "model not found" } }), { status: 404 }) : answer();
+    return url.includes("gemini-3.8-flash") ? new Response(JSON.stringify({ error: { status: "NOT_FOUND", message: "model not found" } }), { status: 404 }) : answer();
   }) as unknown as typeof fetch;
   assert.deepEqual(await extractWithGemini({ apiKey: "k", mime: "image/jpeg", base64: "AAAA", fetchImpl: fallback }), { document_type: "factura", lines: [] });
   assert.match(urls[1]!, /gemini-flash-latest:generateContent$/);
