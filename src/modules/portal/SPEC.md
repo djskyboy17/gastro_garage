@@ -91,3 +91,7 @@ Az étlap elején „Napi menü” kártya jelenik meg (leves + főétel + dessz
 ## Sárga szalag — v64
 - Szavai: „Napi menü csak {ár} lei” (a mai napi menü ára, ha nincs, a hét első menüjéé), majd „Ami a garázsból kigördül”, a kínálat, a rendezvénytípusok és az átvételi módok (`gpMarqueeWords`, „|”-vel elválasztva).
 - Két egyforma félből áll, a sáv a felénél ugrik vissza, így megszakítás és hézag nélkül körbe forog (70 mp / kör). Csökkentett mozgás beállításnál áll.
+
+## Mobilos oldalmenü — v79
+- 820 px alatt a fejlécben csak a logó (a „Gastro Garage” név nélkül) és egy menügomb van. A menü jobbról csúszik be: az oldal részei (Rendelés, Átvétel, Saját rendeléseim – bejelentkezve; Heti menü, Kínálat, Catering, Kapcsolat), nyelvválasztó, jelszó módosítása és kijelentkezés (vagy bejelentkezés), alul a telefonszám.
+- Linkre koppintva bezárul és a részhez ugrik; Escape, a háttér vagy az X is bezárja; nyitva a háttér nem görgethető. Az asztali nézet változatlan.

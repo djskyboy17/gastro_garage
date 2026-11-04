@@ -1,7 +1,7 @@
 "use client";
 import { dateFormatter, numberFormatter } from "@/src/modules/shared/format";
 import {useCallback,useEffect,useState} from "react";
-import {ShoppingBag,Plus,Minus,ArrowRight,CheckCircle2,RefreshCw,KeyRound,LogOut,Truck,MapPin,Soup,UserRound,X,Hamburger,BookOpen,PartyPopper,Phone,ArrowUpRight} from "lucide-react";
+import {ShoppingBag,Plus,Minus,ArrowRight,CheckCircle2,RefreshCw,KeyRound,LogOut,Truck,MapPin,Soup,UserRound,X,Hamburger,BookOpen,PartyPopper,Phone,ArrowUpRight,Menu,Languages} from "lucide-react";
 import {messages} from "@/src/modules/shared/i18n";
 import {today,orderCode,groupSetItems,portionUnit,SET_CART_ID,type Language} from "@/src/modules/shared/domain";
 import {isUnlimited} from "@/src/modules/menu/domain";
@@ -27,6 +27,9 @@ const EVENTS=["gpEventFamily","gpEventBirthday","gpEventBaptism","gpEventCompany
 export default function ClientPortal(){
   const [lang,setLang]=useState<Language>("hu"),[catalog,setCatalog]=useState<MenuProduct[]>([]),[data,setData]=useState<PortalData>(empty),[authenticated,setAuthenticated]=useState(false),[blocked,setBlocked]=useState(false),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(""),[success,setSuccess]=useState("");
   const [menuSet,setMenuSet]=useState<MenuSetOffer|null>(null);
+  // v79: mobilos oldalmenü (jobbról becsúszik); Escape bezárja, nyitva a háttér nem görgethető.
+  const [drawer,setDrawer]=useState(false);
+  useEffect(()=>{if(!drawer)return;const onKey=(e:KeyboardEvent)=>{if(e.key==="Escape")setDrawer(false);};document.addEventListener("keydown",onKey);const overflow=document.body.style.overflow;document.body.style.overflow="hidden";return ()=>{document.removeEventListener("keydown",onKey);document.body.style.overflow=overflow;};},[drawer]);
   const [menuOpen,setMenuOpen]=useState(false),[cutoff,setCutoff]=useState<string|null>(null),[menuLoading,setMenuLoading]=useState(true);
   const [fulfillment,setFulfillment]=useState<PublicFulfillment|null>(null),[fulfillLoading,setFulfillLoading]=useState(true),[mode,setMode]=useState<"delivery"|"pickup">("delivery"),[zoneId,setZoneId]=useState(""),[asap,setAsap]=useState(true);
   const [cartLoaded,setCartLoaded]=useState(false),[sheetOpen,setSheetOpen]=useState(false),[editProfile,setEditProfile]=useState(false),[week,setWeek]=useState<WeekDay[]>([]);
@@ -124,11 +127,29 @@ export default function ClientPortal(){
 
   return <div className="gp">
     <header className="gp-top"><div className="gp-wrap">
-      <a href="/portal" className="gp-brand"><img src="/logo.png" alt="" width={34} height={34}/>Gastro Garage</a>
+      <a href="/portal" className="gp-brand" aria-label="Gastro Garage"><img src="/logo.png" alt="" width={34} height={34}/><span className="gp-brand-name">Gastro Garage</span></a>
       <nav aria-label={t("navigation")}><a href="#gp-order">{t("gpOrderCta")}</a>{authenticated&&!blocked&&<><a href="#gp-pick">{t("gpPickKicker")}</a><a href="#gp-orders">{t("portalOwn")}</a></>}<a href="#gp-week">{t("gpWeekCta")}</a><a href="#gp-catering">{t("gpOfferCatering")}</a></nav>
-      <div className="gp-lang" role="group" aria-label={t("language")}>{(["hu","ro"] as const).map(l=><button key={l} type="button" aria-pressed={lang===l} onClick={()=>setLang(l)}>{l.toUpperCase()}</button>)}</div>
-      {authenticated?<><a className="gp-icon" href="/password?return_to=/portal" aria-label={t("passwordChangeLink")} title={t("passwordChangeLink")}><KeyRound size={18}/></a><a className="gp-icon" href="/signout?return_to=/portal" aria-label={t("signOut")} title={t("signOut")}><LogOut size={18}/></a></>:<a className="gp-signin" href="/signin?return_to=/portal"><UserRound size={17}/>{t("signIn")}</a>}
+      <div className="gp-lang gp-desktop" role="group" aria-label={t("language")}>{(["hu","ro"] as const).map(l=><button key={l} type="button" aria-pressed={lang===l} onClick={()=>setLang(l)}>{l.toUpperCase()}</button>)}</div>
+      {authenticated?<><a className="gp-icon gp-desktop" href="/password?return_to=/portal" aria-label={t("passwordChangeLink")} title={t("passwordChangeLink")}><KeyRound size={18}/></a><a className="gp-icon gp-desktop" href="/signout?return_to=/portal" aria-label={t("signOut")} title={t("signOut")}><LogOut size={18}/></a></>:<a className="gp-signin gp-desktop" href="/signin?return_to=/portal"><UserRound size={17}/>{t("signIn")}</a>}
+      <button type="button" className="gp-menu-btn" aria-label={t("navigation")} aria-expanded={drawer} aria-controls="gp-drawer" onClick={()=>setDrawer(true)}><Menu size={24}/></button>
     </div></header>
+    {drawer&&<><div className="gp-drawer-bg" onClick={()=>setDrawer(false)}/>
+    <aside id="gp-drawer" className="gp-drawer" role="dialog" aria-modal="true" aria-label={t("navigation")}>
+      <div className="gp-drawer-head"><img src="/logo.png" alt="Gastro Garage" width={40} height={40}/><button type="button" className="gp-close" aria-label={t("close")} onClick={()=>setDrawer(false)} autoFocus><X size={22}/></button></div>
+      <nav className="gp-drawer-nav" aria-label={t("navigation")} onClick={e=>{if((e.target as HTMLElement).closest("a"))setDrawer(false);}}>
+        <a href="#gp-order">{t("gpOrderCta")}<ArrowRight size={18}/></a>
+        {authenticated&&!blocked&&<><a href="#gp-pick">{t("gpPickKicker")}<ArrowRight size={18}/></a><a href="#gp-orders">{t("portalOwn")}<ArrowRight size={18}/></a></>}
+        <a href="#gp-week">{t("gpWeekCta")}<ArrowRight size={18}/></a>
+        <a href="#gp-offer">{t("gpOfferKicker")}<ArrowRight size={18}/></a>
+        <a href="#gp-catering">{t("gpOfferCatering")}<ArrowRight size={18}/></a>
+        <a href="#gp-contact">{t("gpContact")}<ArrowRight size={18}/></a>
+      </nav>
+      <div className="gp-drawer-block"><span className="gp-drawer-label"><Languages size={16}/>{t("language")}</span><div className="gp-lang" role="group" aria-label={t("language")}>{(["hu","ro"] as const).map(l=><button key={l} type="button" aria-pressed={lang===l} onClick={()=>setLang(l)}>{l.toUpperCase()}</button>)}</div></div>
+      <div className="gp-drawer-account">
+        {authenticated?<><a href="/password?return_to=/portal"><KeyRound size={18}/>{t("passwordChangeLink")}</a><a href="/signout?return_to=/portal"><LogOut size={18}/>{t("signOut")}</a></>:<a className="gp-btn yellow wide" href="/signin?return_to=/portal"><UserRound size={18}/>{t("signIn")}</a>}
+      </div>
+      <a className="gp-drawer-phone" href={"tel:"+t("gpPhoneHref")}><Phone size={18}/>{t("gpPhone")}</a>
+    </aside></>}
 
     <div className="gp-hero"><div className="gp-wrap">
       <div>
@@ -263,7 +284,7 @@ export default function ClientPortal(){
       </div></section>
     </main>
 
-    <footer className="gp-footer"><div className="gp-wrap">
+    <footer id="gp-contact" className="gp-footer"><div className="gp-wrap">
       <h2>Gastro Garage</h2><p>{t("gpLead")}</p>
       <div className="gp-cols">
         <div><h4>{t("gpContact")}</h4><a className="big" href={"tel:"+t("gpPhoneHref")}>{t("gpPhone")}</a><a href={"mailto:"+t("gpEmail")}>{t("gpEmail")}</a><p>{t("gpAddress")}</p></div>
