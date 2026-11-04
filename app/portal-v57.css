@@ -289,10 +289,10 @@
   .gp-cartbar{left:auto;right:24px;width:420px}
   .gp-sheet{left:auto;right:24px;bottom:24px;width:460px;border-radius:26px;max-height:calc(100vh - 110px)}
 }
-@media (max-width:400px){.gp-brand{font-size:17px}.gp-brand img{width:28px;height:28px}}
+@media (max-width:400px){.gp-brand{font-size:17px}}
 
 /* v79: mobilos oldalmenü – 820 px alatt a fejlécben csak a logó és a menügomb; a linkek, a nyelv, a jelszócsere és a ki-/bejelentkezés a menüben. */
-.gp-menu-btn{margin-left:auto;display:grid;place-items:center;width:44px;height:44px;border-radius:12px;border:1px solid var(--gp-line-dark);background:none;color:#fff}
+.gp-menu-btn{margin-left:0;display:grid;place-items:center;width:44px;height:44px;border-radius:12px;border:1px solid var(--gp-line-dark);background:none;color:#fff}
 .gp-drawer-bg{position:fixed;inset:0;z-index:60;background:#06150f99;animation:gp-fade .2s ease}
 .gp-drawer{position:fixed;top:0;right:0;bottom:0;z-index:61;width:min(320px,86vw);background:var(--gp-ink);color:#fff;display:flex;flex-direction:column;gap:18px;padding:16px 18px calc(18px + env(safe-area-inset-bottom));overflow-y:auto;box-shadow:-20px 0 60px #00000055;animation:gp-slide .22s ease}
 .gp-drawer-head{display:flex;align-items:center;justify-content:space-between}
@@ -310,6 +310,6 @@
 .gp-drawer-phone{margin-top:auto;display:flex;align-items:center;gap:10px;padding:14px;border-radius:14px;background:var(--gp-ink-2);text-decoration:none;font-weight:700;color:var(--gp-yellow)}
 @keyframes gp-slide{from{transform:translateX(100%)}to{transform:none}}
 @keyframes gp-fade{from{opacity:0}to{opacity:1}}
-@media (max-width:819px){.gp-desktop{display:none!important}.gp-brand-name{display:none}}
+@media (max-width:819px){.gp-desktop{display:none!important}.gp-brand-name{display:none}.gp-brand img{width:46px;height:46px;border-radius:10px}.gp-top .gp-lang button{padding:8px 11px;font-size:13px}}
 @media (min-width:820px){.gp-menu-btn,.gp-drawer,.gp-drawer-bg{display:none}}
 @media (prefers-reduced-motion:reduce){.gp-drawer,.gp-drawer-bg{animation:none}}

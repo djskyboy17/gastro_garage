@@ -1,7 +1,7 @@
 "use client";
 import { dateFormatter, numberFormatter } from "@/src/modules/shared/format";
 import {useCallback,useEffect,useState} from "react";
-import {ShoppingBag,Plus,Minus,ArrowRight,CheckCircle2,RefreshCw,KeyRound,LogOut,Truck,MapPin,Soup,UserRound,X,Hamburger,BookOpen,PartyPopper,Phone,ArrowUpRight,Menu,Languages} from "lucide-react";
+import {ShoppingBag,Plus,Minus,ArrowRight,CheckCircle2,RefreshCw,KeyRound,LogOut,Truck,MapPin,Soup,UserRound,X,Hamburger,BookOpen,PartyPopper,Phone,ArrowUpRight,Menu} from "lucide-react";
 import {messages} from "@/src/modules/shared/i18n";
 import {today,orderCode,groupSetItems,portionUnit,SET_CART_ID,type Language} from "@/src/modules/shared/domain";
 import {isUnlimited} from "@/src/modules/menu/domain";
@@ -129,7 +129,7 @@ export default function ClientPortal(){
     <header className="gp-top"><div className="gp-wrap">
       <a href="/portal" className="gp-brand" aria-label="Gastro Garage"><img src="/logo.png" alt="" width={34} height={34}/><span className="gp-brand-name">Gastro Garage</span></a>
       <nav aria-label={t("navigation")}><a href="#gp-order">{t("gpOrderCta")}</a>{authenticated&&!blocked&&<><a href="#gp-pick">{t("gpPickKicker")}</a><a href="#gp-orders">{t("portalOwn")}</a></>}<a href="#gp-week">{t("gpWeekCta")}</a><a href="#gp-catering">{t("gpOfferCatering")}</a></nav>
-      <div className="gp-lang gp-desktop" role="group" aria-label={t("language")}>{(["hu","ro"] as const).map(l=><button key={l} type="button" aria-pressed={lang===l} onClick={()=>setLang(l)}>{l.toUpperCase()}</button>)}</div>
+      <div className="gp-lang" role="group" aria-label={t("language")}>{(["hu","ro"] as const).map(l=><button key={l} type="button" aria-pressed={lang===l} onClick={()=>setLang(l)}>{l.toUpperCase()}</button>)}</div>
       {authenticated?<><a className="gp-icon gp-desktop" href="/password?return_to=/portal" aria-label={t("passwordChangeLink")} title={t("passwordChangeLink")}><KeyRound size={18}/></a><a className="gp-icon gp-desktop" href="/signout?return_to=/portal" aria-label={t("signOut")} title={t("signOut")}><LogOut size={18}/></a></>:<a className="gp-signin gp-desktop" href="/signin?return_to=/portal"><UserRound size={17}/>{t("signIn")}</a>}
       <button type="button" className="gp-menu-btn" aria-label={t("navigation")} aria-expanded={drawer} aria-controls="gp-drawer" onClick={()=>setDrawer(true)}><Menu size={24}/></button>
     </div></header>
@@ -144,7 +144,6 @@ export default function ClientPortal(){
         <a href="#gp-catering">{t("gpOfferCatering")}<ArrowRight size={18}/></a>
         <a href="#gp-contact">{t("gpContact")}<ArrowRight size={18}/></a>
       </nav>
-      <div className="gp-drawer-block"><span className="gp-drawer-label"><Languages size={16}/>{t("language")}</span><div className="gp-lang" role="group" aria-label={t("language")}>{(["hu","ro"] as const).map(l=><button key={l} type="button" aria-pressed={lang===l} onClick={()=>setLang(l)}>{l.toUpperCase()}</button>)}</div></div>
       <div className="gp-drawer-account">
         {authenticated?<><a href="/password?return_to=/portal"><KeyRound size={18}/>{t("passwordChangeLink")}</a><a href="/signout?return_to=/portal"><LogOut size={18}/>{t("signOut")}</a></>:<a className="gp-btn yellow wide" href="/signin?return_to=/portal"><UserRound size={18}/>{t("signIn")}</a>}
       </div>
