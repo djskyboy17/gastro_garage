@@ -37,9 +37,9 @@ const packingRoles = ["owner", "admin", "kitchen", "warehouse", "dispatcher"];
 const officeRoles = ["owner", "admin", "dispatcher"];
 const activeNoteSql = "SELECT 1 FROM delivery_notes WHERE order_id=? AND kind='issue' AND status='issued'";
 
-type OrderRow = { id: string; date: string; time: string; status: string; delivery: string; production: string; revision: number; customerName: string; address: string; phone: string; fulfillmentMode: string; deliveryNoteRequired: number };
+type OrderRow = { id: string; date: string; time: string; status: string; delivery: string; production: string; revision: number; customerName: string; address: string; phone: string; fulfillmentMode: string; deliveryNoteRequired: number; monthlyBilling: number };
 const orderColumns =
-  "id,date,time,status,delivery,production,revision,customer_name AS customerName,address,phone,fulfillment_mode AS fulfillmentMode,delivery_note_required AS deliveryNoteRequired";
+  "id,date,time,status,delivery,production,revision,customer_name AS customerName,address,phone,fulfillment_mode AS fulfillmentMode,delivery_note_required AS deliveryNoteRequired,EXISTS (SELECT 1 FROM customer_billing b WHERE b.customer_id=orders.customer_id AND b.mode='monthly') AS monthlyBilling";
 
 async function loadNoteSettings() {
   const row = await env.DB!.prepare("SELECT all_deliveries AS allDeliveries,revision FROM delivery_note_settings WHERE id=1").first<{ allDeliveries: number; revision: number }>();

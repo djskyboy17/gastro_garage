@@ -58,7 +58,7 @@ Ellenőrzött hiányosságok a meglévő részekben:
 - A rendelés lemondása aviz után már sztornó, nem törlés.
 - Kapcsolat a későbbi számlához (egy számla több avizt összevonhat).
 
-### 5. Kimenő számlázás + RO e-Factura (nagy, 4–5 munkamenet) — ⏸ későbbre halasztva (2026-11-04): SPV-hozzáférés bizonytalan, a digitális tanúsítvány megvan
+### 5. Kimenő számlázás + RO e-Factura (nagy, 4–5 munkamenet) — 🔄 az Oblióval (2026-11-05): 1. lépés kész (v77, src/modules/billing/SPEC.md): céges számla rendelésenként és havi gyűjtőszámla, SPV, befizetés-átadás, sztornó, szimulált és valódi Oblio-mód. Hátra: valódi Oblio-kapcsolat próbája, bejövő e-Factura XML feltöltése.
 - **Cégadatok és partnertörzs:** CUI, Reg. Com., cím, bank. Az ügyfél és a számlázási partner szétválik.
 - **Számla:** sorozat, tételek TVA-kulccsal (dátum szerint), előleg, végszámla, sztornó, PDF.
 - **RO e-Factura:** UBL 2.1 / CIUS-RO XML generálása, beküldés az ANAF SPV-be (OAuth), az állapot lekérdezése és a válaszok archiválása háttérfeladatból. A bejövő e-Facturák letöltése az SPV-ből, mint pontos adatforrás a beszállítói számlákhoz (az AI-beolvasás mellett).

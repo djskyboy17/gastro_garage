@@ -10,6 +10,7 @@ import {validDay,addDays} from '../menu/domain';
 import {courierTask,type CourierTasks} from './domain';
 import {orderBalance,paymentError,type Payment} from '../finance/domain';
 import {recordPaymentStatements,courierCashOnHand} from '../finance/server';
+import {billingModes} from '../billing/server';
 export class CourierError extends Error{constructor(public code:string,public status=400){super(code);}}
 const json=(v:unknown,status=200)=>Response.json(v,{status,headers:{'Cache-Control':'no-store'}});
 /**
@@ -29,8 +30,8 @@ export async function handleCourier(path:string,body:unknown,user:Identity,sessi
     const items=itemRows.map(r=>r.item),events=eventRows.map(r=>r.event);
     // v76: a beszedendő összeghez a rendelés végösszege és befizetései kellenek (árak a futárnak nem jelennek meg, csak a hátralék).
     const payRows=ids.length?(await env.DB!.prepare("SELECT order_id AS orderId,amount FROM payments WHERE order_id IN (SELECT value FROM json_each(?))").bind(JSON.stringify(ids)).all<Pick<Payment,'orderId'|'amount'>>()).results:[];
-    const cashOnHand=await courierCashOnHand(user.userId);
-    const data:CourierTasks={date,cashOnHand,courier:{name:session.name,vehicle:''},tasks:rows.map(o=>{const own=items.filter(i=>i.orderId===o.id),totalDue=own.reduce((s,i)=>s+i.price*i.quantity,0)+(o.deliveryFee??0),pays=payRows.filter(p=>p.orderId===o.id);const task={...courierTask({...o,items:own} as Order),due:orderBalance(totalDue,pays,o.payment==='paid').due};return {...task,events:events.filter(e=>e.orderId===o.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(e=>{let note='';try{note=String(JSON.parse(e.detail).note??'');}catch{}return {kind:e.kind,note,createdAt:e.createdAt};})};})};
+    const cashOnHand=await courierCashOnHand(user.userId),modes=await billingModes(rows.map(o=>o.customerId));
+    const data:CourierTasks={date,cashOnHand,courier:{name:session.name,vehicle:''},tasks:rows.map(o=>{const own=items.filter(i=>i.orderId===o.id),totalDue=own.reduce((s,i)=>s+i.price*i.quantity,0)+(o.deliveryFee??0),pays=payRows.filter(p=>p.orderId===o.id);const onAccount=modes.get(o.customerId)==='monthly';const task={...courierTask({...o,items:own} as Order),onAccount,due:onAccount?0:orderBalance(totalDue,pays,o.payment==='paid').due};return {...task,events:events.filter(e=>e.orderId===o.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(e=>{let note='';try{note=String(JSON.parse(e.detail).note??'');}catch{}return {kind:e.kind,note,createdAt:e.createdAt};})};})};
     return json(data);
   }
   if(!write||path!=='/api/courier/state')return json({error:'NOT_FOUND'},404);

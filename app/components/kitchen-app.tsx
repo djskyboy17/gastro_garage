@@ -53,6 +53,7 @@ import {
   Loader2,
   Trash2,
   AlertCircle,
+  FileText,
 } from "lucide-react";
 import { messages } from "@/src/modules/shared/i18n";
 import OperationsWorkspace from "./operations-workspace";
@@ -61,6 +62,7 @@ import ProductionWorkspace, { ProductionWarning } from "./production-workspace";
 import DayCloseWorkspace from "./day-close-workspace";
 import { DeliveryNoteFlag } from "./delivery-notes-panel";
 import CashWorkspace, { OrderPaymentPanel } from "./cash-workspace";
+import BillingWorkspace, { OrderInvoicePanel } from "./billing-workspace";
 import { VersionInfo } from "./version-info";
 import FulfillmentWorkspace from "./fulfillment-workspace";
 import StocktakeWorkspace from "./stocktake-workspace";
@@ -125,6 +127,7 @@ const nav = [
   ["labels", Tag],
   ["procurement", ClipboardList],
   ["cash", Wallet],
+  ["billing", FileText],
   ["safety", CheckCircle2],
   ["audit", History],
   ["access", Users],
@@ -718,6 +721,8 @@ export default function KitchenApp() {
                           ? "deliverySubtitle"
                           : tab === "cash"
                             ? "cashHint"
+                          : tab === "billing"
+                            ? "billingHint"
                           : tab === "recurring"
                             ? "recurringHint"
                           : tab === "safety"
@@ -1386,6 +1391,7 @@ export default function KitchenApp() {
                 {tab === "packing" && <PackingWorkspace lang={lang} refresh={load} initialDate={packingTarget?.date??day} initialOrderId={packingTarget?.id??""} canEditLabels={isAdmin(session.role)}/>}
                 {tab === "fulfillment" && <FulfillmentWorkspace lang={lang} role={session.role}/>}
                 {tab === "labels" && <LabelsWorkspace lang={lang}/>}
+                {tab === "billing" && <BillingWorkspace lang={lang} />}
                 {tab === "cash" && <CashWorkspace key={day} lang={lang} initialDay={day} />}
                 {tab === "stocktake" && <StocktakeWorkspace ops={data.operations} lang={lang} role={session.role} refresh={load}/>}
                 {tab === "menu" && <MenuWorkspace products={data.products} lang={lang}/>}
@@ -1547,6 +1553,7 @@ export default function KitchenApp() {
                 {selectedOrder.status==="requested" && can("orders/state",{field:"status"}) && <OrderRequestReview key={selectedOrder.id+":"+selectedOrder.revision} order={selectedOrder} lang={lang} busy={busy} mutate={mutate}/>}
                 {selectedOrder.reviewNote && <p className="portal-review-note">{selectedOrder.reviewNote}</p>}
                 {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <OrderPaymentPanel key={"pay-"+selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} canEdit onSaved={() => void load()} />}
+                {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <OrderInvoicePanel key={"inv-"+selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} onSaved={() => void load()} />}
                 {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <DeliveryNoteFlag key={selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} revision={selectedOrder.revision} value={!!selectedOrder.deliveryNoteRequired} onSaved={() => void load()} />}
                 
                 <div className="state-grid">

@@ -1,6 +1,6 @@
 import type {Order} from '../shared/domain';
 import {orderFulfillment} from '../fulfillment/domain.ts';
-export type CourierTask={id:string;customerName:string;address:string;phone:string;date:string;time:string;windowEnd:string;note:string;production:string;delivery:string;revision:number;items:{hu:string;ro:string;quantity:number;allergens:string}[];events:{kind:string;note:string;createdAt:string}[];/** v76: a rendelés hátraléka baniban (a beszedendő összeg). */due:number};
+export type CourierTask={id:string;customerName:string;address:string;phone:string;date:string;time:string;windowEnd:string;note:string;production:string;delivery:string;revision:number;items:{hu:string;ro:string;quantity:number;allergens:string}[];events:{kind:string;note:string;createdAt:string}[];/** v76: a rendelés hátraléka baniban (a beszedendő összeg). */due:number;/** v77: havi gyűjtőszámlás ügyfél – a futár nem szed pénzt. */onAccount?:boolean};
 export type CourierTasks={date:string;courier:{name:string;vehicle:string};tasks:CourierTask[];/** v76: a futárnál lévő, még le nem adott készpénz (bani). */cashOnHand:number};
 
 export function courierTask(order:Order):CourierTask{

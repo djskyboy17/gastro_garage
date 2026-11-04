@@ -22,8 +22,10 @@ export type DeliveryNoteContent = {
 export type DeliveryNoteRef = { id: string; number: string; kind: "issue" | "reversal"; status: "issued" | "reversed"; orderId: string; issueDate: string };
 
 /** Kell-e aviz: az iroda kérte, vagy a beállítás szerint minden kiszállításhoz kell (átvételes rendelés csak kérésre). */
-export function noteRequired(order: { deliveryNoteRequired?: number | null; fulfillmentMode?: string | null }, allDeliveries: boolean) {
-  return !!order.deliveryNoteRequired || (allDeliveries && (order.fulfillmentMode ?? "delivery") !== "pickup");
+export function noteRequired(order: { deliveryNoteRequired?: number | null; fulfillmentMode?: string | null; monthlyBilling?: number | null }, allDeliveries: boolean) {
+  const delivery = (order.fulfillmentMode ?? "delivery") !== "pickup";
+  // v77: havi gyűjtőszámlás ügyfélnél minden kiszállításhoz aviz kell (a számla a hónap végén ezekre hivatkozik).
+  return !!order.deliveryNoteRequired || ((allDeliveries || !!order.monthlyBilling) && delivery);
 }
 
 /** Kiállítható-e: visszaigazolt, még nem kézbesített rendelés. */

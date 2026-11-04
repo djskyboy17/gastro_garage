@@ -51,3 +51,6 @@ Egyeztetés (2026-11-04):
 3. Avizos rendelés lemondása: sztornó-aviz készül, az eredeti „sztornózva”; végleges törlés nem megy.
 4. Kézi sztornó után új aviz állítható ki (új sorszámmal); a már sztornózott aviz nem sztornózható újra. Párhuzamos dupla kattintás egy avizt ad.
 5. A nyomtatás román, ár nélkül, a szállító és a vevő adataival.
+
+## Havi számlás ügyfél — v77
+- Havi gyűjtőszámlás ügyfél kiszállításos rendeléséhez automatikusan kell aviz; a havi számla az avizok számaira hivatkozik, kiállításkor az avizok `invoice_id`-t kapnak (sztornókor törlődik).

@@ -1020,3 +1020,153 @@ export const supplierPayments = sqliteTable(
     check("supplier_payments_amount", sql`${t.amount}<>0`),
   ],
 );
+
+/**
+ * Ügyfél számlázási adatai (v77): mód (bon fiscal / számla minden rendelésnél / havi gyűjtőszámla) és a számlán szereplő
+ * vevőadatok. Hiányzó sor = bon fiscal (magánszemély), mint eddig.
+ */
+export const customerBilling = sqliteTable(
+  "customer_billing",
+  {
+    customerId: text("customer_id").primaryKey().references(() => customers.id),
+    kind: text("kind").notNull().default("person"),
+    mode: text("mode").notNull().default("receipt"),
+    name: text("name").notNull().default(""),
+    cif: text("cif").notNull().default(""),
+    regCom: text("reg_com").notNull().default(""),
+    address: text("address").notNull().default(""),
+    city: text("city").notNull().default(""),
+    county: text("county").notNull().default(""),
+    country: text("country").notNull().default("România"),
+    email: text("email").notNull().default(""),
+    paymentDays: integer("payment_days").notNull().default(15),
+    revision: integer("revision").notNull().default(0),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    check("customer_billing_kind", sql`${t.kind} IN ('person','company')`),
+    check("customer_billing_mode", sql`${t.mode} IN ('receipt','per_order','monthly')`),
+    check("customer_billing_days", sql`${t.paymentDays}>=0 AND ${t.paymentDays}<=120`),
+  ],
+);
+
+/** Számlázási beállítás (egyetlen sor, v77): Oblio-mód, cég CIF, sorozat, TVA-kulcsok, befizetéstípusok. */
+export const billingSettings = sqliteTable(
+  "billing_settings",
+  {
+    id: integer("id").primaryKey(),
+    mode: text("mode").notNull().default("simulated"),
+    companyCif: text("company_cif").notNull().default(""),
+    seriesName: text("series_name").notNull().default(""),
+    stornoSeriesName: text("storno_series_name").notNull().default(""),
+    vatFoodBps: integer("vat_food_bps").notNull().default(1100),
+    vatDeliveryBps: integer("vat_delivery_bps").notNull().default(2100),
+    cashCollectType: text("cash_collect_type").notNull().default("Alta incasare numerar"),
+    receiptSeries: text("receipt_series").notNull().default(""),
+    autoSpv: integer("auto_spv").notNull().default(1),
+    revision: integer("revision").notNull().default(0),
+  },
+  (t) => [
+    check("billing_settings_singleton", sql`${t.id}=1`),
+    check("billing_settings_mode", sql`${t.mode} IN ('simulated','live')`),
+  ],
+);
+
+/**
+ * Kimenő számla (v77). A számlát az Oblio állítja ki és számozza; itt a kérés pillanatképe, az egyedi kulcs (idempotencyKey)
+ * és az eredmény (sorozat, szám, link, SPV-állapot). Állapot: pending (küldésre vár) → issued → stornoed; failed = hiba, újrapróbálható.
+ */
+export const salesInvoices = sqliteTable(
+  "sales_invoices",
+  {
+    id: text("id").primaryKey(),
+    kind: text("kind").notNull(),
+    customerId: text("customer_id").notNull().references(() => customers.id),
+    period: text("period").notNull().default(""),
+    idempotencyKey: text("idempotency_key").notNull(),
+    status: text("status").notNull().default("pending"),
+    content: text("content").notNull(),
+    total: integer("total").notNull(),
+    issueDate: text("issue_date").notNull(),
+    dueDate: text("due_date").notNull().default(""),
+    oblioSeries: text("oblio_series").notNull().default(""),
+    oblioNumber: text("oblio_number").notNull().default(""),
+    oblioLink: text("oblio_link").notNull().default(""),
+    spvCode: integer("spv_code"),
+    spvText: text("spv_text").notNull().default(""),
+    spvCheckedAt: text("spv_checked_at"),
+    lastError: text("last_error").notNull().default(""),
+    attempts: integer("attempts").notNull().default(0),
+    stornoOf: text("storno_of"),
+    stornoedBy: text("stornoed_by"),
+    createdBy: text("created_by").notNull(),
+    createdAt: text("created_at").notNull(),
+    issuedAt: text("issued_at"),
+    revision: integer("revision").notNull().default(0),
+  },
+  (t) => [
+    uniqueIndex("sales_invoice_key").on(t.idempotencyKey),
+    index("sales_invoice_customer").on(t.customerId),
+    check("sales_invoice_kind", sql`${t.kind} IN ('order','monthly','storno')`),
+    check("sales_invoice_status", sql`${t.status} IN ('pending','failed','issued','stornoed')`),
+  ],
+);
+
+/** Rendelés ↔ számla (v77): egy rendelés legfeljebb egy érvényes számlán (részleges egyedi index). */
+export const salesInvoiceOrders = sqliteTable(
+  "sales_invoice_orders",
+  {
+    invoiceId: text("invoice_id").notNull().references(() => salesInvoices.id),
+    orderId: text("order_id").notNull().references(() => orders.id),
+    active: integer("active").notNull().default(1),
+  },
+  (t) => [
+    primaryKey({ columns: [t.invoiceId, t.orderId] }),
+    uniqueIndex("sales_invoice_order_active").on(t.orderId).where(sql`${t.active}=1`),
+  ],
+);
+
+/** Számlára érkező utólagos befizetés (v77): jellemzően utalás a havi számlára; sztornó negatív tétellel. */
+export const salesInvoicePayments = sqliteTable(
+  "sales_invoice_payments",
+  {
+    id: text("id").primaryKey(),
+    invoiceId: text("invoice_id").notNull().references(() => salesInvoices.id),
+    day: text("day").notNull(),
+    amount: integer("amount").notNull(),
+    reference: text("reference").notNull().default(""),
+    reversalOf: text("reversal_of"),
+    actor: text("actor").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("sales_invoice_payments_invoice").on(t.invoiceId), check("sales_invoice_payments_amount", sql`${t.amount}<>0`)],
+);
+
+/** Befizetés átadása az Obliónak (v77): forrásonként (rendelés-befizetés vagy számla-befizetés) egyszer; újrapróbálható. */
+export const salesInvoiceCollects = sqliteTable(
+  "sales_invoice_collects",
+  {
+    sourceId: text("source_id").primaryKey(),
+    invoiceId: text("invoice_id").notNull().references(() => salesInvoices.id),
+    source: text("source").notNull(),
+    amount: integer("amount").notNull(),
+    collectType: text("collect_type").notNull(),
+    status: text("status").notNull().default("pending"),
+    lastError: text("last_error").notNull().default(""),
+    createdAt: text("created_at").notNull(),
+    sentAt: text("sent_at"),
+  },
+  (t) => [index("sales_invoice_collects_invoice").on(t.invoiceId), check("sales_invoice_collects_status", sql`${t.status} IN ('pending','sent','failed','skipped')`)],
+);
+
+/** Szimulált Oblio (v77): a szimulált számlák az egyedi kulccsal, hogy az ismételt kérés ugyanazt adja vissza. */
+export const oblioSimulated = sqliteTable("oblio_simulated", {
+  idempotencyKey: text("idempotency_key").primaryKey(),
+  seriesName: text("series_name").notNull(),
+  number: integer("number").notNull(),
+  payload: text("payload").notNull(),
+  spvCode: integer("spv_code"),
+  collected: integer("collected").notNull().default(0),
+  cancelled: integer("cancelled").notNull().default(0),
+  createdAt: text("created_at").notNull(),
+});

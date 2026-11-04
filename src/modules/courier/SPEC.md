@@ -31,3 +31,6 @@ A futártörzs (`couriers`) és a fiók–futár összekötés megszűnt (a `cou
 - A feladat a rendelés **hátralékát** mutatja (`due`, bani); tételárak, fizetési előzmény továbbra sem látszanak. A napi összesítőben a futárnál lévő, még le nem adott készpénz (`cashOnHand`).
 - Kézbesítéskor a futár kiválasztja: készpénz / kártya / már fizetett, az összeg alapból a hátralék, átírható (túlfizetés nem rögzíthető). A befizetés a kézbesítéssel egy kötegben rögzül; ismételt kérés nem rögzíti újra.
 - A készpénzt este az iroda veszi át a Pénztár fülön (../finance/SPEC.md).
+
+## Havi számlás ügyfél — v77
+- Havi gyűjtőszámlás ügyfél rendelésénél a feladaton „Havi számla – nem kell fizetni” áll, a hátralék 0 (a futár nem szed pénzt).
