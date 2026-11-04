@@ -15,6 +15,7 @@ import {
   PORTIONS_MAX,
   batchNeeds,
   bcLines,
+  bulkClosePlan,
   closeLinesError,
   dayDemand,
   portionsToIssue,
@@ -182,6 +183,88 @@ export async function handleProduction(path: string, body: unknown, session: Ses
     if (/CHECK/i.test(String(e))) throw new ProductionError("STOCK_CONFLICT", 409);
     throw e;
   };
+  /** Új nyitott tétel a legfrissebb recept pillanatképével (a mentés és a tömeges lezárás közös része). */
+  const createBatch = async (date: string, productId: string, planned: number) => {
+    const product = await DB.prepare("SELECT hu FROM products WHERE id=?").bind(productId).first<{ hu: string }>();
+    if (!product) throw new ProductionError("INVALID_ITEM");
+    await assertDayOpen(date);
+    const ops = await loadOperations();
+    const recipe = latestRecipe(productId, ops.recipes);
+    if (!recipe) throw new ProductionError("BATCH_MISSING_RECIPE");
+    const exploded = explodeRecipe(recipe, 1, ops.preparationVersions);
+    if (exploded.missingPreparations.length) throw new ProductionError("BATCH_MISSING_RECIPE");
+    const ordered = (await dayOrders(date)).get(productId)?.ordered ?? 0;
+    const id = crypto.randomUUID();
+    await DB.batch([
+      DB.prepare("INSERT INTO production_batches (id,day,product_id,code,recipe_id,preparation_version_ids,ordered,planned,status,revision,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,'open',0,?,?)").bind(id, date, productId, lotCode(date, productId), recipe.id, JSON.stringify(exploded.preparationVersionIds), ordered, planned, actor, now),
+      DB.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,?,'production_batch_created',?,?,?)").bind(crypto.randomUUID(), actor, id, JSON.stringify({ product: product.hu, day: date, planned }), now),
+    ]).catch(failOnGuard);
+    return id;
+  };
+  /** Egy nyitott tétel lezárása: anyagkiadás FEFO szerint, bon de consum, (ha be van kapcsolva) bon de predare – egy D1-kötegben. */
+  const closeBatch = async (id: string, revision: number, actualPortions: number, givenLines: { ingredientId: string; quantity: number }[] | null, note: string) => {
+    const batch = await loadBatch(id);
+    if (batch.status !== "open") throw new ProductionError("BATCH_CLOSED", 409);
+    if (batch.revision !== revision) throw new ProductionError("CONFLICT", 409);
+    if (batch.day > today()) throw new ProductionError("BATCH_FUTURE");
+    await assertDayOpen(batch.day);
+    const plan = await closePlan(batch, actualPortions);
+    // Sorok nélkül (tömeges lezárás): pontosan a recept szerinti mennyiségek.
+    const lines = givenLines ?? [...plan.needs].map(([ingredientId, quantity]) => ({ ingredientId, quantity }));
+    const lineError = closeLinesError(plan.needs, lines, note);
+    if (lineError) throw new ProductionError(lineError);
+    // A BC minden receptsort mutat (a 0-ra írtat is); kiosztás csak a ténylegesen felhasznált mennyiségre.
+    const used = new Map(lines.map((l) => [l.ingredientId, l.quantity]));
+    const actual = new Map([...used].filter(([, q]) => q > 0));
+    const allocation = allocate(actual, plan.ops.lots, batch.day);
+    if (allocation.shortage.length) throw new ProductionError("INSUFFICIENT_STOCK");
+    if (allocation.allocations.length > 40) throw new ProductionError("TOO_MANY_LOTS");
+    const shelf = await DB.prepare("SELECT shelf_life_days AS days FROM product_labels WHERE product_id=?").bind(batch.productId).first<{ days: number }>();
+    const useBy = shelf ? addDays(batch.day, shelf.days) : null;
+    const product = await DB.prepare("SELECT hu,ro FROM products WHERE id=?").bind(batch.productId).first<{ hu: string; ro: string }>();
+    const statements: D1PreparedStatement[] = [
+      DB.prepare(`INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM production_batches WHERE id=? AND revision=? AND status='open') AND ${dayClosedSql} THEN ? ELSE NULL END,'production_batch_closed',?,?,?)`).bind(crypto.randomUUID(), id, revision, batch.day, actor, id, JSON.stringify({ code: batch.code, product: product?.hu ?? "", actual: actualPortions, issuedBefore: plan.issuedBefore, note: note }), now),
+    ];
+    let consumptionId: string | null = null;
+    let bcTotal = 0;
+    if (actual.size) {
+      consumptionId = crypto.randomUUID();
+      const bcRows = bcLines(plan.needs, used, allocation.allocations, plan.ops.lots, plan.ops.ingredients);
+      const content: BcContent = {
+        batch: { id: batch.id, code: batch.code, day: batch.day },
+        product: { ro: product?.ro ?? "", hu: product?.hu ?? "" },
+        portions: { actual: actualPortions, issuedBefore: plan.issuedBefore, consumed: plan.consumed },
+        recipe: { id: plan.recipe.id, version: plan.recipe.version },
+        note: note,
+        lines: bcRows,
+        totalValue: bcRows.reduce((s, l) => s + l.value, 0),
+      };
+      bcTotal = content.totalValue;
+      const bc = allocateDocumentNumber("consumption", batch.day, now);
+      statements.push(
+        ...bc.statements,
+        DB.prepare(`INSERT INTO consumption_documents (id,batch_id,year,number,kind,status,reversal_of,reversed_by,issue_date,content,created_by,created_at) VALUES (?,?,?,${bc.numberSql},'consumption','issued',NULL,NULL,?,?,?,?)`).bind(consumptionId, batch.id, bc.year, ...bc.numberBinds, batch.day, JSON.stringify(content), actor, now),
+        ...allocation.allocations.flatMap((a) => [
+          DB.prepare("UPDATE stock_lots SET remaining=remaining-? WHERE id=?").bind(a.quantity, a.lotId),
+          DB.prepare("INSERT INTO stock_moves (id,lot_id,issue_id,batch_id,quantity,kind,note,created_at) VALUES (?,?,NULL,?,?,'production',?,?)").bind(crypto.randomUUID(), a.lotId, batch.id, -a.quantity, batch.code, now),
+        ]),
+      );
+    }
+    // v74: bon de predare (ha be van kapcsolva) – a kész étel átadása a készletbe, a BC értékével.
+    if ((await loadSettings()).handoverEnabled && actualPortions > 0) {
+      const handover: HandoverContent = { batch: { id: batch.id, code: batch.code, day: batch.day }, product: { ro: product?.ro ?? "", hu: product?.hu ?? "" }, portions: actualPortions, useBy, value: bcTotal };
+      const bp = allocateDocumentNumber("handover", batch.day, now);
+      statements.push(
+        ...bp.statements,
+        DB.prepare(`INSERT INTO production_documents (id,doc_type,year,number,kind,status,reversal_of,reversed_by,issue_date,day,batch_id,content,created_by,created_at) VALUES (?,'handover',?,${bp.numberSql},'issue','issued',NULL,NULL,?,?,?,?,?,?)`).bind(crypto.randomUUID(), bp.year, ...bp.numberBinds, batch.day, batch.day, batch.id, JSON.stringify(handover), actor, now),
+      );
+    }
+    statements.push(
+      DB.prepare("UPDATE production_batches SET status='closed',actual=?,issued_before=?,consumption_id=?,use_by=?,note=?,closed_by=?,closed_at=?,revision=revision+1 WHERE id=? AND revision=? AND status='open'").bind(actualPortions, plan.issuedBefore, consumptionId, useBy, note, actor, now, id, revision),
+    );
+    await DB.batch(statements).catch(failOnGuard);
+    return consumptionId;
+  };
 
   if (path === "/api/production/save") {
     // Tétel felvétele vagy a nyitott tétel tervezett adagszámának mentése; a receptpillanatkép ilyenkor a legfrissebb receptre frissül.
@@ -196,14 +279,7 @@ export async function handleProduction(path: string, body: unknown, session: Ses
     if (exploded.missingPreparations.length) throw new ProductionError("BATCH_MISSING_RECIPE");
     const ordered = (await dayOrders(d.date)).get(d.productId)?.ordered ?? 0;
     const prepIds = JSON.stringify(exploded.preparationVersionIds);
-    if (d.revision === null) {
-      const id = crypto.randomUUID();
-      await DB.batch([
-        DB.prepare("INSERT INTO production_batches (id,day,product_id,code,recipe_id,preparation_version_ids,ordered,planned,status,revision,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,'open',0,?,?)").bind(id, d.date, d.productId, lotCode(d.date, d.productId), recipe.id, prepIds, ordered, d.planned, actor, now),
-        DB.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,?,'production_batch_created',?,?,?)").bind(crypto.randomUUID(), actor, id, JSON.stringify({ product: product.hu, day: d.date, planned: d.planned }), now),
-      ]).catch(failOnGuard);
-      return json({ ok: true, id }, 201);
-    }
+    if (d.revision === null) return json({ ok: true, id: await createBatch(d.date, d.productId, d.planned) }, 201);
     const existing = await DB.prepare("SELECT id FROM production_batches WHERE day=? AND product_id=?").bind(d.date, d.productId).first<{ id: string }>();
     if (!existing) throw new ProductionError("CONFLICT", 409);
     await DB.batch([
@@ -238,65 +314,40 @@ export async function handleProduction(path: string, body: unknown, session: Ses
       })
       .strict()
       .parse(body);
-    const batch = await loadBatch(d.id);
-    if (batch.status !== "open") throw new ProductionError("BATCH_CLOSED", 409);
-    if (batch.revision !== d.revision) throw new ProductionError("CONFLICT", 409);
-    if (batch.day > today()) throw new ProductionError("BATCH_FUTURE");
-    await assertDayOpen(batch.day);
-    const plan = await closePlan(batch, d.actual);
-    const lineError = closeLinesError(plan.needs, d.lines, d.note);
-    if (lineError) throw new ProductionError(lineError);
-    // A BC minden receptsort mutat (a 0-ra írtat is); kiosztás csak a ténylegesen felhasznált mennyiségre.
-    const used = new Map(d.lines.map((l) => [l.ingredientId, l.quantity]));
-    const actual = new Map([...used].filter(([, q]) => q > 0));
-    const allocation = allocate(actual, plan.ops.lots, batch.day);
-    if (allocation.shortage.length) throw new ProductionError("INSUFFICIENT_STOCK");
-    if (allocation.allocations.length > 40) throw new ProductionError("TOO_MANY_LOTS");
-    const shelf = await DB.prepare("SELECT shelf_life_days AS days FROM product_labels WHERE product_id=?").bind(batch.productId).first<{ days: number }>();
-    const useBy = shelf ? addDays(batch.day, shelf.days) : null;
-    const product = await DB.prepare("SELECT hu,ro FROM products WHERE id=?").bind(batch.productId).first<{ hu: string; ro: string }>();
-    const statements: D1PreparedStatement[] = [
-      DB.prepare(`INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM production_batches WHERE id=? AND revision=? AND status='open') AND ${dayClosedSql} THEN ? ELSE NULL END,'production_batch_closed',?,?,?)`).bind(crypto.randomUUID(), d.id, d.revision, batch.day, actor, d.id, JSON.stringify({ code: batch.code, product: product?.hu ?? "", actual: d.actual, issuedBefore: plan.issuedBefore, note: d.note }), now),
-    ];
-    let consumptionId: string | null = null;
-    let bcTotal = 0;
-    if (actual.size) {
-      consumptionId = crypto.randomUUID();
-      const lines = bcLines(plan.needs, used, allocation.allocations, plan.ops.lots, plan.ops.ingredients);
-      const content: BcContent = {
-        batch: { id: batch.id, code: batch.code, day: batch.day },
-        product: { ro: product?.ro ?? "", hu: product?.hu ?? "" },
-        portions: { actual: d.actual, issuedBefore: plan.issuedBefore, consumed: plan.consumed },
-        recipe: { id: plan.recipe.id, version: plan.recipe.version },
-        note: d.note,
-        lines,
-        totalValue: lines.reduce((s, l) => s + l.value, 0),
-      };
-      bcTotal = content.totalValue;
-      const bc = allocateDocumentNumber("consumption", batch.day, now);
-      statements.push(
-        ...bc.statements,
-        DB.prepare(`INSERT INTO consumption_documents (id,batch_id,year,number,kind,status,reversal_of,reversed_by,issue_date,content,created_by,created_at) VALUES (?,?,?,${bc.numberSql},'consumption','issued',NULL,NULL,?,?,?,?)`).bind(consumptionId, batch.id, bc.year, ...bc.numberBinds, batch.day, JSON.stringify(content), actor, now),
-        ...allocation.allocations.flatMap((a) => [
-          DB.prepare("UPDATE stock_lots SET remaining=remaining-? WHERE id=?").bind(a.quantity, a.lotId),
-          DB.prepare("INSERT INTO stock_moves (id,lot_id,issue_id,batch_id,quantity,kind,note,created_at) VALUES (?,?,NULL,?,?,'production',?,?)").bind(crypto.randomUUID(), a.lotId, batch.id, -a.quantity, batch.code, now),
-        ]),
-      );
-    }
-    // v74: bon de predare (ha be van kapcsolva) – a kész étel átadása a készletbe, a BC értékével.
-    if ((await loadSettings()).handoverEnabled && d.actual > 0) {
-      const handover: HandoverContent = { batch: { id: batch.id, code: batch.code, day: batch.day }, product: { ro: product?.ro ?? "", hu: product?.hu ?? "" }, portions: d.actual, useBy, value: bcTotal };
-      const bp = allocateDocumentNumber("handover", batch.day, now);
-      statements.push(
-        ...bp.statements,
-        DB.prepare(`INSERT INTO production_documents (id,doc_type,year,number,kind,status,reversal_of,reversed_by,issue_date,day,batch_id,content,created_by,created_at) VALUES (?,'handover',?,${bp.numberSql},'issue','issued',NULL,NULL,?,?,?,?,?,?)`).bind(crypto.randomUUID(), bp.year, ...bp.numberBinds, batch.day, batch.day, batch.id, JSON.stringify(handover), actor, now),
-      );
-    }
-    statements.push(
-      DB.prepare("UPDATE production_batches SET status='closed',actual=?,issued_before=?,consumption_id=?,use_by=?,note=?,closed_by=?,closed_at=?,revision=revision+1 WHERE id=? AND revision=? AND status='open'").bind(d.actual, plan.issuedBefore, consumptionId, useBy, d.note, actor, now, d.id, d.revision),
+    return json({ ok: true, consumptionId: await closeBatch(d.id, d.revision, d.actual, d.lines, d.note) });
+  }
+
+  if (path === "/api/production/close-all") {
+    // v78: a nap összes (recepttel rendelkező, még nem lezárt) ételének felvétele és lezárása recept szerint. Ételenként külön
+    // köteg: ami nem zárható le (pl. kevés a készlet), az kimarad az okával, a többi lezárul.
+    const d = z.object({ date: day }).strict().parse(body);
+    if (d.date > today()) throw new ProductionError("BATCH_FUTURE");
+    await assertDayOpen(d.date);
+    const [demand, batches, recipes, products] = await Promise.all([
+      dayOrders(d.date),
+      DB.prepare(`SELECT ${batchColumns} FROM production_batches WHERE day=?`).bind(d.date).all<BatchRow>(),
+      DB.prepare("SELECT DISTINCT product_id AS productId FROM recipes").all<{ productId: string }>(),
+      DB.prepare("SELECT id,hu,ro FROM products").all<{ id: string; hu: string; ro: string }>(),
+    ]);
+    const plan = bulkClosePlan(
+      [...demand].map(([productId, x]) => ({ productId, ordered: x.ordered })),
+      batches.results.map((b) => ({ id: b.id, productId: b.productId, status: b.status, planned: b.planned })),
+      new Set(recipes.results.map((r) => r.productId)),
     );
-    await DB.batch(statements).catch(failOnGuard);
-    return json({ ok: true, consumptionId });
+    const closed: { productId: string; name: string; actual: number }[] = [];
+    const skipped: { productId: string; name: string; code: string }[] = [];
+    const name = (id: string) => products.results.find((p) => p.id === id)?.hu ?? demand.get(id)?.hu ?? id;
+    for (const step of plan.steps) {
+      try {
+        const id = step.batchId ?? (await createBatch(d.date, step.productId, step.actual));
+        const batch = await loadBatch(id);
+        await closeBatch(id, batch.revision, step.actual, null, "");
+        closed.push({ productId: step.productId, name: name(step.productId), actual: step.actual });
+      } catch (e) {
+        skipped.push({ productId: step.productId, name: name(step.productId), code: e instanceof ProductionError ? e.code : "SERVER_ERROR" });
+      }
+    }
+    return json({ ok: true, closed, skipped });
   }
 
   if (path === "/api/production/reverse") {

@@ -99,3 +99,8 @@ Egyeztetés (2026-11-03):
 3. A záró adag nem lehet negatív; lejárt maradék csak selejt lehet.
 4. PV sztornó: az adagok visszakerülnek a készletbe, sztornó-PV készül.
 5. Bon de predare kikapcsolva: nem készül; bekapcsolva: tételenként egy, sorszámmal.
+
+## Nap lezárása recept szerint — v78
+- A Gyártási tételeknél egy gomb (`POST /api/production/close-all {date}`, admin) a nap minden recepttel rendelkező, még nem lezárt ételét felveszi (ha kell) és lezárja: adagszám a nyitott tétel tervezett adagja, különben a rendelt adag; az anyagkiadás pontosan a recept szerinti (eltérés esetén az ételt előbb egyenként kell lezárni).
+- Ételenként külön köteg: ami nem zárható le (pl. kevés a készlet), az kimarad az okával (az új tétel nyitva marad), a többi lezárul. Ismételt futtatás nem zár le semmit kétszer. Recept nélküli étel (pl. üdítő) nem szerepel.
+- Ugyanazokkal a szabályokkal fut, mint az egyenkénti lezárás (közös függvény): jövőbeli nap és lezárt nap tiltva, FEFO, bon de consum, bon de predare.

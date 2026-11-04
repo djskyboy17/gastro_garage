@@ -184,3 +184,29 @@ export function unbatchedReady(orders: Order[], ops: Pick<OperationsData, "issue
   }
   return [...out.values()];
 }
+
+/**
+ * v78: „Nap lezárása recept szerint” terve. Lezárandó minden recepttel rendelkező étel, amelyből aznap rendeltek vagy van
+ * nyitott tétele, és még nincs lezárt tétele. Adagszám: a nyitott tétel tervezett adagja (ha van), különben a rendelt.
+ * Recept nélküli étel kimarad (nincs mit kiadni).
+ */
+export function bulkClosePlan(
+  demand: { productId: string; ordered: number }[],
+  batches: { id: string; productId: string; status: string; planned: number }[],
+  withRecipe: Set<string>,
+) {
+  const ids = [...new Set([...demand.filter((d) => d.ordered > 0).map((d) => d.productId), ...batches.filter((b) => b.status === "open").map((b) => b.productId)])];
+  const steps: { productId: string; batchId: string | null; actual: number }[] = [];
+  const noRecipe: string[] = [];
+  for (const productId of ids) {
+    const batch = batches.find((b) => b.productId === productId);
+    if (batch?.status === "closed") continue;
+    if (!withRecipe.has(productId)) {
+      if (!batch) noRecipe.push(productId);
+      continue;
+    }
+    const ordered = demand.find((d) => d.productId === productId)?.ordered ?? 0;
+    steps.push({ productId, batchId: batch?.id ?? null, actual: batch && batch.planned > 0 ? batch.planned : ordered });
+  }
+  return { steps, noRecipe };
+}

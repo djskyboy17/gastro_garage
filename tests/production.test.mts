@@ -119,3 +119,29 @@ test("Example 6: ready without a closed batch is a warning; closed batches leave
   assert.equal(procurementPlan([pending] as never, withStock, "2026-11-04").rows[0]!.required, 2000);
   assert.equal(procurementPlan([pending] as never, { ...withStock, batches: closed.batches }, "2026-11-04").rows.length, 0);
 });
+
+// @ts-ignore Node native type stripping
+import { bulkClosePlan } from "../src/modules/production/domain.ts";
+
+test("v78: closing the day by recipe – ordered portions, open batch's plan, skips closed and recipe-less dishes", () => {
+  const plan = bulkClosePlan(
+    [
+      { productId: "soup", ordered: 12 },
+      { productId: "beans", ordered: 1 },
+      { productId: "cola", ordered: 3 },
+      { productId: "pie", ordered: 4 },
+    ],
+    [
+      { id: "b-soup", productId: "soup", status: "open", planned: 14 },
+      { id: "b-pie", productId: "pie", status: "closed", planned: 4 },
+      { id: "b-extra", productId: "extra", status: "open", planned: 5 },
+    ],
+    new Set(["soup", "beans", "pie", "extra"]),
+  );
+  assert.deepEqual(plan.steps, [
+    { productId: "soup", batchId: "b-soup", actual: 14 },
+    { productId: "beans", batchId: null, actual: 1 },
+    { productId: "extra", batchId: "b-extra", actual: 5 },
+  ]);
+  assert.deepEqual(plan.noRecipe, ["cola"]);
+});

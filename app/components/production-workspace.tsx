@@ -39,6 +39,8 @@ export default function ProductionWorkspace({ lang, initialDay, onChanged }: { l
   const [actual, setActual] = useState<Record<string, string>>({});
   const [margin, setMargin] = useState("");
   const [review, setReview] = useState<Review | null>(null);
+  // v78: a „Nap lezárása recept szerint” eredménye (lezárt és kimaradt ételek).
+  const [bulk, setBulk] = useState<{ closed: { name: string; actual: number }[]; skipped: { name: string; code: string }[] } | null>(null);
 
   const load = useCallback((day: string) => {
     getJson<ProductionDay>("/api/production?date=" + day).then(
@@ -48,6 +50,7 @@ export default function ProductionWorkspace({ lang, initialDay, onChanged }: { l
         setPlanned({});
         setActual({});
         setError("");
+        setBulk(null);
       },
       (e: Error) => setError(e.message),
     );
@@ -65,7 +68,7 @@ export default function ProductionWorkspace({ lang, initialDay, onChanged }: { l
       if (!r.ok) throw new Error((v as { error?: string }).error ?? "SERVER_ERROR");
       load(date);
       onChanged();
-      return v as { consumptionId?: string | null };
+      return v as { consumptionId?: string | null; closed?: { name: string; actual: number }[]; skipped?: { name: string; code: string }[] };
     } catch (e) {
       setError((e as Error).message);
       return null;
@@ -77,6 +80,8 @@ export default function ProductionWorkspace({ lang, initialDay, onChanged }: { l
   const suggestion = (r: ProductionRow) => suggestedPortions(Math.max(0, r.ordered - r.opening), data?.marginBps ?? 0);
   const plannedOf = (r: ProductionRow) => planned[r.productId] ?? String(r.batch?.planned ?? suggestion(r));
   const locked = !!data?.dayClosed;
+  // v78: lezárandó ételek – recepttel, rendeléssel vagy nyitott tétellel, még nem lezárva.
+  const pendingCount = (data?.rows ?? []).filter((r) => r.hasRecipe && r.batch?.status !== "closed" && (r.ordered > 0 || r.batch)).length;
   const actualOf = (r: ProductionRow) => actual[r.productId] ?? String(r.batch?.actual ?? r.batch?.planned ?? r.ordered);
   const int = (s: string) => (/^\d{1,6}$/.test(s.trim()) ? Number(s.trim()) : null);
 
@@ -139,7 +144,35 @@ export default function ProductionWorkspace({ lang, initialDay, onChanged }: { l
         <button className="text-button" onClick={() => load(date)} disabled={busy}>
           <RefreshCw size={16} />
         </button>
+        {!locked && pendingCount > 0 && (
+          <button
+            className="button"
+            disabled={busy}
+            onClick={async () => {
+              if (!window.confirm(t("productionCloseAllConfirm").replace("{n}", String(pendingCount)))) return;
+              const v = await post("close-all", { date });
+              if (v) setBulk({ closed: v.closed ?? [], skipped: v.skipped ?? [] });
+            }}
+          >
+            <PackageCheck size={16} /> {t("productionCloseAll")} ({pendingCount})
+          </button>
+        )}
       </div>
+      {bulk && (
+        <div className={bulk.skipped.length ? "production-warning" : "portal-success"} role="status">
+          <div>
+            <strong>
+              {t("productionCloseAllDone")}: {bulk.closed.length}
+            </strong>
+            {bulk.closed.length > 0 && <span>{bulk.closed.map((c) => c.name + " (" + c.actual + ")").join(", ")}</span>}
+            {bulk.skipped.map((s) => (
+              <small key={s.name}>
+                {t("productionCloseAllSkipped")}: {s.name} – {(messages[lang] as Record<string, string>)[s.code] ?? s.code}
+              </small>
+            ))}
+          </div>
+        </div>
+      )}
       {errorText && (
         <div role="alert" className="error-banner">
           {errorText}

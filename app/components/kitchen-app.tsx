@@ -1548,13 +1548,13 @@ export default function KitchenApp() {
                 {selectedOrder.note && (
                   <p className="detail-note">{selectedOrder.note}</p>
                 )}
-                {selectedOrder.fulfillmentMode!=="pickup" && selectedOrder.status === "confirmed" && <OrderDeliveryEditor key={selectedOrder.id+":"+selectedOrder.revision} data={data} lang={lang} busy={busy} mutate={mutate} order={selectedOrder} canSwitch={can("delivery/to-pickup")}/>}
+                {selectedOrder.fulfillmentMode!=="pickup" && selectedOrder.status === "confirmed" && <OrderDeliveryEditor key={"delivery-"+selectedOrder.id+":"+selectedOrder.revision} data={data} lang={lang} busy={busy} mutate={mutate} order={selectedOrder} canSwitch={can("delivery/to-pickup")}/>}
                 {can("orders/state",{field:"delivery"}) && selectedOrder.status === "confirmed" && selectedOrder.delivery !== "delivered" && <div className="detail-delivery-note"><Field label={t("deliveryNote")}><textarea maxLength={500} value={deliveryNote} onChange={e=>setDeliveryNote(e.target.value)}/></Field><small>{t("recordedResult")}</small></div>}
-                {selectedOrder.status==="requested" && can("orders/state",{field:"status"}) && <OrderRequestReview key={selectedOrder.id+":"+selectedOrder.revision} order={selectedOrder} lang={lang} busy={busy} mutate={mutate}/>}
+                {selectedOrder.status==="requested" && can("orders/state",{field:"status"}) && <OrderRequestReview key={"review-"+selectedOrder.id+":"+selectedOrder.revision} order={selectedOrder} lang={lang} busy={busy} mutate={mutate}/>}
                 {selectedOrder.reviewNote && <p className="portal-review-note">{selectedOrder.reviewNote}</p>}
                 {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <OrderPaymentPanel key={"pay-"+selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} canEdit onSaved={() => void load()} />}
                 {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <OrderInvoicePanel key={"inv-"+selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} onSaved={() => void load()} />}
-                {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <DeliveryNoteFlag key={selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} revision={selectedOrder.revision} value={!!selectedOrder.deliveryNoteRequired} onSaved={() => void load()} />}
+                {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <DeliveryNoteFlag key={"note-"+selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} revision={selectedOrder.revision} value={!!selectedOrder.deliveryNoteRequired} onSaved={() => void load()} />}
                 
                 <div className="state-grid">
                   {[
