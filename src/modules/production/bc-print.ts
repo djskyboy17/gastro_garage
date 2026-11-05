@@ -36,7 +36,7 @@ tfoot td{font-weight:bold}.storno{color:#a00;font-weight:bold}.sigs{display:flex
 <header><div><h1>BON DE CONSUM</h1><p><b>Nr. ${esc(numberText)}</b> din ${esc(roDate(options.issueDate ?? c.batch.day))}</p>${reversal}</div>
 <div class="meta"><p>Produs: <b>${esc(c.product.ro)}</b></p><p>Lot producție: <b>${esc(c.batch.code)}</b> · data producției ${esc(roDate(c.batch.day))}</p>
 <p>Porții realizate: ${c.portions.actual}${c.portions.issuedBefore ? ` (din care ${c.portions.issuedBefore} consumate anterior pe comandă)` : ""} · porții consumate: ${c.portions.consumed}</p>
-<p>Rețetă: versiunea ${c.recipe.version}</p>${c.note ? `<p>Observații: ${esc(c.note)}</p>` : ""}</div></header>
+${c.dailyBatches ? `<p>Producție: ${c.dailyBatches.map(b=>esc(b.product.ro)+" × "+b.actual+" ("+esc(b.code)+")").join("; ")}</p>` : `<p>Rețetă: versiunea ${c.recipe.version}</p>`}${c.note ? `<p>Observații: ${esc(c.note)}</p>` : ""}</div></header>
 <table><thead><tr><th>Nr.</th><th>Materie primă</th><th>U.M.</th><th>Cant. rețetă</th><th>Cant. consumată</th><th>Valoare (lei)</th><th>Lot (expiră): cantitate</th></tr></thead>
 <tbody>${rows}</tbody><tfoot><tr><td colspan="5">Total</td><td class="n">${lei(c.totalValue)}</td><td></td></tr></tfoot></table>
 <div class="sigs"><div class="sig"><span>&nbsp;</span><small>Predat (gestionar)</small></div><div class="sig"><span>&nbsp;</span><small>Primit (bucătărie)</small></div></div>

@@ -103,3 +103,7 @@
 .bill-form input,.bill-form select,.cash-field select{border:1px solid var(--line);border-radius:7px;padding:8px 9px;background:#fff;min-width:0}
 .bill-form .button{justify-self:start;display:inline-flex;align-items:center;gap:6px}
 .cash-section>summary{cursor:pointer}
+
+/* Editable production and day close must remain visible on small screens. */
+.production-panel.production-workspace{display:block;min-width:0}
+.production-workspace .production-toolbar select{border:1px solid var(--line);border-radius:7px;padding:8px 9px;background:#fff;max-width:100%;min-width:0}

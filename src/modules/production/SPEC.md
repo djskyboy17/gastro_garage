@@ -108,3 +108,21 @@ Egyeztetés (2026-11-03):
 ## Könyvelési profil
 
 A profil alkalmazása a bon de predare kiállítását kötelezővé teszi. Pozitív tényleges adagszámú tétel véglegesítésekor az anyagfelhasználás, a BC és a BP egy kötegben mentődik. A profil alkalmazásával versenyző lezárásnál a BP hiányát adatbázis-trigger ellenőrzi, hiba esetén az egész köteg visszagörgetődik. A régebben lezárt tételek bizonylatai megmaradnak.
+
+## Napi anyagkiadás – 2026-11-06 (aktuális működés)
+
+A gyártási tétel closed állapota most az elkészült adagszám rögzítését jelenti. Az új tétel production_materials sora külön tartalmazza a rögzített receptváltozat, alrecept-változatokból számolt igény, tényleges felhasználás és adagok pillanatképét. consumption_id=NULL esetén még nem történt nyersanyagkönyvelés. Régi tételnél nincs ilyen sor: annak korábbi BC-je változatlanul történeti bizonylat.
+
+POST /production/close és /close-all kész adagot ment, stock_lots/stock_moves/BC módosítása nélkül. Hiányzó lines esetén a rögzített recept szerinti mennyiség kerül a pillanatképbe. A korábbi kliens kézi anyageltérése is elfogadható a korábbi validációval/indoklással. A felületen egyszerű adagszámmentés van; rendelés nélküli étel is felvehető. A késztermék-lot a korábbi closed alapú címke/aviz/kiszállítási folyamatban rögtön elérhető.
+
+POST /production/day/close a revision mellett materialToken előnézetazonosítót is kér. A token az adott és a releváns korábbi napok gyártását, a halasztott pillanatképek változatát, a napi rendelések változatát, a zárási napok és a gyártási beállítás változatát ellenőrzi. Az előnézet olvasás közbeni változását is elutasítjuk. A tranzakció újra ellenőrzi a tokent és minden felhasznált nyersanyaglot egyenlegét. Összes halasztott tételhez közös FEFO-kiosztás, egy consumption_documents bizonylat, tételenkénti készletmozgás és – ahol beállított – BP készül. A BC napi sorai összegzettek, dailyBatches melléklete a tételeket és értéküket azonosítja; a kötelező batch_id az első tétel technikai hivatkozása, nem az egyetlen érintett étel. Minden érintett gyártási tétel és halasztott sor ugyanarra a napi BC-re hivatkozik.
+
+A teljes nap, a nyersanyagfogyasztás, a BP és a késztermékmozgások egy D1.batch tranzakcióban véglegesülnek. Hiány/stale token vagy bármelyik SQL-hiba esetén semmi nem könyvelődhet részlegesen. A napi anyaglista nagy méreténél (90 kB BC-pillanatkép vagy 850 anyag/BP-utasítás fölött) a művelet érthető hibával, levonás nélkül megáll; nincs részleges/szétdarabolt napi zárás.
+
+A stock_issues szerinti korábbi kiadást már az adagszám mentésekor levonjuk az új anyagigényből; napi véglegesítéskor a korábbi kiadott adagok változatlanságát is vizsgáljuk. A régi, production_materials nélküli gyártást soha nem könyveljük újra. A készétel selejtje a saját tételének napi BC-ben rögzített önköltségét használja, nem az egész napi BC teljes értékét.
+
+Újranyitás csak a korábbi admin/sorrendi feltételekkel: a napi BC és a napi BP-k sztornózása, a napi termékmozgások visszavonása és a felhasznált nyersanyag visszaadása atomikus. Az elkészült adagok megmaradnak, a halasztott anyagok újra könyvelésre várnak. Újrazárás új napi BC-t állít ki; a korábbi BC-k és sztornók megmaradnak. Napi BC-ben szereplő tétel külön sztornója tiltott, előbb a napot kell visszanyitni. A régi tételenkénti BC sztornója továbbra is a korábbi módon működik.
+
+A bon de predare az új halasztott tételnél a napi anyagkiadáskor készül végleges anyagértékkel. A könyvelési profil tétellezárási triggerének kivétele kizárólag a production_materials-ban már rögzített, még nem könyvelt tételre vonatkozik. Lezárt napra új tétel vagy mennyiség/recept/állapot módosítása adatbázisszinten is tiltott.
+
+Elfogadás: rendelés nélkül 7 és 11 adag, adagonként 10 g közös alapanyag. Mentés után a 100 g nyersanyag változatlan és aviz kiállítható; napi zárás hiánnyal teljesen megáll. 100 g pótlás után egyetlen BC 180 g / 1800 bani, 20 g marad. Dupla/egyidejű zárásból csak az egyik sikerül. Újranyitás 200 g-ra állít vissza, újrazárás ismét 20 g-ra. A napi BC az admin napi zárási nézetéből, mobil HU/RO felületen is megnyitható.

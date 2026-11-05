@@ -6,14 +6,6 @@ import type { Language, Order } from "@/src/modules/shared/domain";
 import type { OperationsData } from "@/src/modules/inventory/domain";
 import { suggestedPortions, unbatchedReady, type ProductionDay, type ProductionRow } from "@/src/modules/production/domain";
 
-/** Anyaglista a lezárás előtt (a szerver számolja a tétel receptpillanatképéből). */
-type Preview = {
-  issuedBefore: number;
-  consumed: number;
-  lines: { ingredientId: string; hu: string; ro: string; unit: string; quantity: number; available: number }[];
-};
-type Review = { row: ProductionRow; actual: number; preview: Preview; used: Record<string, string>; note: string };
-
 const unitLabel = (u: string) => (u === "pcs" ? "db" : u);
 const amount = (v: number, unit: string) =>
   unit === "g" || unit === "ml" ? (v >= 1000 ? (v / 1000).toLocaleString("hu-HU", { maximumFractionDigits: 3 }) + (unit === "g" ? " kg" : " l") : v + " " + unit) : v + " " + unitLabel(unit);
@@ -32,13 +24,13 @@ async function getJson<T>(url: string): Promise<T> {
 export default function ProductionWorkspace({ lang, initialDay, onChanged }: { lang: Language; initialDay: string; onChanged: () => void }) {
   const t = (k: string) => (messages[lang] as Record<string, string>)[k] ?? k;
   const [date, setDate] = useState(initialDay);
+  const [addProduct,setAddProduct] = useState(""), [addPortions,setAddPortions] = useState("1");
   const [data, setData] = useState<ProductionDay | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [planned, setPlanned] = useState<Record<string, string>>({});
   const [actual, setActual] = useState<Record<string, string>>({});
   const [margin, setMargin] = useState("");
-  const [review, setReview] = useState<Review | null>(null);
   // v78: a „Nap lezárása recept szerint” eredménye (lezárt és kimaradt ételek).
   const [bulk, setBulk] = useState<{ closed: { name: string; actual: number }[]; skipped: { name: string; code: string }[] } | null>(null);
 
@@ -85,27 +77,6 @@ export default function ProductionWorkspace({ lang, initialDay, onChanged }: { l
   const actualOf = (r: ProductionRow) => actual[r.productId] ?? String(r.batch?.actual ?? r.batch?.planned ?? r.ordered);
   const int = (s: string) => (/^\d{1,6}$/.test(s.trim()) ? Number(s.trim()) : null);
 
-  async function openReview(r: ProductionRow) {
-    const n = int(actualOf(r));
-    if (!r.batch || n === null) return setError("VALIDATION");
-    setBusy(true);
-    try {
-      const preview = await getJson<Preview>(`/api/production/preview?id=${r.batch.id}&actual=${n}`);
-      setReview({ row: r, actual: n, preview, used: Object.fromEntries(preview.lines.map((l) => [l.ingredientId, String(l.quantity)])), note: "" });
-      setError("");
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function close() {
-    if (!review?.row.batch) return;
-    const lines = review.preview.lines.map((l) => ({ ingredientId: l.ingredientId, quantity: int(review.used[l.ingredientId] ?? "") }));
-    if (lines.some((l) => l.quantity === null)) return setError("VALIDATION");
-    const ok = await post("close", { id: review.row.batch.id, revision: review.row.batch.revision, actual: review.actual, note: review.note, lines });
-    if (ok) setReview(null);
-  }
   async function reverse(r: ProductionRow) {
     if (!r.batch) return;
     const reason = window.prompt(t("productionReversePrompt"));
@@ -116,7 +87,7 @@ export default function ProductionWorkspace({ lang, initialDay, onChanged }: { l
   const bcLink = (id: string) => "/api/production/bc?id=" + id;
 
   return (
-    <section className="panel production-panel">
+    <section className="panel production-panel production-workspace">
       <div className="panel-heading">
         <div>
           <h2>
@@ -158,6 +129,11 @@ export default function ProductionWorkspace({ lang, initialDay, onChanged }: { l
           </button>
         )}
       </div>
+      {!locked && !!data?.availableProducts?.length && <div className="production-toolbar">
+        <label>{t("productionAddDish")}<select value={addProduct} disabled={busy} onChange={e=>setAddProduct(e.target.value)}><option value="">{t("chooseProduct")}</option>{data.availableProducts.map(p=><option key={p.id} value={p.id}>{p[lang]}</option>)}</select></label>
+        <label>{t("productionPlanned")}<input inputMode="numeric" value={addPortions} disabled={busy} onChange={e=>setAddPortions(e.target.value)} /></label>
+        <button className="button secondary" disabled={busy || !addProduct || int(addPortions)===null} onClick={async()=>{if(await post("save",{date,productId:addProduct,planned:int(addPortions),revision:null}))setAddProduct("");}}>{t("productionCreate")}</button>
+      </div>}
       {bulk && (
         <div className={bulk.skipped.length ? "production-warning" : "portal-success"} role="status">
           <div>
@@ -279,7 +255,7 @@ export default function ProductionWorkspace({ lang, initialDay, onChanged }: { l
                           >
                             <Save size={15} /> {t("productionSavePlan")}
                           </button>
-                          <button className="button" disabled={busy || int(actualOf(r)) === null} onClick={() => void openReview(r)}>
+                          <button className="button" disabled={busy || int(actualOf(r)) === null} onClick={() => b && void post("close", { id: b.id, revision: b.revision, actual: int(actualOf(r)), note: "", lines: null })}>
                             <PackageCheck size={15} /> {t("productionReview")}
                           </button>
                           {r.documents.length === 0 && (
@@ -302,58 +278,7 @@ export default function ProductionWorkspace({ lang, initialDay, onChanged }: { l
           </table>
         </div>
       )}
-      {review && (
-        <div className="production-review">
-          <h3>
-            {t("productionMaterials")}: {lang === "ro" ? review.row.ro : review.row.hu} · {review.preview.consumed} {t("productionMaterialsFor")}
-          </h3>
-          {review.preview.issuedBefore > 0 && <p className="ops-note">{t("productionMaterialsIssued")} ({review.preview.issuedBefore})</p>}
-          {review.preview.lines.length === 0 ? (
-            <p className="quiet-empty">{t("productionNoMaterials")}</p>
-          ) : (
-            <table className="production-table">
-              <thead>
-                <tr>
-                  <th>{t("productionIngredient")}</th>
-                  <th className="number">{t("productionRecipeQty")}</th>
-                  <th className="number">{t("productionUsedQty")}</th>
-                  <th className="number">{t("productionAvailable")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {review.preview.lines.map((l) => {
-                  const used = int(review.used[l.ingredientId] ?? "");
-                  const short = used !== null && used > l.available;
-                  return (
-                    <tr key={l.ingredientId}>
-                      <td>{lang === "ro" ? l.ro : l.hu}</td>
-                      <td className="number">{amount(l.quantity, l.unit)}</td>
-                      <td className="number">
-                        <input className="production-num" inputMode="numeric" value={review.used[l.ingredientId] ?? ""} onChange={(e) => setReview({ ...review, used: { ...review.used, [l.ingredientId]: e.target.value } })} /> {unitLabel(l.unit)}
-                      </td>
-                      <td className={"number" + (short ? " production-short" : "")}>
-                        {short && <AlertTriangle size={14} />} {amount(l.available, l.unit)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-          <label className="production-note">
-            {t("productionNote")}
-            <textarea value={review.note} maxLength={1000} onChange={(e) => setReview({ ...review, note: e.target.value })} />
-          </label>
-          <div className="production-actions">
-            <button className="button" disabled={busy} onClick={() => void close()}>
-              <PackageCheck size={16} /> {t("productionClose")}
-            </button>
-            <button className="button secondary" disabled={busy} onClick={() => setReview(null)}>
-              {t("productionCancel")}
-            </button>
-          </div>
-        </div>
-      )}
+
     </section>
   );
 }

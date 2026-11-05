@@ -79,7 +79,7 @@ export default function DayCloseWorkspace({ lang, initialDay, admin, onChanged }
   const name = (r: { hu: string; ro: string }) => (lang === "ro" ? r.ro : r.hu);
 
   return (
-    <section className="panel production-panel">
+    <section className="panel production-panel production-workspace">
       <div className="panel-heading">
         <div>
           <h2>
@@ -179,6 +179,7 @@ export default function DayCloseWorkspace({ lang, initialDay, admin, onChanged }
           </table>
         </div>
       )}
+      {admin && view?.consumptionId && <p><a className="button secondary" href={"/api/production/bc?id="+view.consumptionId} target="_blank" rel="noreferrer"><Printer size={16}/>{t("dailyConsumptionDocument")}</a></p>}
       <div className="production-footer">
         {view?.documents.length ? (
           <span className="production-docs">
@@ -193,7 +194,7 @@ export default function DayCloseWorkspace({ lang, initialDay, admin, onChanged }
           <span />
         )}
         {view?.status === "open" && (
-          <button className="button" disabled={blocked} onClick={() => window.confirm(t("dayCloseConfirm")) && void post("day/close", { date, revision: view.revision, inputs })}>
+          <button className="button" disabled={blocked} onClick={() => window.confirm(t("dayCloseConfirm")) && void post("day/close", { date, revision: view.revision, materialToken: view.materialToken, inputs })}>
             <Lock size={16} /> {t("dayCloseButton")}
           </button>
         )}

@@ -383,15 +383,7 @@ export default function OperationsWorkspace({
               <Leaf size={16} />
               {t("newIngredient")}
             </OpButton>
-            <OpButton
-              busy={busy}
-              secondary
-              action={() => open("issue")}
-              disabled={!issueOrders.length}
-            >
-              <ChefHat size={16} />
-              {t("issue")}
-            </OpButton>
+            <small>{t("USE_DAILY_MATERIALS")}</small>
           </>
         ) : (
           <>

@@ -50,7 +50,7 @@ export type ProductionRow = {
   /** v74: bon de predare bizonylatok (ha be van kapcsolva). */
   handovers: { id: string; number: string; kind: "issue" | "reversal"; status: "issued" | "reversed" }[];
 };
-export type ProductionDay = { date: string; marginBps: number; settingsRevision: number; dayClosed: boolean; rows: ProductionRow[] };
+export type ProductionDay = { date: string; marginBps: number; settingsRevision: number; dayClosed: boolean; availableProducts: { id:string;hu:string;ro:string }[]; rows: ProductionRow[] };
 
 export const MARGIN_MAX_BPS = 10000;
 export const PORTIONS_MAX = 100000;
@@ -114,6 +114,7 @@ export type BcContent = {
   lines: BcLine[];
   totalValue: number;
   reason?: string;
+  dailyBatches?: { batchId: string; code: string; product: { hu: string; ro: string }; actual: number; totalValue: number; consumed: number }[];
 };
 
 /** BC-sorok a kiosztásból (FEFO) – alapanyagonként a felhasznált raktári tételekkel és értékkel. */

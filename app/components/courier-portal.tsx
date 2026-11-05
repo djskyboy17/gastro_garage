@@ -35,25 +35,27 @@ function TaskCard({task,viewDate,lang,busy,act}:{task:CourierTask;viewDate:strin
   async function send(value:string){const p=payment(value),body=pending&&pending.value===value&&pending.note===note.trim()&&JSON.stringify(pending.payment??null)===JSON.stringify(p)?pending:{requestId:crypto.randomUUID(),orderId:task.id,revision:task.revision,value,note:note.trim(),...(p?{payment:p}:{})};setPending(body);await act(body);}
   const payInvalid=task.due>0&&method!=='none'&&(!Number.isInteger(amountBani)||amountBani<=0||amountBani>task.due);
   const phone=phoneUrl(task.phone);
-  return <article className="panel courier-task"><div className="courier-task-top"><strong>{task.time}{task.windowEnd?'–'+task.windowEnd:''}</strong><span className={'badge '+task.delivery}>{t(task.delivery)}</span><small>#{orderCode(task.id)}</small></div>{task.date<today()&&task.delivery!=='delivered'&&<p className="courier-overdue">{t('courierOverdue')} · {task.date}</p>}<h3>{task.customerName}</h3><p className="courier-address">{task.address}</p><div className="courier-links"><a className="button secondary" href={navigationUrl(task.address)} target="_blank" rel="noreferrer"><MapPin size={18}/>{t('courierNavigate')}</a>{phone&&<a className="button secondary" href={phone}><Phone size={18}/>{t('courierCall')}</a>}</div><CourierAviz task={task} date={viewDate} lang={lang}/><small className="courier-map-hint">{t('courierMapsHint')}</small><div className="courier-items">{task.items.map((i,index)=><div key={index}><strong>{i.quantity} × {i[lang]}</strong>{i.allergens&&<small>{t('allergens')}: {i.allergens.split(',').map(t).join(', ')}</small>}</div>)}</div>{task.note&&<p className="courier-note">{task.note}</p>}{task.delivery!=='delivered'&&<div className="courier-outcome"><label>{t('courierOutcomeNote')}<textarea maxLength={500} value={note} disabled={busy} onChange={e=>setNote(e.target.value)}/></label>{['pending','failed'].includes(task.delivery)&&<>{task.production==='ready'?<button className="button" disabled={busy} onClick={()=>void send('transit')}><Truck size={18}/>{t('courierDepart')}</button>:<p>{t('courierWaitReady')}</p>}</>}{task.onAccount&&task.delivery!=='delivered'&&<p className="courier-cash">{t('courierOnAccount')}</p>}{task.delivery==='transit'&&task.due>0&&<div className="courier-payment"><p>{t('courierDue')}: <b>{lei(task.due)}</b></p><div className="courier-pay-methods">{(['cash','card','none'] as const).map(m=><label key={m}><input type="radio" name={'pay-'+task.id} checked={method===m} disabled={busy} onChange={()=>setMethod(m)}/>{t('courierPay_'+m)}</label>)}</div>{method!=='none'&&<label>{t('courierPaidAmount')}<input inputMode="decimal" value={amount} disabled={busy} onChange={e=>setAmount(e.target.value)}/></label>}{payInvalid&&<small className="courier-overdue">{t('PAYMENT_TOO_MUCH')}</small>}</div>}{task.delivery==='transit'&&<div className="courier-links"><button className="button" disabled={busy||payInvalid} onClick={()=>void send('delivered')}><CheckCircle2 size={18}/>{t('markDelivered')}</button><button className="button secondary" disabled={busy||!note.trim()} onClick={()=>void send('failed')}>{t('markFailed')}</button></div>}</div>}{task.events.length>0&&<details className="courier-history"><summary>{t('courierHistory')}</summary>{task.events.map((e,i)=><p key={i}><strong>{t(e.kind)}</strong> · {new Intl.DateTimeFormat(lang==='hu'?'hu-HU':'ro-RO',{timeZone:'Europe/Bucharest',dateStyle:'short',timeStyle:'short'}).format(new Date(e.createdAt))}{e.note&&<span>{e.note}</span>}</p>)}</details>}</article>;
-}
-
-function CourierAviz({ task, date, lang }: { task: CourierTask; date: string; lang: Language }) {
-  const t = (key: string) => messages[lang][key] ?? key;
-  return (
-    <div className="courier-links">
-      {task.avizAvailable ? (
-        <a className="button secondary"
-          href={"/api/courier/aviz?orderId=" + encodeURIComponent(task.id) + "&date=" + encodeURIComponent(date)}
-          target="_blank" rel="noreferrer">
-          <FileText size={18} /> {t("courierAviz")}
-        </a>
-      ) : (
-        <>
-          <button className="button secondary" disabled><FileText size={18} /> {t("courierAviz")}</button>
-          <small>{t("courierAvizPending")}</small>
-        </>
-      )}
-    </div>
-  );
+  // v89: fent név és cím (mellette kicsiben idő és állapot), egy sorban navigáció, hívás, aviz; alatta a nagy fő gomb.
+  // Minden más (tételek, megjegyzés, sikertelen kézbesítés, előzmények) a „Részletek” fül alatt.
+  const fmt=(iso:string)=>new Intl.DateTimeFormat(lang==='hu'?'hu-HU':'ro-RO',{timeZone:'Europe/Bucharest',dateStyle:'short',timeStyle:'short'}).format(new Date(iso));
+  return <article className="panel courier-task">
+   <div className="courier-head"><div className="courier-who"><h3>{task.customerName}</h3><p className="courier-address">{task.address}</p></div><div className="courier-meta"><strong>{task.time}{task.windowEnd?'–'+task.windowEnd:''}</strong><span className={'badge '+task.delivery}>{t(task.delivery)}</span></div></div>
+   {task.date<today()&&task.delivery!=='delivered'&&<p className="courier-overdue">{t('courierOverdue')} · {task.date}</p>}
+   <div className="courier-links courier-row"><a className="button secondary" href={navigationUrl(task.address)} target="_blank" rel="noreferrer"><MapPin size={18}/>{t('courierNavigate')}</a>{phone&&<a className="button secondary" href={phone}><Phone size={18}/>{t('courierCall')}</a>}{task.avizAvailable&&<a className="button secondary" href={'/api/courier/aviz?orderId='+encodeURIComponent(task.id)+'&date='+encodeURIComponent(viewDate)} target="_blank" rel="noreferrer"><FileText size={18}/>{t('courierAviz')}</a>}</div>
+   {task.delivery!=='delivered'&&<div className="courier-outcome">
+    {['pending','failed'].includes(task.delivery)&&(task.production==='ready'?<button className="button courier-main" disabled={busy} onClick={()=>void send('transit')}><Truck size={20}/>{t('courierDepart')}</button>:<p>{t('courierWaitReady')}</p>)}
+    {task.onAccount&&<p className="courier-cash">{t('courierOnAccount')}</p>}
+    {task.delivery==='transit'&&task.due>0&&<div className="courier-payment"><p>{t('courierDue')}: <b>{lei(task.due)}</b></p><div className="courier-pay-methods">{(['cash','card','none'] as const).map(m=><label key={m}><input type="radio" name={'pay-'+task.id} checked={method===m} disabled={busy} onChange={()=>setMethod(m)}/>{t('courierPay_'+m)}</label>)}</div>{method!=='none'&&<label>{t('courierPaidAmount')}<input inputMode="decimal" value={amount} disabled={busy} onChange={e=>setAmount(e.target.value)}/></label>}{payInvalid&&<small className="courier-overdue">{t('PAYMENT_TOO_MUCH')}</small>}</div>}
+    {task.delivery==='transit'&&<button className="button courier-main" disabled={busy||payInvalid} onClick={()=>void send('delivered')}><CheckCircle2 size={20}/>{t('markDelivered')}</button>}
+   </div>}
+   <details className="courier-more"><summary>{t('courierMore')}</summary>
+    <p className="courier-code">#{orderCode(task.id)}</p>
+    <div className="courier-items">{task.items.map((i,index)=><div key={index}><strong>{i.quantity} × {i[lang]}</strong>{i.allergens&&<small>{t('allergens')}: {i.allergens.split(',').map(t).join(', ')}</small>}</div>)}</div>
+    {task.note&&<p className="courier-note">{task.note}</p>}
+    {!task.avizAvailable&&task.delivery!=='delivered'&&<small>{t('courierAviz')}: {t('courierAvizPending')}</small>}
+    {task.delivery==='transit'&&<div className="courier-fail"><label>{t('courierOutcomeNote')}<textarea maxLength={500} value={note} disabled={busy} onChange={e=>setNote(e.target.value)}/></label><button className="button secondary" disabled={busy||!note.trim()} onClick={()=>void send('failed')}>{t('markFailed')}</button></div>}
+    <small className="courier-map-hint">{t('courierMapsHint')}</small>
+    {task.events.length>0&&<div className="courier-history">{task.events.map((e,i)=><p key={i}><strong>{t(e.kind)}</strong> · {fmt(e.createdAt)}{e.note&&<span>{e.note}</span>}</p>)}</div>}
+   </details>
+  </article>;
 }

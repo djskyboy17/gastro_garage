@@ -4,8 +4,8 @@ import type { Session } from "../access/domain";
 import { isAdmin, isKitchenStaff } from "../access/domain";
 import { today, type Order } from "../shared/domain";
 import { validDay } from "../menu/domain";
-import { addDays, lotCode } from "../labels/domain";
-import { allocate, explodeRecipe, latestRecipe } from "../inventory/domain";
+import { lotCode } from "../labels/domain";
+import { explodeRecipe, latestRecipe } from "../inventory/domain";
 import { loadOperations } from "../inventory/server";
 import { allocateDocumentNumber } from "../documents/server";
 import { DOCUMENT_TYPES, formatDocumentNumber } from "../documents/domain";
@@ -14,7 +14,6 @@ import {
   MARGIN_MAX_BPS,
   PORTIONS_MAX,
   batchNeeds,
-  bcLines,
   bulkClosePlan,
   closeLinesError,
   dayDemand,
@@ -25,6 +24,7 @@ import {
   type ProductionBatch,
   type ProductionDay,
 } from "./domain";
+import { saveReadyBatch } from "./daily-materials";
 import { renderBcHtml } from "./bc-print";
 import { handleDayClose, loadDocRefs, loadFinishedLots, loadProductionSettings } from "./day-close";
 import { reversalHandover, usableFinished, type HandoverContent } from "./finished";
@@ -111,7 +111,7 @@ export async function handleProduction(path: string, body: unknown, session: Ses
       DB.prepare(`SELECT ${batchColumns} FROM production_batches WHERE day=?`).bind(date).all<BatchRow>(),
       DB.prepare("SELECT c.id,c.batch_id AS batchId,c.year,c.number,c.kind,c.status FROM consumption_documents c JOIN production_batches b ON b.id=c.batch_id WHERE b.day=? ORDER BY c.created_at").bind(date).all<{ id: string; batchId: string; year: number; number: number; kind: ConsumptionRef["kind"]; status: ConsumptionRef["status"] }>(),
       bcNumbers(),
-      DB.prepare("SELECT id,hu,ro FROM products").all<{ id: string; hu: string; ro: string }>(),
+      DB.prepare("SELECT id,hu,ro,active FROM products").all<{ id: string; hu: string; ro: string; active: number }>(),
       DB.prepare("SELECT DISTINCT product_id AS productId FROM recipes").all<{ productId: string }>(),
       loadFinishedLots(date),
       loadDocRefs("doc_type='handover' AND day=?", date),
@@ -126,6 +126,7 @@ export async function handleProduction(path: string, body: unknown, session: Ses
       marginBps: settings.marginBps,
       settingsRevision: settings.revision,
       dayClosed: !!dayClose,
+      availableProducts: products.results.filter(p=>p.active && withRecipe.has(p.id) && !batches.results.some(b=>b.productId===p.id)),
       rows: ids
         .map((productId) => {
           const d = demand.get(productId),
@@ -178,6 +179,7 @@ export async function handleProduction(path: string, body: unknown, session: Ses
   const now = new Date().toISOString();
   const actor = session.userId;
   const failOnGuard = (e: unknown): never => {
+    if (/DAY_CLOSED/i.test(String(e))) throw new ProductionError("DAY_CLOSED",409);
     if (/NOT NULL/i.test(String(e))) throw new ProductionError("CONFLICT", 409);
     if (/UNIQUE/i.test(String(e))) throw new ProductionError("CONFLICT", 409);
     if (/CHECK/i.test(String(e))) throw new ProductionError("STOCK_CONFLICT", 409);
@@ -201,69 +203,18 @@ export async function handleProduction(path: string, body: unknown, session: Ses
     ]).catch(failOnGuard);
     return id;
   };
-  /** Egy nyitott tétel lezárása: anyagkiadás FEFO szerint, bon de consum, (ha be van kapcsolva) bon de predare – egy D1-kötegben. */
-  const closeBatch = async (id: string, revision: number, actualPortions: number, givenLines: { ingredientId: string; quantity: number }[] | null, note: string) => {
+  // Saving finished portions makes the lot available, without consuming raw material.
+  const closeBatch = async (id: string, revision: number, actual: number, lines: { ingredientId: string; quantity: number }[] | null, note: string) => {
     const batch = await loadBatch(id);
-    if (batch.status !== "open") throw new ProductionError("BATCH_CLOSED", 409);
-    if (batch.revision !== revision) throw new ProductionError("CONFLICT", 409);
+    if (batch.status !== "open" || batch.revision !== revision) throw new ProductionError("CONFLICT", 409);
     if (batch.day > today()) throw new ProductionError("BATCH_FUTURE");
     await assertDayOpen(batch.day);
-    const plan = await closePlan(batch, actualPortions);
-    // Sorok nélkül (tömeges lezárás): pontosan a recept szerinti mennyiségek.
-    const lines = givenLines ?? [...plan.needs].map(([ingredientId, quantity]) => ({ ingredientId, quantity }));
-    const lineError = closeLinesError(plan.needs, lines, note);
-    if (lineError) throw new ProductionError(lineError);
-    // A BC minden receptsort mutat (a 0-ra írtat is); kiosztás csak a ténylegesen felhasznált mennyiségre.
-    const used = new Map(lines.map((l) => [l.ingredientId, l.quantity]));
-    const actual = new Map([...used].filter(([, q]) => q > 0));
-    const allocation = allocate(actual, plan.ops.lots, batch.day);
-    if (allocation.shortage.length) throw new ProductionError("INSUFFICIENT_STOCK");
-    if (allocation.allocations.length > 40) throw new ProductionError("TOO_MANY_LOTS");
-    const shelf = await DB.prepare("SELECT shelf_life_days AS days FROM product_labels WHERE product_id=?").bind(batch.productId).first<{ days: number }>();
-    const useBy = shelf ? addDays(batch.day, shelf.days) : null;
-    const product = await DB.prepare("SELECT hu,ro FROM products WHERE id=?").bind(batch.productId).first<{ hu: string; ro: string }>();
-    const statements: D1PreparedStatement[] = [
-      DB.prepare(`INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM production_batches WHERE id=? AND revision=? AND status='open') AND ${dayClosedSql} THEN ? ELSE NULL END,'production_batch_closed',?,?,?)`).bind(crypto.randomUUID(), id, revision, batch.day, actor, id, JSON.stringify({ code: batch.code, product: product?.hu ?? "", actual: actualPortions, issuedBefore: plan.issuedBefore, note: note }), now),
-    ];
-    let consumptionId: string | null = null;
-    let bcTotal = 0;
-    if (actual.size) {
-      consumptionId = crypto.randomUUID();
-      const bcRows = bcLines(plan.needs, used, allocation.allocations, plan.ops.lots, plan.ops.ingredients);
-      const content: BcContent = {
-        batch: { id: batch.id, code: batch.code, day: batch.day },
-        product: { ro: product?.ro ?? "", hu: product?.hu ?? "" },
-        portions: { actual: actualPortions, issuedBefore: plan.issuedBefore, consumed: plan.consumed },
-        recipe: { id: plan.recipe.id, version: plan.recipe.version },
-        note: note,
-        lines: bcRows,
-        totalValue: bcRows.reduce((s, l) => s + l.value, 0),
-      };
-      bcTotal = content.totalValue;
-      const bc = allocateDocumentNumber("consumption", batch.day, now);
-      statements.push(
-        ...bc.statements,
-        DB.prepare(`INSERT INTO consumption_documents (id,batch_id,year,number,kind,status,reversal_of,reversed_by,issue_date,content,created_by,created_at) VALUES (?,?,?,${bc.numberSql},'consumption','issued',NULL,NULL,?,?,?,?)`).bind(consumptionId, batch.id, bc.year, ...bc.numberBinds, batch.day, JSON.stringify(content), actor, now),
-        ...allocation.allocations.flatMap((a) => [
-          DB.prepare("UPDATE stock_lots SET remaining=remaining-? WHERE id=?").bind(a.quantity, a.lotId),
-          DB.prepare("INSERT INTO stock_moves (id,lot_id,issue_id,batch_id,quantity,kind,note,created_at) VALUES (?,?,NULL,?,?,'production',?,?)").bind(crypto.randomUUID(), a.lotId, batch.id, -a.quantity, batch.code, now),
-        ]),
-      );
-    }
-    // v74: bon de predare (ha be van kapcsolva) – a kész étel átadása a készletbe, a BC értékével.
-    if ((await loadSettings()).handoverEnabled && actualPortions > 0) {
-      const handover: HandoverContent = { batch: { id: batch.id, code: batch.code, day: batch.day }, product: { ro: product?.ro ?? "", hu: product?.hu ?? "" }, portions: actualPortions, useBy, value: bcTotal };
-      const bp = allocateDocumentNumber("handover", batch.day, now);
-      statements.push(
-        ...bp.statements,
-        DB.prepare(`INSERT INTO production_documents (id,doc_type,year,number,kind,status,reversal_of,reversed_by,issue_date,day,batch_id,content,created_by,created_at) VALUES (?,'handover',?,${bp.numberSql},'issue','issued',NULL,NULL,?,?,?,?,?,?)`).bind(crypto.randomUUID(), bp.year, ...bp.numberBinds, batch.day, batch.day, batch.id, JSON.stringify(handover), actor, now),
-      );
-    }
-    statements.push(
-      DB.prepare("UPDATE production_batches SET status='closed',actual=?,issued_before=?,consumption_id=?,use_by=?,note=?,closed_by=?,closed_at=?,revision=revision+1 WHERE id=? AND revision=? AND status='open'").bind(actualPortions, plan.issuedBefore, consumptionId, useBy, note, actor, now, id, revision),
-    );
-    await DB.batch(statements).catch(failOnGuard);
-    return consumptionId;
+    const plan = await closePlan(batch, actual);
+    const used = lines ?? [...plan.needs].map(([ingredientId, quantity]) => ({ ingredientId, quantity }));
+    const error = closeLinesError(plan.needs, used, note);
+    if (error) throw new ProductionError(error);
+    await saveReadyBatch(batch, actual, plan.issuedBefore, plan.recipe.version, plan.needs, used, note, actor, now).catch(failOnGuard);
+    return null;
   };
 
   if (path === "/api/production/save") {
@@ -310,7 +261,7 @@ export async function handleProduction(path: string, body: unknown, session: Ses
         revision: z.number().int().min(0),
         actual: portions,
         note: z.string().trim().max(1000),
-        lines: z.array(z.object({ ingredientId: z.string().min(1).max(200), quantity: z.number().int().min(0).max(100_000_000) }).strict()).max(60),
+        lines: z.array(z.object({ ingredientId: z.string().min(1).max(200), quantity: z.number().int().min(0).max(100_000_000) }).strict()).max(60).nullable().default(null),
       })
       .strict()
       .parse(body);
@@ -327,7 +278,7 @@ export async function handleProduction(path: string, body: unknown, session: Ses
       dayOrders(d.date),
       DB.prepare(`SELECT ${batchColumns} FROM production_batches WHERE day=?`).bind(d.date).all<BatchRow>(),
       DB.prepare("SELECT DISTINCT product_id AS productId FROM recipes").all<{ productId: string }>(),
-      DB.prepare("SELECT id,hu,ro FROM products").all<{ id: string; hu: string; ro: string }>(),
+      DB.prepare("SELECT id,hu,ro,active FROM products").all<{ id: string; hu: string; ro: string; active: number }>(),
     ]);
     const plan = bulkClosePlan(
       [...demand].map(([productId, x]) => ({ productId, ordered: x.ordered })),
@@ -353,6 +304,8 @@ export async function handleProduction(path: string, body: unknown, session: Ses
   if (path === "/api/production/reverse") {
     // BC sztornó: sztornó-BC negatív sorokkal, a mennyiség visszakerül ugyanazokba a raktári tételekbe, a tétel újra nyitott.
     const d = z.object({ id: uuid, revision: z.number().int().min(0), reason: z.string().trim().min(3).max(500) }).strict().parse(body);
+    const material = await DB.prepare("SELECT consumption_id AS consumptionId FROM production_materials WHERE batch_id=?").bind(d.id).first<{ consumptionId: string | null }>();
+    if (material?.consumptionId) throw new ProductionError("DAILY_MATERIALS_LOCKED", 409);
     const batch = await loadBatch(d.id);
     if (batch.status !== "closed") throw new ProductionError("BATCH_OPEN", 409);
     if (batch.revision !== d.revision) throw new ProductionError("CONFLICT", 409);
@@ -375,7 +328,7 @@ export async function handleProduction(path: string, body: unknown, session: Ses
     }
     const reopen = DB.prepare("UPDATE production_batches SET status='open',actual=NULL,issued_before=0,consumption_id=NULL,use_by=NULL,closed_by=NULL,closed_at=NULL,revision=revision+1 WHERE id=? AND revision=? AND status='closed'").bind(d.id, d.revision);
     if (!batch.consumptionId) {
-      await DB.batch([guard.bind(crypto.randomUUID(), d.id, d.revision, actor, d.id, JSON.stringify({ code: batch.code, reason: d.reason }), now), ...handoverReversal, reopen]).catch(failOnGuard);
+      await DB.batch([guard.bind(crypto.randomUUID(), d.id, d.revision, actor, d.id, JSON.stringify({ code: batch.code, reason: d.reason }), now), ...handoverReversal, DB.prepare("DELETE FROM production_materials WHERE batch_id=? AND consumption_id IS NULL").bind(d.id), reopen]).catch(failOnGuard);
       return json({ ok: true, consumptionId: null });
     }
     const original = await DB.prepare("SELECT id,year,number,content FROM consumption_documents WHERE id=? AND status='issued'").bind(batch.consumptionId).first<{ id: string; year: number; number: number; content: string }>();

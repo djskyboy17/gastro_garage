@@ -1134,7 +1134,7 @@ export default function KitchenApp() {
                       ))}
                     </div>
                     {isAdmin(session.role) && <ProductionWorkspace key={day} lang={lang} initialDay={day} onChanged={() => void load()} />}
-                    {(isAdmin(session.role) || session.role === "kitchen" || session.role === "warehouse") && <DayCloseWorkspace key={"close-" + day} lang={lang} initialDay={day} admin={isAdmin(session.role)} onChanged={() => void load()} />}
+                    {(isAdmin(session.role) || session.role === "kitchen" || session.role === "warehouse") && <DayCloseWorkspace key={"close-" + day + ":" + JSON.stringify([(data.operations.batches??[]).filter(b=>b.day===day).map(b=>[b.productId,b.status]),data.orders.filter(o=>o.date===day).map(o=>[o.id,o.revision])])} lang={lang} initialDay={day} admin={isAdmin(session.role)} onChanged={() => void load()} />}
                   </>
                 )}
                 {tab === "delivery" && (

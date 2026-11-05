@@ -102,6 +102,8 @@ export type OperationsData = {
   preparationVersions: PreparationVersion[];
   /** v73: gyártási tételek (nap + étel + állapot) – a lezárt tétel anyaga már ki van adva. */
   batches?: BatchMark[];
+  /** Physically used in ready production; raw stock posting waits for the daily close. */
+  deferredNeeds?: { day:string; ingredientId:string; quantity:number }[];
 };
 /** Egy gyártási tétel jelölése (v73); a részletek a production modulban. */
 export type BatchMark = { day: string; productId: string; status: "open" | "closed" };
@@ -284,6 +286,7 @@ export function procurementPlan(
 ) {
   const needed = new Map<string, number>();
   const missing: string[] = [];
+  for(const pending of ops.deferredNeeds ?? []) if(pending.day <= date) needed.set(pending.ingredientId,(needed.get(pending.ingredientId)??0)+pending.quantity);
   const issued = new Set(ops.issues.map((i) => i.orderId));
   for (const o of orders.filter(
     (o) =>
@@ -379,8 +382,10 @@ export function forwardProcurement(
         o.delivery === "pending" &&
         !issued.has(o.id),
     );
-    if (!dayOrders.length) continue;
+    const deferred=(ops.deferredNeeds??[]).filter(n=>(n.day<from?from:n.day)===date);
+    if (!dayOrders.length && !deferred.length) continue;
     const needs = new Map<string, number>();
+    for(const pending of deferred) needs.set(pending.ingredientId,(needs.get(pending.ingredientId)??0)+pending.quantity);
     const missing = new Set<string>();
     for (const o of dayOrders) {
       const req = requirements(pendingOrder(o, ops.batches), ops.recipes, ops.preparationVersions ?? []);

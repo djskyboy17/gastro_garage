@@ -51,3 +51,9 @@ Acceptance examples:
 ## Verification
 
 Exact scaling/rounding, expiry/FEFO, missing recipes, captured recipe version, shortage/minimum and no-mutating planning are covered by domain tests. API smoke tests cover receipt replay, issue replay, failed issue no writes, parallel issue/waste balance protection, immutable recipe linkage, missing recipe rejection and movement-to-order traceability. Browser tests exercise the user approval flow and HU/RO labels.
+
+## Halasztott napi gyártási anyagkiadás – 2026-11-06
+
+A nyersanyag könyv szerinti készlete az elkészült adagszám mentésétől még nem változik; a production modul napi zárása véglegesíti a mozgásokat. A régi rendelésenkénti POST /api/operations/issue 410 USE_DAILY_MATERIALS választ ad, a régi stock_issues története olvasható marad.
+
+A loadOperations.deferredNeeds az elkészült, de még nem könyvelt tételek rögzített anyagigénye. A napi procurementPlan ehhez hozzáadja a még el nem készített rendelések igényét; az előretekintő terv is egyszer számolja a függő anyagigényt. Ettől a lot.remaining nem változik, de a beszerzés nem tekinti szabadnak a már felhasznált anyagot. A függő rekordok olvasását részleges index segíti. Nincs recept-visszaszámolás a már rögzített termeléshez.

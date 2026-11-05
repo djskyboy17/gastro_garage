@@ -94,11 +94,17 @@ export async function loadOperations(): Promise<OperationsData> {
     db.select().from(recipePreparationLines),
     db.select({ day: productionBatches.day, productId: productionBatches.productId, status: productionBatches.status }).from(productionBatches).where(gte(productionBatches.day, addDaysIso(today(), -14))),
   ]);
+  const deferred = (await env.DB!.prepare("SELECT day,content FROM production_materials WHERE consumption_id IS NULL").all<{day:string;content:string}>()).results;
+  const deferredNeeds = deferred.flatMap(row => {
+    const snapshot=JSON.parse(row.content) as {needs:{ingredientId:string;quantity:number}[]};
+    return snapshot.needs.map(line=>({day:row.day,ingredientId:line.ingredientId,quantity:line.quantity}));
+  });
   const linesByRecipe = groupRows(l, line => line.recipeId);
   const prepsByRecipe = groupRows(recipePreps, line => line.recipeId);
   const linesByVersion = groupRows(prepLines, line => line.versionId);
   return {
     batches: batches as OperationsData["batches"],
+    deferredNeeds,
     ingredients: i,
     recipes: r.map((recipe) => ({
       ...recipe,
@@ -617,125 +623,7 @@ export async function handleOperations(
     }
     return json({ ok: true });
   }
-  if (path === "/api/operations/issue") {
-    const d = z
-      .object({
-        orderId: text(),
-        revision: z.number().int().min(0),
-        recipeIds: z.array(text()).min(1).max(50),
-        note: z.string().trim().max(1000),
-        actual: z
-          .array(z.object({ ingredientId: text(), quantity: qty }))
-          .min(1)
-          .max(50),
-      })
-      .parse(body);
-    const [existing] = await db
-      .select()
-      .from(stockIssues)
-      .where(eq(stockIssues.orderId, d.orderId));
-    if (existing) return json({ ok: true, id: existing.id });
-    const [row] = await db
-      .select()
-      .from(orders)
-      .where(eq(orders.id, d.orderId));
-    if (!row) throw new OperationError("NOT_FOUND", 404);
-    if (row.revision !== d.revision) throw new OperationError("CONFLICT", 409);
-    if (
-      row.status !== "confirmed" ||
-      !["queued", "cooking"].includes(row.production) ||
-      row.delivery !== "pending"
-    )
-      throw new OperationError("ISSUE_STATE");
-    const items = await db
-      .select()
-      .from(orderItems)
-      .where(eq(orderItems.orderId, d.orderId));
-    // v73: ha az ételhez aznapra gyártási tétel van, az anyag a tétellel fogy – rendelésenként nem adható ki (kettős levonás ellen).
-    const batched = await env
-      .DB!.prepare("SELECT 1 FROM production_batches WHERE day=? AND product_id IN (SELECT value FROM json_each(?)) LIMIT 1")
-      .bind(row.date, JSON.stringify(items.map((i) => i.productId)))
-      .first();
-    if (batched) throw new OperationError("ISSUE_BATCHED", 409);
-    const ops = await loadOperations();
-    const req = requirements({ ...row, items } as Order, ops.recipes, ops.preparationVersions);
-    if (req.missing.length) throw new OperationError("MISSING_RECIPE");
-    if (
-      JSON.stringify([...d.recipeIds].sort()) !==
-      JSON.stringify([...req.recipeIds].sort())
-    )
-      throw new OperationError("CONFLICT", 409);
-    const actual = new Map(d.actual.map((i) => [i.ingredientId, i.quantity]));
-    if (
-      actual.size !== d.actual.length ||
-      actual.size !== req.needs.size ||
-      [...actual.keys()].some((k) => !req.needs.has(k))
-    )
-      throw new OperationError("INVALID_ITEM");
-    if ([...actual].some(([key, v]) => req.needs.get(key) !== v) && !d.note)
-      throw new OperationError("ACTUAL_NOTE_REQUIRED");
-    const allocation = allocate(actual, ops.lots, today());
-    if (allocation.shortage.length)
-      throw new OperationError("INSUFFICIENT_STOCK");
-    if (allocation.allocations.length > 35)
-      throw new OperationError("TOO_MANY_LOTS");
-    const id = crypto.randomUUID();
-    const snapshot = JSON.stringify({
-      recipes: req.recipeIds,
-      planned: Object.fromEntries(req.needs),
-      actual: Object.fromEntries(actual),
-      note: d.note,
-    });
-    const commands = [
-      env
-        .DB!.prepare(
-          "INSERT INTO stock_issues (id,order_id,recipe_snapshot,created_at,actor) VALUES (?,?,CASE WHEN EXISTS (SELECT 1 FROM orders WHERE id=? AND revision=? AND status='confirmed' AND production IN ('queued','cooking') AND delivery='pending') AND NOT EXISTS (SELECT 1 FROM production_batches b JOIN order_items i ON i.product_id=b.product_id AND i.order_id=? WHERE b.day=?) THEN ? ELSE NULL END,?,?)",
-        )
-        .bind(id, d.orderId, d.orderId, d.revision, d.orderId, row.date, snapshot, now, actor),
-      env
-        .DB!.prepare(
-          "UPDATE orders SET production='cooking',revision=revision+1 WHERE id=? AND revision=?",
-        )
-        .bind(d.orderId, d.revision),
-      ...allocation.allocations.flatMap((a) => [
-        env
-          .DB!.prepare("UPDATE stock_lots SET remaining=remaining-? WHERE id=?")
-          .bind(a.quantity, a.lotId),
-        env
-          .DB!.prepare(
-            "INSERT INTO stock_moves (id,lot_id,issue_id,quantity,kind,note,created_at) VALUES (?,?,?,?,?,?,?)",
-          )
-          .bind(
-            crypto.randomUUID(),
-            a.lotId,
-            id,
-            -a.quantity,
-            "issued",
-            d.orderId,
-            now,
-          ),
-      ]),
-      env
-        .DB!.prepare(
-          "INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,?,?,?,?,?)",
-        )
-        .bind(
-          crypto.randomUUID(),
-          actor,
-          "stock_issued",
-          d.orderId,
-          row.customerName,
-          now,
-        ),
-    ];
-    try {
-      await env.DB!.batch(commands);
-    } catch (e) {
-      if (/CHECK|UNIQUE|NOT NULL/.test(String(e)))
-        throw new OperationError("STOCK_CONFLICT", 409);
-      throw e;
-    }
-    return json({ ok: true, id }, 201);
-  }
+  // Historical stock_issues remain readable. New production is posted only by the daily close.
+  if (path === "/api/operations/issue") return json({ error: "USE_DAILY_MATERIALS" }, 410);
   return json({ error: "NOT_FOUND" }, 404);
 }

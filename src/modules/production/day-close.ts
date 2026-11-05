@@ -9,6 +9,7 @@ import { committeeNames } from "../invoices/domain";
 import { allocateDocumentNumber } from "../documents/server";
 import { DOCUMENT_TYPES, formatDocumentNumber, type DocumentType } from "../documents/domain";
 import { ProductionError, dayOrders } from "./server";
+import { dayToken, dayTokenBinds, dayTokenSql, dailyMaterialStatements, reverseDailyMaterials } from "./daily-materials";
 import type { BcContent } from "./domain";
 import {
   lastUsableDay,
@@ -37,6 +38,8 @@ const WINDOW_DAYS = 14;
 export type DocRef = { id: string; number: string; type: "write_off" | "handover"; kind: "issue" | "reversal"; status: "issued" | "reversed"; batchId: string | null; day: string };
 export type DayCloseView = {
   date: string;
+  materialToken: string;
+  consumptionId: string | null;
   status: "open" | "closed";
   revision: number;
   closedAt: string | null;
@@ -128,6 +131,7 @@ export async function loadProductionSettings() {
 
 /** A napi zárás adatai: ételenként az eladott adag, a kiadható tételek, a lezárt nap sorai. */
 async function dayView(date: string, session: Session): Promise<DayCloseView> {
+  const initialToken = await dayToken(date);
   const DB = env.DB!;
   const [demand, lots, row, pending, openBatches, recipes, settings, documents, later] = await Promise.all([
     dayOrders(date),
@@ -151,9 +155,13 @@ async function dayView(date: string, session: Session): Promise<DayCloseView> {
     for (const p of rows.results) products.push({ productId: p.id, hu: p.hu, ro: p.ro, sold: 0 });
   }
   products.sort((a, b) => a.hu.localeCompare(b.hu, "hu"));
+  const materialDoc=await DB.prepare("SELECT consumption_id AS id FROM production_materials WHERE day=? AND consumption_id IS NOT NULL LIMIT 1").bind(date).first<{id:string}>();
   const closed = row?.status === "closed";
+  if(initialToken !== await dayToken(date)) throw new ProductionError("CONFLICT",409);
   return {
     date,
+    materialToken: initialToken,
+    consumptionId: materialDoc?.id??null,
     status: closed ? "closed" : "open",
     revision: row?.revision ?? 0,
     closedAt: closed ? (row?.closedAt ?? null) : null,
@@ -207,6 +215,7 @@ export async function handleDayClose(path: string, body: unknown, session: Sessi
       .object({
         date: day,
         revision: z.number().int().min(0),
+        materialToken: z.string().min(1).max(90000),
         inputs: z.array(z.object({ productId: z.string().min(1).max(200), staff: count, waste: count, donation: count, wasteNote: z.string().trim().max(500) }).strict()).max(200),
       })
       .strict()
@@ -214,17 +223,20 @@ export async function handleDayClose(path: string, body: unknown, session: Sessi
     if (d.date > today()) throw new ProductionError("DAY_FUTURE");
     const view = await dayView(d.date, session);
     if (view.status === "closed") throw new ProductionError("DAY_CLOSED", 409);
+    if (view.materialToken !== d.materialToken) throw new ProductionError("CONFLICT", 409);
     if (view.revision !== d.revision) throw new ProductionError("CONFLICT", 409);
     if (view.openBatches.length) throw new ProductionError("DAY_BATCHES_OPEN", 409);
     if (view.pendingDay) throw new ProductionError("DAY_EARLIER_OPEN", 409);
     const plan = planDayClose(d.date, view.products, view.lots, d.inputs as DayInput[]);
     if (plan.errors.length) throw new ProductionError(plan.errors[0]!.code);
+    const materials = await dailyMaterialStatements(d.date, actor, now, view.handoverEnabled);
     const lots = new Map(view.lots.map((l) => [l.batchId, l]));
     const statements: D1PreparedStatement[] = [
       DB.prepare(
         "INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN COALESCE((SELECT revision FROM production_day_closes WHERE day=?),0)=? AND NOT EXISTS (SELECT 1 FROM production_day_closes WHERE day=? AND status='closed') AND NOT EXISTS (SELECT 1 FROM production_batches WHERE day=? AND status='open') AND NOT EXISTS (SELECT 1 FROM finished_moves WHERE day=?) THEN ? ELSE NULL END,'production_day_closed',?,?,?)",
       ).bind(crypto.randomUUID(), d.date, d.revision, d.date, d.date, d.date, actor, d.date, JSON.stringify(plan.rows.map((r) => ({ p: r.hu, sold: r.sold, staff: r.staff, waste: r.waste, donation: r.donation, closing: r.closing }))), now),
     ];
+    statements.push(DB.prepare(`INSERT INTO audit(id,actor,action,entity,detail,created_at) VALUES(?,CASE WHEN (${dayTokenSql})=? THEN ? ELSE NULL END,'daily_materials_checked',?,'',?)`).bind(crypto.randomUUID(),...dayTokenBinds(d.date),d.materialToken,actor,d.date,now),...materials.statements);
     // Selejt: napi egy PV, tételenként egy sor, a tétel BC-értékéből.
     const wasteMoves = plan.rows.flatMap((r) => r.moves.filter((m) => m.kind === "waste").map((m) => ({ ...m, row: r })));
     let writeOffId: string | null = null;
@@ -236,7 +248,7 @@ export async function handleDayClose(path: string, body: unknown, session: Sessi
         const lot = lots.get(m.batchId)!;
         const bc = bcs.results.find((b) => b.batchId === m.batchId);
         const content = bc ? (JSON.parse(bc.content) as BcContent) : null;
-        return { productId: m.row.productId, ro: m.row.ro, hu: m.row.hu, code: lot.code, batchDay: lot.day, quantity: m.quantity, reason: m.row.wasteNote, value: content ? portionValue(m.quantity, content.totalValue, content.portions.consumed) : 0 };
+        return { productId: m.row.productId, ro: m.row.ro, hu: m.row.hu, code: lot.code, batchDay: lot.day, quantity: m.quantity, reason: m.row.wasteNote, value: materials.values.has(m.batchId) ? portionValue(m.quantity, materials.values.get(m.batchId)!.totalValue, materials.values.get(m.batchId)!.consumed) : content ? portionValue(m.quantity, content.dailyBatches?.find(b=>b.batchId===m.batchId)?.totalValue ?? content.totalValue, content.dailyBatches?.find(b=>b.batchId===m.batchId)?.consumed ?? content.portions.consumed) : 0 };
       });
       const content: WriteOffContent = { day: d.date, committee: committeeNames(view.writeOffCommittee), lines, totalValue: lines.reduce((s, l) => s + l.value, 0) };
       writeOffId = crypto.randomUUID();
@@ -255,7 +267,7 @@ export async function handleDayClose(path: string, body: unknown, session: Sessi
       ).bind(d.date, JSON.stringify({ rows: plan.rows }), writeOffId, actor, now),
     );
     await DB.batch(statements).catch(failOnGuard);
-    return json({ ok: true, writeOffId });
+    return json({ ok: true, writeOffId, consumptionId: materials.consumptionId });
   }
 
   if (path === "/api/production/day/reopen") {
@@ -295,6 +307,7 @@ export async function handleDayClose(path: string, body: unknown, session: Sessi
       }
     }
     statements.push(
+      ...await reverseDailyMaterials(d.date,d.reason,actor,now),
       DB.prepare("DELETE FROM finished_moves WHERE day=?").bind(d.date),
       DB.prepare("UPDATE production_day_closes SET status='open',revision=revision+1,write_off_id=NULL,closed_by=NULL,closed_at=NULL WHERE day=? AND status='closed' AND revision=?").bind(d.date, d.revision),
     );
