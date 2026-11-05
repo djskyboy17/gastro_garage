@@ -70,7 +70,7 @@ const profileColumns =
 
 export async function loadBillingSettings(): Promise<BillingSettings> {
   const row = await env.DB!.prepare(
-    "SELECT mode,company_cif AS companyCif,series_name AS seriesName,storno_series_name AS stornoSeriesName,vat_food_bps AS vatFoodBps,vat_delivery_bps AS vatDeliveryBps,cash_collect_type AS cashCollectType,receipt_series AS receiptSeries,auto_spv AS autoSpv,revision FROM billing_settings WHERE id=1",
+    "SELECT mode,company_cif AS companyCif,series_name AS seriesName,storno_series_name AS stornoSeriesName,vat_food_bps AS vatFoodBps,vat_delivery_bps AS vatDeliveryBps,vat_payer AS vatPayer,vat_note AS vatNote,cash_collect_type AS cashCollectType,receipt_series AS receiptSeries,auto_spv AS autoSpv,revision FROM billing_settings WHERE id=1",
   ).first<BillingSettings>();
   return row ?? defaultBillingSettings;
 }
@@ -141,6 +141,8 @@ async function prepare(input: { kind: "order"; orderId: string } | { kind: "mont
   const error = profileError(profile);
   if (error) throw new BillingError(error);
   const { list, noteNumbers } = await snapshotOrders(orderIds);
+  // v83: valódi számla nem áfafizetőként csak a könyvelő által megadott mentességi megjegyzéssel készülhet.
+  if (settings.mode === "live" && !settings.vatPayer && !settings.vatNote.trim()) throw new BillingError("BILLING_VAT_NOTE_REQUIRED");
   const snapshot = buildSnapshot({ kind: input.kind, period, issueDate: today(), profile, orders: list, notes: noteNumbers, settings });
   if (snapshot.total <= 0) throw new BillingError("BILLING_NOTHING_TO_INVOICE");
   return { customerId, orderIds, period, snapshot, settings };
@@ -541,6 +543,8 @@ export async function handleBilling(path: string, body: unknown, session: Sessio
         stornoSeriesName: z.string().trim().max(20),
         vatFoodBps: z.number().int().min(0).max(5000),
         vatDeliveryBps: z.number().int().min(0).max(5000),
+        vatPayer: z.boolean(),
+        vatNote: z.string().trim().max(300),
         cashCollectType: z.enum(CASH_COLLECT_TYPES),
         receiptSeries: z.string().trim().max(20),
         autoSpv: z.boolean(),
@@ -548,6 +552,7 @@ export async function handleBilling(path: string, body: unknown, session: Sessio
       .strict()
       .parse(body);
     if (d.mode === "live" && (!normalizeTaxId(d.companyCif) || !d.seriesName)) throw new BillingError("OBLIO_NOT_CONFIGURED");
+    if (d.mode === "live" && !d.vatPayer && !d.vatNote) throw new BillingError("BILLING_VAT_NOTE_REQUIRED");
     if (d.cashCollectType === "Chitanta" && !d.receiptSeries) throw new BillingError("BILLING_RECEIPT_SERIES");
     await DB.batch([
       DB.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN COALESCE((SELECT revision FROM billing_settings WHERE id=1),0)=? THEN ? ELSE NULL END,'billing_settings_saved','billing_settings',?,?)").bind(
@@ -558,8 +563,8 @@ export async function handleBilling(path: string, body: unknown, session: Sessio
         now,
       ),
       DB.prepare(
-        "INSERT INTO billing_settings (id,mode,company_cif,series_name,storno_series_name,vat_food_bps,vat_delivery_bps,cash_collect_type,receipt_series,auto_spv,revision) VALUES (1,?,?,?,?,?,?,?,?,?,1) ON CONFLICT(id) DO UPDATE SET mode=excluded.mode,company_cif=excluded.company_cif,series_name=excluded.series_name,storno_series_name=excluded.storno_series_name,vat_food_bps=excluded.vat_food_bps,vat_delivery_bps=excluded.vat_delivery_bps,cash_collect_type=excluded.cash_collect_type,receipt_series=excluded.receipt_series,auto_spv=excluded.auto_spv,revision=billing_settings.revision+1",
-      ).bind(d.mode, normalizeTaxId(d.companyCif), d.seriesName, d.stornoSeriesName, d.vatFoodBps, d.vatDeliveryBps, d.cashCollectType, d.receiptSeries, d.autoSpv ? 1 : 0),
+        "INSERT INTO billing_settings (id,mode,company_cif,series_name,storno_series_name,vat_food_bps,vat_delivery_bps,vat_payer,vat_note,cash_collect_type,receipt_series,auto_spv,revision) VALUES (1,?,?,?,?,?,?,?,?,?,?,?,1) ON CONFLICT(id) DO UPDATE SET mode=excluded.mode,company_cif=excluded.company_cif,series_name=excluded.series_name,storno_series_name=excluded.storno_series_name,vat_food_bps=excluded.vat_food_bps,vat_delivery_bps=excluded.vat_delivery_bps,vat_payer=excluded.vat_payer,vat_note=excluded.vat_note,cash_collect_type=excluded.cash_collect_type,receipt_series=excluded.receipt_series,auto_spv=excluded.auto_spv,revision=billing_settings.revision+1",
+      ).bind(d.mode, normalizeTaxId(d.companyCif), d.seriesName, d.stornoSeriesName, d.vatFoodBps, d.vatDeliveryBps, d.vatPayer ? 1 : 0, d.vatNote, d.cashCollectType, d.receiptSeries, d.autoSpv ? 1 : 0),
     ]).catch((e: Error) => {
       if (/NOT NULL/.test(e.message)) throw new BillingError("CONFLICT", 409);
       throw e;
@@ -583,7 +588,8 @@ export async function handleBilling(path: string, body: unknown, session: Sessio
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 /** A szimulált számla megjelenítése (a valódi Oblio-PDF helyett), jól láthatóan „SIMULAT” jelöléssel. */
 function simulatedHtml(seriesName: string, number: number, p: { client?: Record<string, unknown>; products?: { name: string; price: number; quantity: number; vatPercentage: number }[]; issueDate?: string; dueDate?: string; mentions?: string; referenceDocument?: { seriesName: string; number: unknown } }) {
-  const rows = (p.products ?? []).map((l, i) => `<tr><td>${i + 1}</td><td>${esc(l.name)}</td><td class="n">${esc(l.quantity)}</td><td class="n">${Number(l.price).toFixed(2)}</td><td class="n">${esc(l.vatPercentage)}%</td><td class="n">${(Number(l.price) * Number(l.quantity)).toFixed(2)}</td></tr>`).join("");
+  const noVat = (p.products ?? []).every((l) => !Number(l.vatPercentage));
+  const rows = (p.products ?? []).map((l, i) => `<tr><td>${i + 1}</td><td>${esc(l.name)}</td><td class="n">${esc(l.quantity)}</td><td class="n">${Number(l.price).toFixed(2)}</td>${noVat ? "" : `<td class="n">${esc(l.vatPercentage)}%</td>`}<td class="n">${(Number(l.price) * Number(l.quantity)).toFixed(2)}</td></tr>`).join("");
   const total = (p.products ?? []).reduce((s, l) => s + Number(l.price) * Number(l.quantity), 0);
   const c = p.client ?? {};
   return `<!doctype html><html lang="ro"><head><meta charset="utf-8"><title>${esc(seriesName)} ${number}</title><style>body{font-family:Arial,sans-serif;font-size:12px;margin:24px}.sim{color:#a00;font-weight:bold;border:2px solid #a00;padding:6px;display:inline-block}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #444;padding:4px}.n{text-align:right}</style></head><body>
@@ -592,6 +598,6 @@ function simulatedHtml(seriesName: string, number: number, p: { client?: Record<
 ${p.referenceDocument ? `<p>Stornare la ${esc(p.referenceDocument.seriesName)} ${esc(p.referenceDocument.number)}</p>` : ""}
 <p>Data: ${esc(p.issueDate)}${p.dueDate ? " · Scadență: " + esc(p.dueDate) : ""}</p>
 <p>Cumpărător: <b>${esc(c.name)}</b> ${c.cif ? "· CIF " + esc(c.cif) : ""} ${c.rc ? "· " + esc(c.rc) : ""}<br>${esc(c.address)} ${esc(c.city)} ${esc(c.state)}</p>
-${rows ? `<table><thead><tr><th>Nr.</th><th>Denumire</th><th>Cant.</th><th>Preț cu TVA</th><th>TVA</th><th>Valoare</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="5">Total</td><td class="n"><b>${total.toFixed(2)}</b></td></tr></tfoot></table>` : ""}
+${rows ? `<table><thead><tr><th>Nr.</th><th>Denumire</th><th>Cant.</th>${noVat ? "<th>Preț</th>" : "<th>Preț cu TVA</th><th>TVA</th>"}<th>Valoare</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="${noVat ? 4 : 5}">Total</td><td class="n"><b>${total.toFixed(2)}</b></td></tr></tfoot></table>` : ""}
 ${p.mentions ? `<p>${esc(p.mentions)}</p>` : ""}</body></html>`;
 }

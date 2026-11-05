@@ -26,7 +26,7 @@ A Beszerzés „Számlák” lapja. Román Factură és Bon Fiscal fotóról vag
 - **Átváltás:** kg → g ×1000, l → ml ×1000, buc → db ×1; más esetben kézzel kell megadni. Alapanyag választásakor, ha egyértelmű, a raktári mennyiség magától kitöltődik.
 - **Alapanyag-javaslat:** először a megjegyzett párosítás (szállító adószáma vagy neve + egységesített megnevezés → alapanyag és átváltás), utána a név szerinti egyezés; bizonytalan esetben nincs javaslat.
 - **SGR-betét** (garanție SGR, 0,50 RON / palack): külön sor, alapból „nem raktári tétel”; sosem része az áru értékének. Az összegellenőrzés a betétet a végösszegben vagy külön sorként is elfogadja.
-- **Bekerülési érték:** beállítás (`purchase_settings.cost_basis`): nettó (alapértelmezett) vagy bruttó. [ELLENŐRIZENDŐ] a könyvelővel, hogy a cég ÁFA-fizető-e. A bevételezett számlán a használt alap rögzül. Ha csak bruttó (vagy csak nettó) érték van, a másik a TVA-kulccsal számolódik.
+- **Bekerülési érték:** beállítás (`purchase_settings.cost_basis`): **bruttó (alapértelmezett, v83)** vagy nettó. A cég nem áfafizető (neplătitor de TVA, a tulajdonos megerősítette 2026-11-05-én): az ÁFA nem igényelhető vissza, ezért a raktárba a ténylegesen kifizetett, TVA-val együtt számolt érték kerül. Nettót csak áfafizető cég használjon. Az AI-olvasás mindig a nettó és a bruttó értéket és a kulcsot is rögzíti, így a választás nem veszít adatot. A bevételezett számlán a használt alap rögzül. Ha csak bruttó (vagy csak nettó) érték van, a másik a TVA-kulccsal számolódik.
 - **Összegellenőrzés:** a sorok bruttó összege és a végösszeg eltérése (soronként 1 bani tűréssel) figyelmeztetés, nem tiltás.
 
 ## Jogosultság és adatvédelem

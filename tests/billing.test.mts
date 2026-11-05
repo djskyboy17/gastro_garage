@@ -43,7 +43,7 @@ test("Example 3: a monthly invoice merges three orders, keeps delivery fees sepa
     profile: company,
     orders: [order("a1", "2026-11-03", [["Supă gulaș", 1400, 2], ["Meniul zilei", 2800, 1]], 1000), order("a2", "2026-11-10", [["Supă gulaș", 1400, 3]], 1000), order("a3", "2026-11-20", [["Supă gulaș", 1500, 1]])],
     notes: ["AVZ-2026-0001", "AVZ-2026-0007", "AVZ-2026-0012"],
-    settings: { vatFoodBps: 1100, vatDeliveryBps: 2100 },
+    settings: { vatFoodBps: 1100, vatDeliveryBps: 2100, vatPayer: 1, vatNote: "" },
   });
   assert.deepEqual(
     s.lines.map((l: { name: string; unitPrice: number; quantity: number; total: number }) => [l.name, l.unitPrice, l.quantity, l.total]),
@@ -63,6 +63,26 @@ test("Example 3: a monthly invoice merges three orders, keeps delivery fees sepa
   assert.equal(p.client.vatPayer, 1);
   assert.deepEqual(p.products[0], { name: "Supă gulaș", price: 14, measuringUnit: "buc", vatPercentage: 11, vatIncluded: 1, quantity: 5, productType: "Serviciu" });
   assert.equal(p.products[2]!.vatPercentage, 21);
+});
+
+test("v83: a non-VAT-payer company invoices without VAT, with the exemption note first in the mentions", () => {
+  assert.equal(defaultBillingSettings.vatPayer, 0);
+  const s = buildSnapshot({
+    kind: "monthly",
+    period: "2026-11",
+    issueDate: "2026-11-30",
+    profile: company,
+    orders: [order("a1", "2026-11-03", [["Supă gulaș", 1400, 2]], 1000)],
+    notes: [],
+    settings: { vatFoodBps: 1100, vatDeliveryBps: 2100, vatPayer: 0, vatNote: "  Neplătitor de TVA  " },
+  });
+  assert.deepEqual(s.vat, []);
+  assert.ok(s.lines.every((l: { vatBps: number }) => l.vatBps === 0));
+  assert.equal(s.total, 3800);
+  assert.match(s.mentions, /^Neplătitor de TVA · Perioada: 2026-11/);
+  const p = oblioInvoicePayload(s, { companyCif: "1234", seriesName: "GG", autoSpv: 1 }, "key-2", "2026-11/c1");
+  assert.ok(p.products.every((l: { vatPercentage: number }) => l.vatPercentage === 0));
+  assert.equal(p.products.reduce((t: number, l: { price: number; quantity: number }) => t + l.price * l.quantity, 0), 38);
 });
 
 test("Month range, SPV state, open balance, collect types", () => {

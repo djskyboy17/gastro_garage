@@ -13,7 +13,7 @@ export class AccountingError extends Error {
 export async function accountingView(): Promise<AccountingView> {
   const [profile, settings] = await env.DB!.batch([
     env.DB!.prepare("SELECT tax_status AS taxStatus,exemption_note AS exemptionNote,applied_on AS appliedOn,revision FROM accounting_profile WHERE id=1"),
-    env.DB!.prepare("SELECT COALESCE((SELECT cost_basis FROM purchase_settings WHERE id=1),'net') AS costBasis,COALESCE((SELECT handover_enabled FROM production_settings WHERE id=1),0) AS handoverEnabled,COALESCE((SELECT all_deliveries FROM delivery_note_settings WHERE id=1),0) AS allDeliveries"),
+    env.DB!.prepare("SELECT COALESCE((SELECT cost_basis FROM purchase_settings WHERE id=1),'gross') AS costBasis,COALESCE((SELECT handover_enabled FROM production_settings WHERE id=1),0) AS handoverEnabled,COALESCE((SELECT all_deliveries FROM delivery_note_settings WHERE id=1),0) AS allDeliveries"),
   ]);
   const row = settings.results[0] as { costBasis: string; handoverEnabled: number; allDeliveries: number };
   return { profile: (profile.results[0] as AccountingProfile | undefined) ?? null,

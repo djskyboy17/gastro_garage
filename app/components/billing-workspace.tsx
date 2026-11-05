@@ -54,7 +54,7 @@ function SnapshotView({ s, t }: { s: InvoiceSnapshot; t: (k: string) => string }
               <td>{l.name}</td>
               <td className="number">{l.quantity} ×</td>
               <td className="number">{lei(l.unitPrice)}</td>
-              <td className="number">{l.vatBps / 100}%</td>
+              {s.vat.length > 0 && <td className="number">{l.vatBps / 100}%</td>}
               <td className="number">{lei(l.total)}</td>
             </tr>
           ))}
@@ -69,7 +69,7 @@ function SnapshotView({ s, t }: { s: InvoiceSnapshot; t: (k: string) => string }
             </tr>
           ))}
           <tr>
-            <td colSpan={4}>
+            <td colSpan={s.vat.length > 0 ? 4 : 3}>
               <b>{t("billingTotal")}</b>
             </td>
             <td className="number">
@@ -444,6 +444,19 @@ export default function BillingWorkspace({ lang }: { lang: Language }) {
                   {t("billingSettingsStornoSeries")}
                   <input value={settings.stornoSeriesName} onChange={(e) => setSettings({ ...settings, stornoSeriesName: e.target.value })} />
                 </label>
+                <label className="production-check">
+                  <input type="checkbox" checked={!!settings.vatPayer} onChange={(e) => setSettings({ ...settings, vatPayer: e.target.checked ? 1 : 0 })} />
+                  {t("billingSettingsVatPayer")}
+                </label>
+                {!settings.vatPayer && (
+                  <label className="cash-field" style={{ gridColumn: "1 / -1" }}>
+                    {t("billingSettingsVatNote")}
+                    <textarea rows={2} maxLength={300} value={settings.vatNote} onChange={(e) => setSettings({ ...settings, vatNote: e.target.value })} />
+                    <small>{t("billingSettingsVatNoteHint")}</small>
+                  </label>
+                )}
+                {!!settings.vatPayer && (
+                  <>
                 <label className="cash-field">
                   {t("billingSettingsVatFood")}
                   <input inputMode="numeric" value={String(settings.vatFoodBps / 100)} onChange={(e) => setSettings({ ...settings, vatFoodBps: Math.round((Number(e.target.value.replace(",", ".")) || 0) * 100) })} />
@@ -452,6 +465,8 @@ export default function BillingWorkspace({ lang }: { lang: Language }) {
                   {t("billingSettingsVatDelivery")}
                   <input inputMode="numeric" value={String(settings.vatDeliveryBps / 100)} onChange={(e) => setSettings({ ...settings, vatDeliveryBps: Math.round((Number(e.target.value.replace(",", ".")) || 0) * 100) })} />
                 </label>
+                  </>
+                )}
                 <label className="cash-field">
                   {t("billingSettingsCash")}
                   <select value={settings.cashCollectType} onChange={(e) => setSettings({ ...settings, cashCollectType: e.target.value })}>
@@ -476,8 +491,8 @@ export default function BillingWorkspace({ lang }: { lang: Language }) {
                     className="button"
                     disabled={busy}
                     onClick={() => {
-                      const { revision, mode, companyCif, seriesName, stornoSeriesName, vatFoodBps, vatDeliveryBps, cashCollectType, receiptSeries, autoSpv } = settings;
-                      void act("settings", { revision, mode, companyCif, seriesName, stornoSeriesName, vatFoodBps, vatDeliveryBps, cashCollectType, receiptSeries, autoSpv: !!autoSpv });
+                      const { revision, mode, companyCif, seriesName, stornoSeriesName, vatFoodBps, vatDeliveryBps, vatPayer, vatNote, cashCollectType, receiptSeries, autoSpv } = settings;
+                      void act("settings", { revision, mode, companyCif, seriesName, stornoSeriesName, vatFoodBps, vatDeliveryBps, vatPayer: !!vatPayer, vatNote, cashCollectType, receiptSeries, autoSpv: !!autoSpv });
                     }}
                   >
                     <Save size={14} /> {t("billingSettingsSave")}

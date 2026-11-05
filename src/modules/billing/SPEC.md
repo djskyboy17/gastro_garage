@@ -47,7 +47,9 @@ Egyeztetés (2026-11-04):
 - Admin, indokkal: sztornószámla az Oblióban (`referenceDocument` + `refund`), a rendelések újra számlázhatók lesznek. Számla nem törölhető.
 
 ## 8. TVA
-- Az árak bruttók (`vatIncluded: 1`, mint most a katalógusban). TVA-kulcs **beállítható**: ételekre és a szállítási díjra külön (alapértékek a könyvelővel egyeztetve). [ELLENŐRIZENDŐ]
+- **v83: a cég nem áfafizető (neplătitor de TVA).** A beállítás „A cég áfafizető” jelölője alapból ki van kapcsolva: ilyenkor minden számlasor 0% TVA-val megy, TVA-bontás nincs, és a mentességi megjegyzés kerül a számla megjegyzésének elejére. A megjegyzés szövegét a könyvelő adja meg; nélküle **valódi** számla nem állítható ki (`BILLING_VAT_NOTE_REQUIRED`), szimulált igen.
+- [ELLENŐRIZENDŐ] hogy az Oblio nem áfafizető cégnél a 0%-os `vatPercentage` mellett kér-e külön TVA-nevet (`vatName`); a valódi kulcsokkal, a „Kapcsolat ellenőrzése” TVA-listájával ellenőrizendő. Az Oblióban a cégnél is „neplătitor” beállítás kell.
+- Ha a cég áfafizető lesz: a jelölő bekapcsolásával az ételekre és a szállítási díjra külön beállítható TVA-kulcs érvényes, az árak bruttók (`vatIncluded: 1`).
 - A számla kulcsonkénti összegeit a mi oldalunk is kiszámolja az előnézethez; ha az Oblio végösszege eltér, figyelmeztetünk.
 
 ## 9. Oblio-kapcsolat
@@ -57,6 +59,7 @@ Egyeztetés (2026-11-04):
 ## Jogosultság
 - Számla előnézet, kiállítás, újrapróbálás, fizetés rögzítése: iroda (tulajdonos, admin, diszpécser).
 - Sztornó, Oblio-beállítás, TVA-beállítás: admin.
+- A már kiállított számla pillanatképe nem változik, ha a TVA-beállítás később módosul.
 
 ## Ami NEM része ennek a lépésnek
 - Bejövő e-Factura XML feltöltése a beszállítói számlákhoz (külön lépés).

@@ -28,6 +28,10 @@ export type BillingSettings = {
   stornoSeriesName: string;
   vatFoodBps: number;
   vatDeliveryBps: number;
+  /** v83: 1 = áfafizető; 0 = neplătitor de TVA (a TVA-kulcsok nem érvényesek, a számlán 0%). */
+  vatPayer: number;
+  /** v83: a nem áfafizető cég mentességi megjegyzése a számlán (a könyvelő adja meg). */
+  vatNote: string;
   cashCollectType: string;
   receiptSeries: string;
   autoSpv: number;
@@ -40,6 +44,8 @@ export const defaultBillingSettings: BillingSettings = {
   stornoSeriesName: "",
   vatFoodBps: 1100,
   vatDeliveryBps: 2100,
+  vatPayer: 0,
+  vatNote: "",
   cashCollectType: "Alta incasare numerar",
   receiptSeries: "",
   autoSpv: 1,
@@ -104,8 +110,12 @@ export function buildSnapshot(input: {
   profile: BillingProfile;
   orders: SnapshotOrder[];
   notes: string[];
-  settings: Pick<BillingSettings, "vatFoodBps" | "vatDeliveryBps">;
+  settings: Pick<BillingSettings, "vatFoodBps" | "vatDeliveryBps" | "vatPayer" | "vatNote">;
 }): InvoiceSnapshot {
+  // v83: nem áfafizető cég számláján nincs TVA (0%, TVA-bontás nélkül).
+  const payer = !!input.settings.vatPayer;
+  const food = payer ? input.settings.vatFoodBps : 0,
+    delivery = payer ? input.settings.vatDeliveryBps : 0;
   const lines = new Map<string, InvoiceLine>();
   const add = (name: string, unitPrice: number, quantity: number, vatBps: number) => {
     const key = `${name}|${unitPrice}|${vatBps}`;
@@ -115,16 +125,17 @@ export function buildSnapshot(input: {
     lines.set(key, l);
   };
   for (const o of input.orders) {
-    for (const i of o.items) if (i.quantity > 0) add(i.ro, i.price, i.quantity, input.settings.vatFoodBps);
-    if (o.deliveryFee > 0) add("Taxă livrare", o.deliveryFee, 1, input.settings.vatDeliveryBps);
+    for (const i of o.items) if (i.quantity > 0) add(i.ro, i.price, i.quantity, food);
+    if (o.deliveryFee > 0) add("Taxă livrare", o.deliveryFee, 1, delivery);
   }
   const all = [...lines.values()].filter((l) => l.total !== 0 || l.quantity > 0);
   const byRate = new Map<number, number>();
   for (const l of all) byRate.set(l.vatBps, (byRate.get(l.vatBps) ?? 0) + l.total);
-  const vat = [...byRate].sort((a, b) => b[0] - a[0]).map(([bps, gross]) => ({ bps, vat: vatOf(gross, bps), base: gross - vatOf(gross, bps) }));
+  const vat = !payer ? [] : [...byRate].sort((a, b) => b[0] - a[0]).map(([bps, gross]) => ({ bps, vat: vatOf(gross, bps), base: gross - vatOf(gross, bps) }));
   const p = input.profile;
   const orderRefs = input.orders.map((o) => ({ id: o.id, code: o.code, date: o.date }));
   const mentions = [
+    payer ? "" : input.settings.vatNote.trim(),
     input.kind === "monthly" ? `Perioada: ${input.period}` : "",
     `Comenzi: ${orderRefs.map((o) => "#" + o.code).join(", ")}`,
     input.notes.length ? `Avize: ${input.notes.join(", ")}` : "",

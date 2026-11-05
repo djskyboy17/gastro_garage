@@ -1102,6 +1102,9 @@ export const billingSettings = sqliteTable(
     stornoSeriesName: text("storno_series_name").notNull().default(""),
     vatFoodBps: integer("vat_food_bps").notNull().default(1100),
     vatDeliveryBps: integer("vat_delivery_bps").notNull().default(2100),
+    /** v83: 0 = nem áfafizető (neplătitor de TVA): a számlán nincs TVA, a mentességi megjegyzés kerül rá. */
+    vatPayer: integer("vat_payer").notNull().default(0),
+    vatNote: text("vat_note").notNull().default(""),
     cashCollectType: text("cash_collect_type").notNull().default("Alta incasare numerar"),
     receiptSeries: text("receipt_series").notNull().default(""),
     autoSpv: integer("auto_spv").notNull().default(1),

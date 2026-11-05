@@ -58,7 +58,8 @@ const lineColumns =
 
 async function loadSettings(): Promise<{ costBasis: CostBasis; revision: number; nirCommittee: string }> {
   const row = await env.DB!.prepare("SELECT cost_basis AS costBasis,revision,nir_committee AS nirCommittee FROM purchase_settings WHERE id=1").first<{ costBasis: CostBasis; revision: number; nirCommittee: string }>();
-  return row ?? { costBasis: "net", revision: 0, nirCommittee: "" };
+  // v83: a cég nem áfafizető (neplătitor de TVA) – beállítás nélkül a bruttó (ténylegesen fizetett) érték kerül a raktárba.
+  return row ?? { costBasis: "gross", revision: 0, nirCommittee: "" };
 }
 /** NIR-sorszám kiírása (a sorozat előtagjával). */
 async function nirPrefixes() {

@@ -457,8 +457,8 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
             <label>
               {t("invoiceCostBasis")}
               <select value={data.costBasis} disabled={busy} onChange={(e) => void saveBasis(e.target.value as CostBasis)}>
-                <option value="net">{t("invoiceCostNet")}</option>
                 <option value="gross">{t("invoiceCostGross")}</option>
+                <option value="net">{t("invoiceCostNet")}</option>
               </select>
             </label>
             <small>{t("invoiceCostBasisHint")}</small>
@@ -508,7 +508,7 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
   // ——— Részletek ———
   const readonly = selected.status !== "draft";
   const expense = form.purpose === "expense";
-  const basis = data?.costBasis ?? "net";
+  const basis = data?.costBasis ?? "gross";
   const header = { total: parseMoney(form.total), sgrTotal: parseMoney(form.sgrTotal) ?? 0 };
   const check = totalsCheck(header, form.lines.map(lineAmounts));
   const taxWarning = form.supplierTaxId.trim() && !validTaxId(form.supplierTaxId.trim().toUpperCase());
