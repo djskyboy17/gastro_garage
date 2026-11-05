@@ -4,7 +4,7 @@ import type { Session } from "../access/domain";
 import { isAdmin } from "../access/domain";
 import { orderCode, today } from "../shared/domain";
 import { validDay } from "../menu/domain";
-import { allocateDocumentNumber } from "../documents/server";
+import { allocateDocumentNumber, loadCompanyProfile } from "../documents/server";
 import { DOCUMENT_TYPES, formatDocumentNumber } from "../documents/domain";
 import { loadSettings as loadLabelSettings, orderLabels } from "../labels/server";
 import {
@@ -52,11 +52,7 @@ async function loadNoteSettings() {
   const row = await env.DB!.prepare("SELECT all_deliveries AS allDeliveries,legal_footer AS legalFooter,vehicles,driver_text AS driverText,revision FROM delivery_note_settings WHERE id=1").first<{ allDeliveries: number; legalFooter: string; vehicles: string; driverText: string; revision: number }>();
   return { allDeliveries: !!row?.allDeliveries, legalFooter: row?.legalFooter ?? "", vehicles: parseVehicles(row?.vehicles), driverText: row?.driverText ?? "angajat", revision: row?.revision ?? 0 };
 }
-/** v84: a saját cég adatai (Beállítások → Avizok). */
-export async function loadCompanyProfile(): Promise<CompanyProfile> {
-  const row = await env.DB!.prepare("SELECT name,cui,reg_com AS regCom,address,work_point AS workPoint,phone,revision FROM company_profile WHERE id=1").first<CompanyProfile>();
-  return row ?? emptyCompanyProfile;
-}
+export { loadCompanyProfile };
 async function noteNumbers() {
   const rows = (await env.DB!.prepare("SELECT year,prefix FROM document_series WHERE doc_type='delivery_note'").all<{ year: number; prefix: string }>()).results;
   return (year: number, number: number) => formatDocumentNumber(rows.find((r) => r.year === year)?.prefix ?? DOCUMENT_TYPES.delivery_note, year, number);

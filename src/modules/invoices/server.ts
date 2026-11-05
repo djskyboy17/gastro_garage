@@ -35,7 +35,8 @@ import {
 } from "./domain";
 import { extractWithGemini, GEMINI_MODEL } from "./gemini";
 import { renderNirHtml } from "./nir-print";
-import { allocateDocumentNumber } from "../documents/server";
+import { allocateDocumentNumber, loadCompanyProfile } from "../documents/server";
+import { companyLine } from "../delivery-notes/domain";
 import { archivedSourceFile } from "../archive/server";
 import { formatDocumentNumber, DOCUMENT_TYPES } from "../documents/domain";
 export { InvoiceError };
@@ -489,7 +490,8 @@ async function serveNir(req: Request) {
   if (!row) return json({ error: "NOT_FOUND" }, 404);
   const numberText = await nirPrefixes();
   const original = row.reversalOf ? await env.DB!.prepare("SELECT year,number FROM nir_documents WHERE id=?").bind(row.reversalOf).first<{ year: number; number: number }>() : null;
-  const html = renderNirHtml(JSON.parse(row.content) as NirContent, numberText(row.year, row.number), original ? { reversalOf: numberText(original.year, original.number) } : {});
+  const company = companyLine(await loadCompanyProfile());
+  const html = renderNirHtml(JSON.parse(row.content) as NirContent, numberText(row.year, row.number), { ...(original ? { reversalOf: numberText(original.year, original.number) } : {}), ...(company ? { company } : {}) });
   return new Response(html, {
     headers: { "Content-Type": "text/html; charset=utf-8", "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'", "Cache-Control": "private, no-store" },
   });

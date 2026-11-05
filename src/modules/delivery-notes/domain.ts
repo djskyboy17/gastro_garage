@@ -49,6 +49,9 @@ export const normalizePlate = (p: string) => p.toUpperCase().replace(/\s+/g, " "
 
 export type CompanyProfile = { name: string; cui: string; regCom: string; address: string; workPoint: string; phone: string; revision: number };
 export const emptyCompanyProfile: CompanyProfile = { name: "", cui: "", regCom: "", address: "", workPoint: "", phone: "", revision: 0 };
+/** v88: a cég egysoros azonosítója a bizonylatok fejlécéhez (név · CUI · Reg. Com. · székhely). */
+export const companyLine = (p: Pick<CompanyProfile, "name" | "cui" | "regCom" | "address">) =>
+  [p.name.trim(), p.cui.trim() && "CUI " + p.cui.trim(), p.regCom.trim(), p.address.trim()].filter(Boolean).join(" · ");
 /** A saját cégadat hiányossága (null = aviz kiállítható). */
 export function companyProfileError(p: Pick<CompanyProfile, "name" | "cui" | "regCom" | "address">): string | null {
   return p.name.trim() && p.cui.trim() && p.regCom.trim() && p.address.trim() ? null : "COMPANY_PROFILE_REQUIRED";

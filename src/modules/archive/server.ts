@@ -11,6 +11,8 @@ import type { HandoverContent, WriteOffContent } from "../production/finished";
 import { noteSection, renderNotesHtml, type DeliveryNoteContent } from "../delivery-notes/domain";
 import { cashDay, renderCashRegisterHtml, type CashEntry } from "../finance/domain";
 import { loadSettings as loadLabelSettings } from "../labels/server";
+import { loadCompanyProfile } from "../documents/server";
+import { companyLine } from "../delivery-notes/domain";
 import { ARCHIVE_TYPES, OWN_PARTNER, archiveKey, partnerKey, sha256Hex, type ArchiveType } from "./domain";
 
 /**
@@ -140,7 +142,8 @@ async function candidates(limit: number): Promise<Candidate[]> {
       const c = JSON.parse(r.content) as NirContent;
       const text = await documentNumberText("nir", r.year, r.number);
       const original = r.reversalOf ? await DB.prepare("SELECT year,number FROM nir_documents WHERE id=?").bind(r.reversalOf).first<{ year: number; number: number }>() : null;
-      const page = renderNirHtml(c, text, original ? { reversalOf: await documentNumberText("nir", original.year, original.number) } : {});
+      const company = companyLine(await loadCompanyProfile());
+      const page = renderNirHtml(c, text, { ...(original ? { reversalOf: await documentNumberText("nir", original.year, original.number) } : {}), ...(company ? { company } : {}) });
       out.push({ type: "NIR", sourceTable: "nir_documents", sourceId: r.id, version: 1, number: text, partner: partnerKey(c.supplier.taxId, c.supplier.name), partnerName: c.supplier.name, issueDate: r.issueDate, mime: HTML, bytes: html(page) });
     }
   }
@@ -206,13 +209,13 @@ async function candidates(limit: number): Promise<Candidate[]> {
         .all<{ day: string; revision: number }>()
     ).results;
     if (days.length) {
-      const { settings } = await loadLabelSettings();
+      const { company } = await loadLabelSettings();
       for (const d of days) {
         const [before, entries] = await Promise.all([
           DB.prepare("SELECT COALESCE(SUM(amount),0) AS amount FROM cash_entries WHERE day<?").bind(d.day).first<{ amount: number }>(),
           DB.prepare("SELECT id,day,kind,amount,document,note,ref_id AS refId,reversal_of AS reversalOf,created_at AS createdAt FROM cash_entries WHERE day=? ORDER BY created_at").bind(d.day).all<CashEntry>(),
         ]);
-        const page = renderCashRegisterHtml(d.day, settings.producerName, entries.results, cashDay([{ amount: before?.amount ?? 0 }], entries.results), true);
+        const page = renderCashRegisterHtml(d.day, company, entries.results, cashDay([{ amount: before?.amount ?? 0 }], entries.results), true);
         out.push({ type: "REGISTRU_CASA", sourceTable: "cash_days", sourceId: d.day, version: d.revision, number: d.day, partner: OWN_PARTNER, partnerName: "", issueDate: d.day, mime: HTML, bytes: html(page) });
       }
     }

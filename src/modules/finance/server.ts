@@ -165,8 +165,8 @@ export async function handleFinance(path: string, body: unknown, session: Sessio
   }
   if (!write && path === "/api/finance/register") {
     const date = day.parse(params.get("date"));
-    const [cash, { settings }] = await Promise.all([cashView(date), loadLabelSettings()]);
-    return new Response(renderCashRegisterHtml(date, settings.producerName, cash.entries, cash.totals, cash.status === "closed"), {
+    const [cash, { company }] = await Promise.all([cashView(date), loadLabelSettings()]);
+    return new Response(renderCashRegisterHtml(date, company, cash.entries, cash.totals, cash.status === "closed"), {
       headers: { "Content-Type": "text/html; charset=utf-8", "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'", "Cache-Control": "private, no-store" },
     });
   }

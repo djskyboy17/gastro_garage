@@ -5,6 +5,8 @@ import { getDb } from "@/db";
 import { labelSettings, orderItems, orders, productLabels, products } from "@/db/schema";
 import type { Session } from "../access/domain";
 import { isAdmin } from "../access/domain";
+import { loadCompanyProfile } from "../documents/server";
+import { companyLine } from "../delivery-notes/domain";
 import { orderCode, today } from "../shared/domain";
 import { validDay } from "../menu/domain";
 import { needsPacking } from "../packing/domain";
@@ -36,9 +38,18 @@ export class LabelError extends Error {
 const json = (v: unknown, status = 200) => Response.json(v, { status, headers: { "Cache-Control": "no-store" } });
 const line = (max: number) => z.string().trim().max(max);
 
-export async function loadSettings(): Promise<{ revision: number; settings: LabelSettings }> {
-  const [row] = await getDb().select().from(labelSettings).where(eq(labelSettings.id, 1));
-  return { revision: row?.revision ?? 0, settings: parseLabelSettings(row?.content) };
+/**
+ * Címkebeállítás. v88: ha a gyártó neve vagy címe üres, a Cégadatokból jön (a munkapont, ha van, különben a székhely);
+ * `company` a bizonylatok fejlécének cégsora (név · CUI · Reg. Com. · székhely). `raw` csak a beállítási űrlapnak.
+ */
+export async function loadSettings(opts?: { raw?: boolean }): Promise<{ revision: number; settings: LabelSettings; company: string }> {
+  const [[row], profile] = await Promise.all([getDb().select().from(labelSettings).where(eq(labelSettings.id, 1)), loadCompanyProfile()]);
+  const settings = parseLabelSettings(row?.content);
+  if (!opts?.raw) {
+    settings.producerName ||= profile.name;
+    settings.producerAddress ||= profile.workPoint || profile.address;
+  }
+  return { revision: row?.revision ?? 0, settings, company: companyLine(profile) || settings.producerName };
 }
 /** A QR-kód a portál címére mutat (ha be van állítva), különben arra, ahonnan a címkét nyomtatják. */
 function baseUrl(req: Request) {
@@ -198,7 +209,7 @@ export async function handleLabels(path: string, body: unknown, session: Session
   if (!isAdmin(session.role)) throw new LabelError("FORBIDDEN", 403);
   if (!write && path === "/api/labels/settings") {
     const [{ revision, settings }, productRows, labelRows] = await Promise.all([
-      loadSettings(),
+      loadSettings({ raw: true }),
       db.select().from(products).where(eq(products.active, 1)).orderBy(asc(products.hu)),
       db.select().from(productLabels),
     ]);

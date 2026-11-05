@@ -5,6 +5,7 @@ import { isAdmin } from "../access/domain";
 import { orderCode, today } from "../shared/domain";
 import { DOCUMENT_TYPES, formatDocumentNumber } from "../documents/domain";
 import { normalizeTaxId } from "../invoices/domain";
+import { loadCompanyProfile } from "../documents/server";
 import {
   CASH_COLLECT_TYPES,
   buildSnapshot,
@@ -72,7 +73,9 @@ export async function loadBillingSettings(): Promise<BillingSettings> {
   const row = await env.DB!.prepare(
     "SELECT mode,company_cif AS companyCif,series_name AS seriesName,storno_series_name AS stornoSeriesName,vat_food_bps AS vatFoodBps,vat_delivery_bps AS vatDeliveryBps,vat_payer AS vatPayer,vat_note AS vatNote,cash_collect_type AS cashCollectType,receipt_series AS receiptSeries,auto_spv AS autoSpv,revision FROM billing_settings WHERE id=1",
   ).first<BillingSettings>();
-  return row ?? defaultBillingSettings;
+  // v88: a cég CIF-je a Cégadatokból, ha itt nincs külön megadva.
+  const s = row ?? defaultBillingSettings;
+  return s.companyCif ? s : { ...s, companyCif: normalizeTaxId((await loadCompanyProfile()).cui) };
 }
 async function loadProfile(customerId: string) {
   return env.DB!.prepare(`SELECT ${profileColumns} FROM customer_billing WHERE customer_id=?`).bind(customerId).first<BillingProfile>();

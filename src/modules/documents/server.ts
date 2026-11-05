@@ -1,5 +1,12 @@
 import { env } from "cloudflare:workers";
 import { DOCUMENT_TYPES, documentYear, seriesKey, formatDocumentNumber, type DocumentType } from "./domain";
+import { emptyCompanyProfile, type CompanyProfile } from "../delivery-notes/domain";
+
+/** v88: a saját cég adatai (Beállítások → Cégadatok) – minden bizonylat, címke és számla innen veszi. */
+export async function loadCompanyProfile(): Promise<CompanyProfile> {
+  const row = await env.DB!.prepare("SELECT name,cui,reg_com AS regCom,address,work_point AS workPoint,phone,revision FROM company_profile WHERE id=1").first<CompanyProfile>();
+  return row ?? emptyCompanyProfile;
+}
 
 /**
  * Sorszám foglalása egy D1-kötegen belül (v71).

@@ -64,7 +64,7 @@ export async function accountingReport(kind: "week" | "month", value: string) {
   if (sizes.reduce((sum, result) => sum + result.results[0].count, 0) > MAX_DOCUMENTS || sizes.reduce((sum, result) => sum + result.results[0].bytes, 0) > MAX_CONTENT_BYTES) {
     throw new Error("ACCOUNTING_REPORT_TOO_LARGE");
   }
-  const [{ settings }, series, ...results] = await Promise.all([
+  const [{ company }, series, ...results] = await Promise.all([
     loadSettings(),
     DB.prepare("SELECT doc_type AS type,year,prefix FROM document_series").all<{ type: string; year: number; prefix: string }>(),
     ...activeSources.map((source) => DB.prepare(`SELECT d.id,${source.type} AS type,d.year,d.number,d.issue_date AS issueDate,d.kind,d.content,o.year AS originalYear,o.number AS originalNumber FROM ${source.table} d LEFT JOIN ${source.table} o ON o.id=d.reversal_of WHERE d.issue_date BETWEEN ? AND ? ORDER BY d.issue_date,d.year,d.number LIMIT ${MAX_DOCUMENTS + 1}`).bind(range.from, range.to).all<DocumentRow>()),
@@ -76,7 +76,7 @@ export async function accountingReport(kind: "week" | "month", value: string) {
   const consumption: BcReportDocument[] = documents.filter((document) => document.type === "consumption").map((document) => ({
     id: document.id, number: number(document.type, document.year, document.number), issueDate: document.issueDate, kind: document.kind, content: JSON.parse(document.content) as BcContent,
   }));
-  if (kind === "week") return response(reportPage("Centralizator BC " + range.from, settings.producerName, [consumptionSection(range.from, range.to, consumption)]));
+  if (kind === "week") return response(reportPage("Centralizator BC " + range.from, company, [consumptionSection(range.from, range.to, consumption)]));
 
   const [expenses, supplierInvoices, cashEntries, openingCash, cashDays, zReports, closes, pendingBatches, sales, expectedDays, outgoing] = await DB.batch<Record<string, unknown>>([
     DB.prepare(`SELECT id,invoice_id AS invoiceId,posting_day AS postingDay,kind,amount,content FROM expense_documents WHERE posting_day BETWEEN ? AND ? ORDER BY posting_day,created_at LIMIT ${MAX_DOCUMENTS + 1}`).bind(range.from, range.to),
@@ -106,7 +106,7 @@ export async function accountingReport(kind: "week" | "month", value: string) {
   const closedDates = new Set(closeRows.map((row) => row.day));
   const missingCloses = expectedDays.results.filter((row) => !closedDates.has(String(row.day)));
   if (missingCloses.length) warnings.push(`${missingCloses.length} zile de producție fără închidere de bucătărie.`);
-  if (!settings.producerName) warnings.push("Completați datele firmei în setările de etichetare.");
+  if (!company) warnings.push("Completați datele firmei (Setări → Datele firmei).");
   const sections: string[] = [];
   const manifest = documents.map((document) => [esc(document.issueDate), esc(documentNames[document.type]), esc(number(document.type, document.year, document.number)), document.kind === "reversal" ? "Storno" : "Emitere"]);
   sections.push(`<h1>DOSAR CONTABIL · ${esc(value)}</h1><p>Perioada ${range.from} – ${range.to} · Termen de predare ${accountingDeadline(value)}</p>
@@ -140,7 +140,7 @@ export async function accountingReport(kind: "week" | "month", value: string) {
   for (const day of days) {
     const dayEntries = entries.filter((entry) => entry.day === day);
     const totals = cashDay([{ amount: balance }], dayEntries);
-    sections.push(reportDocumentBody(renderCashRegisterHtml(day, settings.producerName, dayEntries, totals, cashDays.results.some((row) => row.day === day && row.status === "closed"))));
+    sections.push(reportDocumentBody(renderCashRegisterHtml(day, company, dayEntries, totals, cashDays.results.some((row) => row.day === day && row.status === "closed"))));
     balance = totals.closing;
   }
   for (const document of documents) {
@@ -150,11 +150,11 @@ export async function accountingReport(kind: "week" | "month", value: string) {
     else {
       let html: string;
       if (document.type === "consumption") html = renderBcHtml(JSON.parse(document.content) as BcContent, title, options);
-      else if (document.type === "nir") html = renderNirHtml(JSON.parse(document.content) as NirContent, title, { ...options, company: settings.producerName });
+      else if (document.type === "nir") html = renderNirHtml(JSON.parse(document.content) as NirContent, title, { ...options, company });
       else if (document.type === "handover") html = renderHandoverHtml(JSON.parse(document.content) as HandoverContent, title, options);
       else html = renderWriteOffHtml(JSON.parse(document.content) as WriteOffContent, title, options);
       sections.push(reportDocumentBody(html));
     }
   }
-  return response(reportPage("Dosar contabil " + value, settings.producerName, sections));
+  return response(reportPage("Dosar contabil " + value, company, sections));
 }
