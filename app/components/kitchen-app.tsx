@@ -59,7 +59,7 @@ import OperationsWorkspace from "./operations-workspace";
 import PurchasingWorkspace from "./purchasing-workspace";
 import ProductionWorkspace, { ProductionWarning } from "./production-workspace";
 import DayCloseWorkspace from "./day-close-workspace";
-import { DeliveryNoteSettings } from "./delivery-notes-panel";
+import AvizSettingsWorkspace from "./aviz-settings-workspace";
 import CashWorkspace, { OrderPaymentPanel } from "./cash-workspace";
 import { OrderFiscalPanel } from "./fiscal-workspace";
 import AccountingWorkspace from "./accounting-workspace";
@@ -133,6 +133,7 @@ const nav = [
   ["cash", Wallet],
   ["billing", FileText],
   ["archive", Archive],
+  ["avizes", FileText],
   ["safety", CheckCircle2],
   ["audit", History],
   ["access", Users],
@@ -700,6 +701,8 @@ export default function KitchenApp() {
                             ? "cashHint"
                           : tab === "archive"
                             ? "archiveHint"
+                          : tab === "avizes"
+                            ? "settingsAbout_avizes"
                           : tab === "billing"
                             ? "billingHint"
                           : tab === "recurring"
@@ -1343,7 +1346,6 @@ export default function KitchenApp() {
                 {tab === "settings" && (
                   <>
                     <div className="settings-grid">
-                      {isAdmin(session.role) && <DeliveryNoteSettings lang={lang} />}
                       {nav
                         .filter(([key]) => isSettingsTab(key) && tabsFor(session.role).includes(key))
                         .map(([key, Icon]) => (
@@ -1373,6 +1375,7 @@ export default function KitchenApp() {
                 {tab === "labels" && <LabelsWorkspace lang={lang}/>}
                 {tab === "billing" && <BillingWorkspace lang={lang} />}
                 {tab === "archive" && <ArchiveWorkspace lang={lang} />}
+                {tab === "avizes" && <AvizSettingsWorkspace lang={lang} />}
                 {tab === "cash" && <CashWorkspace key={day} lang={lang} initialDay={day} />}
                 {tab === "accounting" && <AccountingWorkspace lang={lang} />}
                 {tab === "stocktake" && <StocktakeWorkspace ops={data.operations} lang={lang} role={session.role} refresh={load}/>}

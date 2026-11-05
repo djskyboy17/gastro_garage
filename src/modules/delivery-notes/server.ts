@@ -14,9 +14,14 @@ import {
   noteSection,
   renderNotesHtml,
   reversalNote,
+  companyProfileError,
+  emptyCompanyProfile,
+  type CompanyProfile,
   type DeliveryNoteContent,
   type DeliveryNoteRef,
 } from "./domain";
+import { profileError, type BillingProfile } from "../billing/domain";
+import { normalizeTaxId, validTaxId } from "../invoices/domain";
 
 /**
  * Aviz de însoțire a mărfii (v75). Kiállítás a Csomagolás fülről (csomagoló szerepkörök), sztornó és „Aviz kell” jelölés
@@ -37,13 +42,18 @@ const packingRoles = ["owner", "admin", "kitchen", "warehouse", "dispatcher"];
 const officeRoles = ["owner", "admin", "dispatcher"];
 const activeNoteSql = "SELECT 1 FROM delivery_notes WHERE order_id=? AND kind='issue' AND status='issued'";
 
-type OrderRow = { id: string; date: string; time: string; status: string; delivery: string; production: string; revision: number; customerName: string; address: string; phone: string; fulfillmentMode: string; deliveryNoteRequired: number; monthlyBilling: number };
+type OrderRow = { id: string; customerId: string; date: string; time: string; status: string; delivery: string; production: string; revision: number; customerName: string; address: string; phone: string; fulfillmentMode: string; deliveryNoteRequired: number; companyBilling: number };
 const orderColumns =
-  "id,date,time,status,delivery,production,revision,customer_name AS customerName,address,phone,fulfillment_mode AS fulfillmentMode,delivery_note_required AS deliveryNoteRequired,EXISTS (SELECT 1 FROM customer_billing b WHERE b.customer_id=orders.customer_id AND b.mode='monthly') AS monthlyBilling";
+  "id,customer_id AS customerId,date,time,status,delivery,production,revision,customer_name AS customerName,address,phone,fulfillment_mode AS fulfillmentMode,delivery_note_required AS deliveryNoteRequired,EXISTS (SELECT 1 FROM customer_billing b WHERE b.customer_id=orders.customer_id AND b.kind='company') AS companyBilling";
 
 async function loadNoteSettings() {
-  const row = await env.DB!.prepare("SELECT all_deliveries AS allDeliveries,revision FROM delivery_note_settings WHERE id=1").first<{ allDeliveries: number; revision: number }>();
-  return { allDeliveries: !!row?.allDeliveries, revision: row?.revision ?? 0 };
+  const row = await env.DB!.prepare("SELECT all_deliveries AS allDeliveries,legal_footer AS legalFooter,revision FROM delivery_note_settings WHERE id=1").first<{ allDeliveries: number; legalFooter: string; revision: number }>();
+  return { allDeliveries: !!row?.allDeliveries, legalFooter: row?.legalFooter ?? "", revision: row?.revision ?? 0 };
+}
+/** v84: a saját cég adatai (Beállítások → Avizok). */
+export async function loadCompanyProfile(): Promise<CompanyProfile> {
+  const row = await env.DB!.prepare("SELECT name,cui,reg_com AS regCom,address,work_point AS workPoint,phone,revision FROM company_profile WHERE id=1").first<CompanyProfile>();
+  return row ?? emptyCompanyProfile;
 }
 async function noteNumbers() {
   const rows = (await env.DB!.prepare("SELECT year,prefix FROM document_series WHERE doc_type='delivery_note'").all<{ year: number; prefix: string }>()).results;
@@ -71,11 +81,11 @@ export async function hasActiveNote(orderId: string) {
 
 /** The courier endpoint checks the order's current task visibility before rendering. */
 export async function printCourierAviz(orderId: string) {
-  const row = await env.DB!.prepare("SELECT year,number,issue_date AS issueDate,content FROM delivery_notes WHERE order_id=? AND kind='issue' AND status='issued'")
-    .bind(orderId).first<{ year: number; number: number; issueDate: string; content: string }>();
+  const row = await env.DB!.prepare("SELECT id,year,number,issue_date AS issueDate,content FROM delivery_notes WHERE order_id=? AND kind='issue' AND status='issued'")
+    .bind(orderId).first<{ id: string; year: number; number: number; issueDate: string; content: string }>();
   if (!row) throw new DeliveryNoteError("AVIZ_PENDING", 404);
   const number = (await noteNumbers())(row.year, row.number);
-  return new Response(renderNotesHtml(number, [noteSection(JSON.parse(row.content) as DeliveryNoteContent, number, row.issueDate)]), {
+  return new Response(renderNotesHtml(number, [noteSection(JSON.parse(row.content) as DeliveryNoteContent, number, row.issueDate, undefined, row.id)]), {
     headers: { "Content-Type": "text/html; charset=utf-8", "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'", "Cache-Control": "private, no-store" },
   });
 }
@@ -127,14 +137,18 @@ export async function handleDeliveryNotes(path: string, body: unknown, session: 
   if (!write && path === "/api/delivery-notes") {
     const date = params.get("date") ?? today();
     if (!validDay(date)) throw new DeliveryNoteError("VALIDATION");
-    const [orders, settings, notes] = await Promise.all([
+    const [orders, settings, notes, company] = await Promise.all([
       DB.prepare(`SELECT ${orderColumns} FROM orders WHERE date=? AND status='confirmed' ORDER BY time,id`).bind(date).all<OrderRow>(),
       loadNoteSettings(),
       noteRefs("day=?", date),
+      loadCompanyProfile(),
     ]);
     return json({
       date,
       allDeliveries: settings.allDeliveries,
+      legalFooter: settings.legalFooter,
+      company,
+      companyMissing: !!companyProfileError(company),
       settingsRevision: settings.revision,
       canManage: officeRoles.includes(session.role),
       canConfigure: isAdmin(session.role),
@@ -164,7 +178,7 @@ export async function handleDeliveryNotes(path: string, body: unknown, session: 
     const sections = await Promise.all(
       rows.map(async (r) => {
         const original = r.reversalOf ? await DB.prepare("SELECT year,number FROM delivery_notes WHERE id=?").bind(r.reversalOf).first<{ year: number; number: number }>() : null;
-        return noteSection(JSON.parse(r.content) as DeliveryNoteContent, numberText(r.year, r.number), r.issueDate, original ? numberText(original.year, original.number) : undefined);
+        return noteSection(JSON.parse(r.content) as DeliveryNoteContent, numberText(r.year, r.number), r.issueDate, original ? numberText(original.year, original.number) : undefined, r.id);
       }),
     );
     return new Response(renderNotesHtml(id ? numberText(rows[0]!.year, rows[0]!.number) : "Avize " + date, sections), {
@@ -186,11 +200,25 @@ export async function handleDeliveryNotes(path: string, body: unknown, session: 
     if (existing) return json({ ok: true, id: existing.id });
     const order = await loadOrder(d.orderId);
     if (!noteIssuable(order)) throw new DeliveryNoteError("NOTE_ORDER_STATE");
-    if (!noteRequired(order, (await loadNoteSettings()).allDeliveries)) throw new DeliveryNoteError("NOTE_NOT_REQUIRED");
+    const settings = await loadNoteSettings();
+    if (!noteRequired(order, settings.allDeliveries)) throw new DeliveryNoteError("NOTE_NOT_REQUIRED");
+    // v84: a saját cég és céges vevőnél a vevő adatai teljesek kell legyenek (különben a rendelés a futárnak sem adható át).
+    const company = await loadCompanyProfile();
+    const companyError = companyProfileError(company);
+    if (companyError) throw new DeliveryNoteError(companyError);
+    const billing = await DB.prepare("SELECT kind,mode,name,cif,reg_com AS regCom,address,city,county,country,email,payment_days AS paymentDays,revision,customer_id AS customerId FROM customer_billing WHERE customer_id=?")
+      .bind(order.customerId)
+      .first<BillingProfile>();
+    if (billing?.kind === "company" && profileError(billing)) throw new DeliveryNoteError("NOTE_BUYER_DATA");
     const [labels, { settings: producer }] = await Promise.all([orderLabels(order.id, req), loadLabelSettings()]);
+    const seat = billing?.kind === "company" ? [billing.address, billing.city, billing.county ? "jud. " + billing.county : ""].map((v) => v.trim()).filter(Boolean).join(", ") : "";
     const content: DeliveryNoteContent = {
-      supplier: { name: producer.producerName, address: producer.producerAddress, extra: producer.producerExtra },
-      buyer: { name: order.customerName, address: order.address, phone: order.phone },
+      supplier: { name: company.name, address: company.address, extra: producer.producerExtra, cui: company.cui, regCom: company.regCom, workPoint: company.workPoint && company.workPoint !== company.address ? company.workPoint : "" },
+      buyer:
+        billing?.kind === "company"
+          ? { name: billing.name.trim(), address: order.address, phone: order.phone, cif: normalizeTaxId(billing.cif), regCom: billing.regCom.trim(), seat }
+          : { name: order.customerName, address: order.address, phone: order.phone },
+      ...(settings.legalFooter.trim() ? { footer: settings.legalFooter.trim() } : {}),
       order: { id: order.id, code: orderCode(order.id), date: order.date, time: order.time, mode: order.fulfillmentMode === "pickup" ? "pickup" : "delivery" },
       lines: noteLines(labels),
     };
@@ -284,18 +312,39 @@ export async function handleDeliveryNotes(path: string, body: unknown, session: 
     return json({ ok: true });
   }
 
+  if (path === "/api/delivery-notes/company") {
+    if (!isAdmin(session.role)) throw new DeliveryNoteError("FORBIDDEN", 403);
+    const text = (max: number) => z.string().trim().max(max);
+    const d = z.object({ revision: z.number().int().min(0), name: text(200), cui: text(20), regCom: text(40), address: text(300), workPoint: text(300), phone: text(40) }).strict().parse(body);
+    const cui = normalizeTaxId(d.cui);
+    if (cui && !validTaxId(cui)) throw new DeliveryNoteError("BILLING_CIF_INVALID");
+    await DB.batch([
+      DB.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN COALESCE((SELECT revision FROM company_profile WHERE id=1),0)=? THEN ? ELSE NULL END,'company_profile_saved','company_profile',?,?)").bind(
+        crypto.randomUUID(),
+        d.revision,
+        actor,
+        JSON.stringify({ ...d, cui, revision: undefined }),
+        now,
+      ),
+      DB.prepare(
+        "INSERT INTO company_profile (id,name,cui,reg_com,address,work_point,phone,revision,updated_by,updated_at) VALUES (1,?,?,?,?,?,?,1,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,cui=excluded.cui,reg_com=excluded.reg_com,address=excluded.address,work_point=excluded.work_point,phone=excluded.phone,revision=company_profile.revision+1,updated_by=excluded.updated_by,updated_at=excluded.updated_at",
+      ).bind(d.name, cui, d.regCom, d.address, d.workPoint, d.phone, actor, now),
+    ]).catch(failOnGuard);
+    return json({ ok: true });
+  }
+
   if (path === "/api/delivery-notes/settings") {
     if (!isAdmin(session.role)) throw new DeliveryNoteError("FORBIDDEN", 403);
-    const d = z.object({ revision: z.number().int().min(0), allDeliveries: z.boolean() }).strict().parse(body);
+    const d = z.object({ revision: z.number().int().min(0), allDeliveries: z.boolean(), legalFooter: z.string().trim().max(500) }).strict().parse(body);
     await DB.batch([
       DB.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN COALESCE((SELECT revision FROM delivery_note_settings WHERE id=1),0)=? THEN ? ELSE NULL END,'delivery_note_settings_saved','delivery_note_settings',?,?)").bind(
         crypto.randomUUID(),
         d.revision,
         actor,
-        JSON.stringify({ allDeliveries: d.allDeliveries }),
+        JSON.stringify({ allDeliveries: d.allDeliveries, legalFooter: d.legalFooter }),
         now,
       ),
-      DB.prepare("INSERT INTO delivery_note_settings (id,all_deliveries,revision) VALUES (1,?,1) ON CONFLICT(id) DO UPDATE SET all_deliveries=excluded.all_deliveries,revision=delivery_note_settings.revision+1").bind(d.allDeliveries ? 1 : 0),
+      DB.prepare("INSERT INTO delivery_note_settings (id,all_deliveries,legal_footer,revision) VALUES (1,?,?,1) ON CONFLICT(id) DO UPDATE SET all_deliveries=excluded.all_deliveries,legal_footer=excluded.legal_footer,revision=delivery_note_settings.revision+1").bind(d.allDeliveries ? 1 : 0, d.legalFooter),
     ]).catch(failOnGuard);
     return json({ ok: true });
   }

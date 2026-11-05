@@ -43,10 +43,9 @@ export async function handleAccounting(path: string, body: unknown, session: Ses
   try {
     await DB.batch([
       DB.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN COALESCE((SELECT revision FROM accounting_profile WHERE id=1),0)=? THEN ? ELSE NULL END,'accounting_profile_applied','accounting_profile',?,?)")
-        .bind(crypto.randomUUID(), data.revision, session.userId, JSON.stringify({ taxStatus: "non_vat_payer", exemptionNote: data.exemptionNote, costBasis: "gross", handoverEnabled: true, allDeliveries: true }), now),
+        .bind(crypto.randomUUID(), data.revision, session.userId, JSON.stringify({ taxStatus: "non_vat_payer", exemptionNote: data.exemptionNote, costBasis: "gross", handoverEnabled: true, avizForCompanies: true }), now),
       DB.prepare("INSERT INTO purchase_settings (id,cost_basis,revision) VALUES (1,'gross',1) ON CONFLICT(id) DO UPDATE SET cost_basis='gross',revision=purchase_settings.revision+1"),
       DB.prepare("INSERT INTO production_settings (id,handover_enabled,revision) VALUES (1,1,1) ON CONFLICT(id) DO UPDATE SET handover_enabled=1,revision=production_settings.revision+1"),
-      DB.prepare("INSERT INTO delivery_note_settings (id,all_deliveries,revision) VALUES (1,1,1) ON CONFLICT(id) DO UPDATE SET all_deliveries=1,revision=delivery_note_settings.revision+1"),
       DB.prepare("INSERT INTO accounting_profile (id,tax_status,exemption_note,applied_on,revision,updated_by,updated_at) VALUES (1,'non_vat_payer',?,?,1,?,?) ON CONFLICT(id) DO UPDATE SET exemption_note=excluded.exemption_note,revision=accounting_profile.revision+1,updated_by=excluded.updated_by,updated_at=excluded.updated_at")
         .bind(data.exemptionNote, today(), session.userId, now),
     ]);

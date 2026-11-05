@@ -13,19 +13,32 @@ export type DeliveryNoteLine = {
   useBy: string | null;
 };
 export type DeliveryNoteContent = {
-  supplier: { name: string; address: string; extra: string };
-  buyer: { name: string; address: string; phone: string };
+  /** v84: CUI, Reg. Com., székhely és munkapont a cégadatokból (a régi avizokon csak név, cím, extra). */
+  supplier: { name: string; address: string; extra: string; cui?: string; regCom?: string; workPoint?: string };
+  /** v84: céges vevőnél CUI/CIF, Reg. Com. és székhely a számlázási adatokból; az `address` a szállítási cím. */
+  buyer: { name: string; address: string; phone: string; cif?: string; regCom?: string; seat?: string };
+  /** v84: a kiállításkor érvényes lábjegyzet; ha van, aláírás-sorok helyett ez kerül az avizra. */
+  footer?: string;
   order: { id: string; code: string; date: string; time: string; mode: "delivery" | "pickup" };
   lines: DeliveryNoteLine[];
   reason?: string;
 };
 export type DeliveryNoteRef = { id: string; number: string; kind: "issue" | "reversal"; status: "issued" | "reversed"; orderId: string; issueDate: string };
 
-/** Kell-e aviz: az iroda kérte, vagy a beállítás szerint minden kiszállításhoz kell (átvételes rendelés csak kérésre). */
-export function noteRequired(order: { deliveryNoteRequired?: number | null; fulfillmentMode?: string | null; monthlyBilling?: number | null }, allDeliveries: boolean) {
+/**
+ * Kell-e aviz (v84): céges ügyfél (számlázási adat: cég) kiszállított rendelésénél mindig; magánszemélynél nem.
+ * Az iroda egyedi rendelésnél kérheti, és a beállítás (alapból ki) minden kiszállításra kiterjesztheti. Helyszíni átvételnél csak kérésre.
+ */
+export function noteRequired(order: { deliveryNoteRequired?: number | null; fulfillmentMode?: string | null; companyBilling?: number | null }, allDeliveries: boolean) {
   const delivery = (order.fulfillmentMode ?? "delivery") !== "pickup";
-  // v77: havi gyűjtőszámlás ügyfélnél minden kiszállításhoz aviz kell (a számla a hónap végén ezekre hivatkozik).
-  return !!order.deliveryNoteRequired || ((allDeliveries || !!order.monthlyBilling) && delivery);
+  return !!order.deliveryNoteRequired || ((allDeliveries || !!order.companyBilling) && delivery);
+}
+
+export type CompanyProfile = { name: string; cui: string; regCom: string; address: string; workPoint: string; phone: string; revision: number };
+export const emptyCompanyProfile: CompanyProfile = { name: "", cui: "", regCom: "", address: "", workPoint: "", phone: "", revision: 0 };
+/** A saját cégadat hiányossága (null = aviz kiállítható). */
+export function companyProfileError(p: Pick<CompanyProfile, "name" | "cui" | "regCom" | "address">): string | null {
+  return p.name.trim() && p.cui.trim() && p.regCom.trim() && p.address.trim() ? null : "COMPANY_PROFILE_REQUIRED";
 }
 
 /** Kiállítható-e: visszaigazolt, még nem kézbesített rendelés. */
@@ -62,8 +75,11 @@ const allergenRo: Record<string, string> = {
   molluscs: "moluște",
 };
 
+/** Címkézett mező az aviz fejlécében; üres értéknél semmi. */
+const field = (label: string, value: string | undefined) => (value && value.trim() ? `<span>${label ? esc(label) + ": " : ""}${esc(value)}</span>` : "");
+
 /** Egy aviz oldala (több aviz egy dokumentumban: oldaltöréssel). */
-export function noteSection(c: DeliveryNoteContent, numberText: string, issueDate: string, reversalOf?: string) {
+export function noteSection(c: DeliveryNoteContent, numberText: string, issueDate: string, reversalOf?: string, noteId?: string) {
   const rows = c.lines
     .map(
       (l, i) =>
@@ -73,11 +89,16 @@ export function noteSection(c: DeliveryNoteContent, numberText: string, issueDat
   const storno = reversalOf ? `<p class="storno">STORNO la ${esc(reversalOf)}${c.reason ? " – motiv: " + esc(c.reason) : ""}</p>` : "";
   return `<section class="note"><header><div><h1>AVIZ DE ÎNSOȚIRE A MĂRFII</h1><p><b>Nr. ${esc(numberText)}</b> din ${esc(roDate(issueDate))}</p>${storno}</div>
 <div class="meta"><p>Comandă: #${esc(c.order.code)} · livrare ${esc(roDate(c.order.date))} ${esc(c.order.time)}${c.order.mode === "pickup" ? " (ridicare personală)" : ""}</p></div></header>
-<div class="parties"><div><small>Furnizor</small><b>${esc(c.supplier.name) || "—"}</b><span>${esc(c.supplier.address)}</span><span>${esc(c.supplier.extra)}</span></div>
-<div><small>Cumpărător</small><b>${esc(c.buyer.name)}</b><span>${esc(c.buyer.address)}</span><span>${esc(c.buyer.phone)}</span></div></div>
+<div class="parties"><div><small>Furnizor</small><b>${esc(c.supplier.name) || "—"}</b>${field("CUI / CIF", c.supplier.cui)}${field("Reg. Com.", c.supplier.regCom)}${field(c.supplier.cui ? "Sediu" : "", c.supplier.address)}${field("Punct de lucru", c.supplier.workPoint)}${field("", c.supplier.extra)}</div>
+<div><small>Cumpărător</small><b>${esc(c.buyer.name)}</b>${field("CUI / CIF", c.buyer.cif)}${field("Reg. Com.", c.buyer.regCom)}${field("Sediu", c.buyer.seat)}${field(c.order.mode === "pickup" ? "Adresă" : "Adresă de livrare", c.buyer.address)}${field("Tel.", c.buyer.phone)}</div></div>
+<p class="transport">Mijloc de transport (nr. auto): <span class="blank"></span> Șofer / delegat: <span class="blank"></span></p>
 <table><thead><tr><th>Nr.</th><th>Denumire</th><th>U.M.</th><th>Cantitate</th><th>Lot</th></tr></thead><tbody>${rows}</tbody>
 <tfoot><tr><td colspan="3">Total porții</td><td class="n">${c.lines.reduce((s, l) => s + l.quantity, 0)}</td><td></td></tr></tfoot></table>
-<div class="sigs"><div class="sig"><span>&nbsp;</span><small>Semnătura expeditor</small></div><div class="sig"><span>&nbsp;</span><small>Delegat / transportator</small></div><div class="sig"><span>&nbsp;</span><small>Semnătura primitor</small></div></div></section>`;
+${
+  c.footer
+    ? `<div class="legal">${esc(c.footer)}${noteId ? `<br><span>ID audit sistem: ${esc(noteId)}</span>` : ""}</div>`
+    : `<div class="sigs"><div class="sig"><span>&nbsp;</span><small>Semnătura expeditor</small></div><div class="sig"><span>&nbsp;</span><small>Delegat / transportator</small></div><div class="sig"><span>&nbsp;</span><small>Semnătura primitor</small></div></div>`
+}</section>`;
 }
 
 export function renderNotesHtml(title: string, sections: string[]) {
@@ -91,6 +112,8 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid
 th{background:#eee;font-size:11px}td small{display:block;color:#555;font-size:10px}.n{text-align:right;white-space:nowrap}
 tfoot td{font-weight:bold}.storno{color:#a00;font-weight:bold}.sigs{display:flex;gap:24px;margin-top:28px;flex-wrap:wrap}
 .sig{min-width:160px;border-top:1px solid #444;padding-top:4px}.sig small{display:block;color:#555}
+.transport{margin:10px 0 0}.blank{display:inline-block;min-width:150px;border-bottom:1px solid #444;margin:0 16px 0 4px}
+.legal{margin-top:30px;border-top:1px dashed #ccc;padding-top:10px;font-size:11px;text-align:center;color:#555}.legal span{font-size:9px;color:#888}
 @media print{body{margin:10mm}}
 </style></head><body>
 ${sections.join("\n")}

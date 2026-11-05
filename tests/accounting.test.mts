@@ -14,19 +14,38 @@ function database() {
   return db;
 }
 
-test("Accounting profile protects gross NIR, mandatory handover and delivery settings through real migrations", () => {
+test("Accounting profile protects gross NIR and mandatory handover through real migrations (v84: aviz only for company deliveries)", () => {
   const db = database();
   try {
     db.exec("INSERT INTO purchase_settings(id,cost_basis,nir_committee) VALUES(1,'net','Existing committee'); INSERT INTO production_settings(id,margin_bps,write_off_committee) VALUES(1,500,'Existing signer'); INSERT INTO delivery_note_settings(id) VALUES(1)");
     db.exec("UPDATE purchase_settings SET cost_basis='gross'; UPDATE production_settings SET handover_enabled=1; UPDATE delivery_note_settings SET all_deliveries=1; INSERT INTO accounting_profile VALUES(1,'non_vat_payer','','2026-11-05',1,'test','2026-11-05T10:00:00Z')");
     assert.throws(() => db.exec("UPDATE purchase_settings SET cost_basis='net'"), /ACCOUNTING_GROSS_REQUIRED/);
     assert.throws(() => db.exec("UPDATE production_settings SET handover_enabled=0"), /ACCOUNTING_HANDOVER_REQUIRED/);
-    assert.throws(() => db.exec("UPDATE delivery_note_settings SET all_deliveries=0"), /ACCOUNTING_DELIVERY_REQUIRED/);
+    // v84: az aviz-szabály (minden kiszállítás) már nem kötött a profilhoz – aviz a céges kiszállításokhoz kell.
+    db.exec("UPDATE delivery_note_settings SET all_deliveries=0");
     assert.throws(() => db.exec("INSERT INTO purchase_settings(id,cost_basis) VALUES(1,'net') ON CONFLICT(id) DO UPDATE SET cost_basis='net'"), /ACCOUNTING_GROSS_REQUIRED/);
     assert.equal(db.prepare("SELECT nir_committee FROM purchase_settings").get()?.nir_committee, "Existing committee");
     assert.equal(db.prepare("SELECT write_off_committee FROM production_settings").get()?.write_off_committee, "Existing signer");
     assert.equal(db.prepare("SELECT margin_bps FROM production_settings").get()?.margin_bps, 500);
     assert.equal(db.prepare("SELECT cost_basis FROM purchase_settings").get()?.cost_basis, "gross");
+  } finally { db.close(); }
+});
+
+test("v84: a company delivery cannot leave without an issued aviz; private customers and pickups are not blocked", () => {
+  const db = database();
+  try {
+    db.exec("INSERT INTO customers(id,name,address,phone,note) VALUES('co','Firma SRL','Str. 1','07','' ),('pf','Ana','Str. 2','07','')");
+    db.exec("INSERT INTO customer_billing(customer_id,kind,name,cif,updated_at) VALUES('co','company','Firma SRL','RO18547290','2026-11-05')");
+    const order = db.prepare("INSERT INTO orders(id,customer_id,customer_name,address,phone,date,time,note,fulfillment_mode,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)");
+    order.run("o-co", "co", "Firma SRL", "Str. 1", "07", "2026-11-05", "12:00", "", "delivery", "2026-11-05");
+    order.run("o-pf", "pf", "Ana", "Str. 2", "07", "2026-11-05", "12:00", "", "delivery", "2026-11-05");
+    order.run("o-pick", "co", "Firma SRL", "Str. 1", "07", "2026-11-05", "12:00", "", "pickup", "2026-11-05");
+    assert.throws(() => db.exec("UPDATE orders SET delivery='transit' WHERE id='o-co'"), /AVIZ_REQUIRED/);
+    db.exec("UPDATE orders SET delivery='transit' WHERE id='o-pf'");
+    db.exec("UPDATE orders SET delivery='transit' WHERE id='o-pick'");
+    db.exec("INSERT INTO delivery_notes(id,order_id,year,number,kind,status,issue_date,day,content,created_by,created_at) VALUES('n1','o-co',2026,1,'issue','issued','2026-11-05','2026-11-05','{}','t','2026-11-05')");
+    db.exec("UPDATE orders SET delivery='transit' WHERE id='o-co'");
+    assert.equal(db.prepare("SELECT delivery FROM orders WHERE id='o-co'").get()?.delivery, "transit");
   } finally { db.close(); }
 });
 

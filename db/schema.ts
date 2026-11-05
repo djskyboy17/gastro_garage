@@ -932,9 +932,29 @@ export const deliveryNoteSettings = sqliteTable(
   {
     id: integer("id").primaryKey(),
     allDeliveries: integer("all_deliveries").notNull().default(0),
+    /** v84: az aviz lábjegyzete (pl. „Document generat electronic, valabil fără semnătură…”). Üres = aláírás-sorok. */
+    legalFooter: text("legal_footer").notNull().default(""),
     revision: integer("revision").notNull().default(0),
   },
   (t) => [check("delivery_note_settings_singleton", sql`${t.id}=1`)],
+);
+
+/** v84: a saját cég adatai (egyetlen sor) – az avizon „Furnizor”, kiállításkor pillanatképbe kerül. */
+export const companyProfile = sqliteTable(
+  "company_profile",
+  {
+    id: integer("id").primaryKey(),
+    name: text("name").notNull().default(""),
+    cui: text("cui").notNull().default(""),
+    regCom: text("reg_com").notNull().default(""),
+    address: text("address").notNull().default(""),
+    workPoint: text("work_point").notNull().default(""),
+    phone: text("phone").notNull().default(""),
+    revision: integer("revision").notNull().default(0),
+    updatedBy: text("updated_by").notNull().default(""),
+    updatedAt: text("updated_at").notNull().default(""),
+  },
+  (t) => [check("company_profile_singleton", sql`${t.id}=1`)],
 );
 
 /**

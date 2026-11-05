@@ -281,6 +281,20 @@
       "when": 1793912833115,
       "tag": "0039_billing_vat_payer",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1793917004812,
+      "tag": "0040_company_profile",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1793917006018,
+      "tag": "0041_aviz_company_gate",
+      "breakpoints": true
     }
   ]
 }

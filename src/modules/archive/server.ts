@@ -170,8 +170,11 @@ async function candidates(limit: number): Promise<Candidate[]> {
     for (const r of rows) {
       const text = await documentNumberText("delivery_note", r.year, r.number);
       const original = r.reversalOf ? await DB.prepare("SELECT year,number FROM delivery_notes WHERE id=?").bind(r.reversalOf).first<{ year: number; number: number }>() : null;
-      const page = renderNotesHtml(text, [noteSection(JSON.parse(r.content) as DeliveryNoteContent, text, r.issueDate, original ? await documentNumberText("delivery_note", original.year, original.number) : undefined)]);
-      out.push({ type: "AVIZ", sourceTable: "delivery_notes", sourceId: r.id, version: 1, number: text, partner: "CLIENT-" + orderCode(r.orderId), partnerName: "", issueDate: r.issueDate, mime: HTML, bytes: html(page) });
+      const content = JSON.parse(r.content) as DeliveryNoteContent;
+      const page = renderNotesHtml(text, [noteSection(content, text, r.issueDate, original ? await documentNumberText("delivery_note", original.year, original.number) : undefined, r.id)]);
+      // v84: céges vevőnél a vevő CUI-ja a partner (a magánszemély adata nem kerül a kulcsba).
+      const buyerCif = content.buyer.cif ?? "";
+      out.push({ type: "AVIZ", sourceTable: "delivery_notes", sourceId: r.id, version: 1, number: text, partner: buyerCif ? partnerKey(buyerCif, content.buyer.name) : "CLIENT-" + orderCode(r.orderId), partnerName: buyerCif ? content.buyer.name : "", issueDate: r.issueDate, mime: HTML, bytes: html(page) });
     }
   }
 

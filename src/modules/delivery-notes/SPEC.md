@@ -1,4 +1,19 @@
-# Aviz de însoțire a mărfii (v75, 4. fázis)
+# Aviz de însoțire a mărfii (v75, 4. fázis; v84: csak céges kiszállításhoz)
+
+## v84 – érvényes szabályok (2026-11-05, a tulajdonos döntése)
+- **Kinek:** céges ügyfél (számlázási adat: `customer_billing.kind = company`) **kiszállított** rendeléséhez mindig kell aviz; magánszemélynek nem. Helyszíni átvételnél csak kérésre. Az iroda egyedi rendelésnél kérheti; a „minden kiszállításhoz” beállítás (alapból ki) a magánszemélyekre is kiterjeszti. A havi számlás magánszemély már nem kap automatikusan avizt.
+- **Átadás a futárnak:** amíg a céges kiszállításhoz nincs kiállított aviz, a rendelés nem indulhat el (adatbázis-trigger `aviz_departure`, `AVIZ_REQUIRED`; a futár és az iroda indítására is). Aviz csak teljes adatokkal állítható ki: saját cégadat (név, CUI, Reg. Com., székhely – `COMPANY_PROFILE_REQUIRED`) és a céges vevő számlázási adatai (név, CUI, cím – `NOTE_BUYER_DATA`). Így hiányos cégadattal a rendelés nem adható át a futárnak.
+- **Hol:** Beállítások → **Avizok** (tulajdonos, admin, diszpécser, konyha): cégadatok (csak admin szerkeszti), aviz-szabály és lábjegyzet, a kiválasztott nap avizjai. A korábbi Csomagolás fül neve **Termékcímkék**, és csak a címkéket mutatja.
+- **Cégadatok** (`company_profile`): név, CUI, Reg. Com., székhely, munkapont, telefon. Az avizon „Furnizor”: név, CUI/CIF, Reg. Com., Sediu, Punct de lucru (ha más, mint a székhely).
+- **Vevő** céges ügyfélnél: a számlázási név, CUI/CIF, Reg. Com., Sediu, valamint a szállítási cím és telefon.
+- **Szállítás:** „Mijloc de transport (nr. auto)” és „Șofer / delegat” üres sor kézi kitöltésre.
+- **Lábjegyzet** (`delivery_note_settings.legal_footer`): ha ki van töltve, az aláírás-sorok helyett ez és a rendszerazonosító („ID audit sistem”) kerül az avizra. A tulajdonos döntése: már most a lábjegyzet („Document generat electronic, valabil fără semnătură și ștampilă…”). [ELLENŐRIZENDŐ] a könyvelővel, mert a Codul fiscal art. 319 alin. (29) a számlára vonatkozik; ha az avizra nem érvényes, a lábjegyzet törlésével visszajönnek az aláírás-sorok.
+- Pillanatkép: a cégadat, a vevőadat és a lábjegyzet kiállításkor rögzül; későbbi változás a kiállított avizt nem írja át.
+- A könyvelési profil többé nem kapcsolja be és nem teszi kötelezővé a „minden kiszállításhoz” szabályt.
+- Archívum: céges vevő avizja a vevő CUI-ja szerinti mappába kerül.
+
+Az alábbi, korábbi szakaszok történeti leírások; ahol ellentmondanak, a fenti v84-szabály érvényes.
+
 
 Egyeztetés (2026-11-04):
 - kiknek kell: **még nem tudni** → rendelésenként kérhető, és egy beállítással minden kiszállításhoz bekapcsolható (alapból ki). [ELLENŐRIZENDŐ] a könyvelővel;

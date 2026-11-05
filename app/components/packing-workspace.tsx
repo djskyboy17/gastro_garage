@@ -9,8 +9,7 @@ import type {PackingData} from '@/src/modules/packing/domain';
 import type {ConsumerLabel} from '@/src/modules/labels/domain';
 import {PrintableLabel} from './consumer-label';
 import {LabelFixDialog} from './label-fix-dialog';
-import DeliveryNotesPanel from './delivery-notes-panel';
-// Csomagolás (v53): csak termékcímkék. A csomagellenőrzés megszűnt (a futárnak átadó ember ellenőriz).
+// Termékcímkék (v53, v84: az avizok a Beállítások → Avizok alá kerültek): csak termékcímkék. A csomagellenőrzés megszűnt (a futárnak átadó ember ellenőriz).
 export default function PackingWorkspace({lang,refresh,initialDate,initialOrderId='',canEditLabels=false}:{lang:Language;refresh:()=>Promise<void>;initialDate?:string;initialOrderId?:string;canEditLabels?:boolean}){
  const [date,setDate]=useState(()=>initialDate??today()),[data,setData]=useState<PackingData|null>(null),[orderId,setOrderId]=useState(initialOrderId),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[success,setSuccess]=useState<string|false>(false),[version,setVersion]=useState(0);
  const t=(k:string)=>messages[lang][k]??k;
@@ -26,7 +25,6 @@ export default function PackingWorkspace({lang,refresh,initialDate,initialOrderI
  return <section className="packing-workspace packing-view-consumer" aria-label={t('packing')}>
   <div className="packing-toolbar packing-no-print"><div className="packing-date"><button className="button secondary" aria-label={t('previous')} disabled={busy||loading||date<=addDays(today(),-90)} onClick={()=>{setError('');setSuccess(false);setOrderId('');setDate(addDays(date,-1));}}><ChevronLeft size={16}/></button><label>{t('date')}<input type="date" min={addDays(today(),-90)} max={addDays(today(),90)} value={date} disabled={busy||loading} onChange={e=>{if(!validDay(e.target.value))return;setError('');setSuccess(false);setOrderId('');setDate(e.target.value);}}/></label><button className="button secondary" aria-label={t('next')} disabled={busy||loading||date>=addDays(today(),90)} onClick={()=>{setError('');setSuccess(false);setOrderId('');setDate(addDays(date,1));}}><ChevronRight size={16}/></button></div><button className="button secondary" disabled={busy||loading} onClick={reload}><RefreshCw size={16}/>{t('refresh')}</button><button className="button secondary" disabled={busy||loading||!data?.orders.length} onClick={()=>window.print()}><Printer size={16}/>{t('packingPrint')}</button></div>
   <p className="packing-intro packing-no-print">{t('packingIntro')}</p>
-  <DeliveryNotesPanel key={date+':'+version} lang={lang} date={date}/>
   
   {data&&<label className="packing-filter packing-no-print">{t('packingFilter')}<select disabled={busy||loading} value={orderId} onChange={e=>setOrderId(e.target.value)}><option value="">{t('all')}</option>{data.orders.map(o=><option key={o.id} value={o.id}>#{orderCode(o.id)} · {o.time} · {o.customerName}</option>)}</select></label>}
   {error&&<p role="alert" className="portal-alert packing-no-print">{t(error)}</p>}{success&&<p role="status" className="portal-success packing-no-print">{t(success)}</p>}{loading&&<p role="status">{t('loading')}</p>}

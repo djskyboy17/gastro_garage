@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 // @ts-ignore Node native type stripping
-import { noteRequired, noteIssuable, noteLines, reversalNote, noteSection, renderNotesHtml, type DeliveryNoteContent } from "../src/modules/delivery-notes/domain.ts";
+import { noteRequired, companyProfileError, noteIssuable, noteLines, reversalNote, noteSection, renderNotesHtml, type DeliveryNoteContent } from "../src/modules/delivery-notes/domain.ts";
 // @ts-ignore Node native type stripping
 import { formatDocumentNumber, DOCUMENT_TYPES } from "../src/modules/documents/domain.ts";
 
@@ -55,4 +55,31 @@ test("Example 5: Romanian print without prices, with supplier, buyer, lot and al
   assert.match(html, /\.note\+\.note\{page-break-before:always/);
   assert.equal(html.match(/<section class="note">/g)!.length, 2);
   assert.doesNotMatch(noteSection({ ...content, buyer: { ...content.buyer, name: "<script>x</script>" } }, "N", "2026-11-04"), /<script>x/);
+});
+
+test("v84: aviz is required for company deliveries only; a company pickup only on request", () => {
+  assert.equal(noteRequired({ deliveryNoteRequired: 0, fulfillmentMode: "delivery", companyBilling: 1 }, false), true);
+  assert.equal(noteRequired({ deliveryNoteRequired: 0, fulfillmentMode: "delivery", companyBilling: 0 }, false), false);
+  assert.equal(noteRequired({ deliveryNoteRequired: 0, fulfillmentMode: "pickup", companyBilling: 1 }, false), false);
+  assert.equal(companyProfileError({ name: "GASTRO GARAGE S.R.L.", cui: "52188013", regCom: "J2025053505001", address: "Sat Lunga nr. 330" }), null);
+  assert.equal(companyProfileError({ name: "GASTRO GARAGE S.R.L.", cui: "", regCom: "J2025053505001", address: "x" }), "COMPANY_PROFILE_REQUIRED");
+});
+
+test("v84: the aviz shows supplier and buyer identifiers, transport lines and the legal footer instead of signatures", () => {
+  const c: DeliveryNoteContent = {
+    ...content,
+    supplier: { name: "GASTRO GARAGE S.R.L.", address: "Sat Lunga nr. 330, jud. Covasna", extra: "", cui: "52188013", regCom: "J2025053505001", workPoint: "" },
+    buyer: { name: "Firma SRL", address: "Str. Livrare 5", phone: "07", cif: "RO18547290", regCom: "J14/1/2020", seat: "Str. Sediu 1, Sfântu Gheorghe, jud. Covasna" },
+    footer: "Document generat electronic, valabil fără semnătură și ștampilă.",
+  };
+  const html = noteSection(c, "AVZ-2026-0001", "2026-11-05", undefined, "note-id-1");
+  assert.ok(html.includes("CUI / CIF: 52188013"));
+  assert.ok(html.includes("Reg. Com.: J2025053505001"));
+  assert.ok(html.includes("CUI / CIF: RO18547290"));
+  assert.ok(html.includes("Adresă de livrare: Str. Livrare 5"));
+  assert.match(html, /Mijloc de transport/);
+  assert.match(html, /valabil fără semnătură/);
+  assert.match(html, /ID audit sistem: note-id-1/);
+  assert.doesNotMatch(html, /Semnătura expeditor/);
+  assert.match(noteSection(content, "AVZ-2026-0002", "2026-11-05"), /Semnătura expeditor/, "without a footer the signature lines stay");
 });

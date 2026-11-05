@@ -60,7 +60,7 @@ export default function AccountingWorkspace({ lang }: { lang: Language }) {
       <ul>
         <li>{t("accountingGross")} · {view.settings.costBasis === "gross" ? "✓" : "—"}</li>
         <li>{t("accountingHandover")} · {view.settings.handoverEnabled ? "✓" : "—"}</li>
-        <li>{t("accountingDelivery")} · {view.settings.allDeliveries ? "✓" : "—"}</li>
+        <li>{t("accountingDelivery")} · ✓</li>
       </ul>
       <label className="cash-field">{t("accountingExemptionNote")}<textarea maxLength={500} disabled={busy} value={note} onChange={(e) => setNote(e.target.value)} /></label>
       <p>{t("accountingExemptionHint")}</p>
