@@ -12,7 +12,7 @@
 .gp-top{position:sticky;top:0;z-index:30;background:var(--gp-ink);color:#fff;border-bottom:1px solid var(--gp-line-dark)}
 .gp-top .gp-wrap{display:flex;align-items:center;gap:10px;height:62px}
 .gp-brand{display:flex;align-items:center;gap:9px;font-family:var(--gp-display);font-weight:700;font-size:19px;text-decoration:none;white-space:nowrap}
-.gp-brand img{width:34px;height:34px;object-fit:contain;border-radius:8px}
+.gp-brand img{width:68px;height:68px;object-fit:contain;border-radius:12px}
 .gp main{max-width:none;margin:0;padding:0}
 .gp-top nav{display:none;flex-direction:row;align-items:center;gap:22px;margin-left:26px;font-size:15px;color:#cfe0d6}
 .gp-top nav a{text-decoration:none}.gp-top nav a:hover{color:#fff}

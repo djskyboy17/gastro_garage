@@ -44,3 +44,9 @@ Nem minden ételre kerül címke. A Termékcímkék nézetben ételenként (rend
 
 ## Hiányzó adat pótlása felugró ablakban — v34
 A Termékcímkék hiánylistájában az étel sorára kattintva felugró ablak nyílik. Tulajdonos és admin itt pótolhatja az étel fogyaszthatósági idejét és tárolását, valamint a gyártói adatokat (ez minden címkére érvényes). Mentéskor csak az adott étel sora és a beállítások mentődnek (ugyanaz a `POST /api/labels/settings`, ütközésvizsgálattal); utána a címkék újratöltődnek, a kijelölés megmarad. Recept és tápérték itt nem pótolható: az ablak megmondja, melyik oldalon lehet. Konyha és diszpécser a hiánylistát látja, de nem kattintható, és jelzi, hogy tulajdonos/admin pótolhatja.
+
+## Nyomtatott címke elrendezése – v85 (2026-11-05, a tulajdonos mintája alapján)
+- Fentről lefelé: Gastro Garage logó (szürkeárnyalatos, hőnyomtatóra), az étel magyar neve nagy, félkövér betűvel, alatta dőlten a román név (ha nincs magyar, csak a román); „Alergeni: …” félkövéren, vonalak között.
+- Középen balra a QR-kód „Pentru ingrediente, valori nutriționale și alte detalii, scanați QR” felirattal; jobbra: Cantitate netă, Lot, Data fabr., Exp. (vagy „nedeclarat”), Păstrare.
+- Alul: „Producător: név, cím • további sor” (a címkebeállításokból), jobbra kicsiben a rendelés kódja (csomagoláshoz).
+- Az összetevők és a tápérték alapból **csak a QR-kóddal** érhetők el (a QR-oldal változatlanul mindent mutat). A címkebeállításban bekapcsolható, hogy a nyomtatott címkén is szerepeljenek. [ELLENŐRIZENDŐ] az EU 1169/2011 és a hazai szabályok szerint (előre csomagolt élelmiszernél az összetevőlista és a tápérték a címkén kötelező; közvetlen értékesítésre helyben csomagolt ételnél a szabály eltérhet) – ha kell, a beállítás bekapcsolásával a nyomtatott címkére is rákerülnek.

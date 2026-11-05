@@ -934,6 +934,10 @@ export const deliveryNoteSettings = sqliteTable(
     allDeliveries: integer("all_deliveries").notNull().default(0),
     /** v84: az aviz lábjegyzete (pl. „Document generat electronic, valabil fără semnătură…”). Üres = aláírás-sorok. */
     legalFooter: text("legal_footer").notNull().default(""),
+    /** v86: a cég autóinak rendszámai (JSON-tömb, legfeljebb 5); avizkiállításkor választható. */
+    vehicles: text("vehicles").notNull().default("[]"),
+    /** v86: a „Șofer / delegat” sorba írt szöveg (pl. „angajat”). [ELLENŐRIZENDŐ] */
+    driverText: text("driver_text").notNull().default("angajat"),
     revision: integer("revision").notNull().default(0),
   },
   (t) => [check("delivery_note_settings_singleton", sql`${t.id}=1`)],

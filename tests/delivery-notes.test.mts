@@ -71,13 +71,14 @@ test("v84: the aviz shows supplier and buyer identifiers, transport lines and th
     supplier: { name: "GASTRO GARAGE S.R.L.", address: "Sat Lunga nr. 330, jud. Covasna", extra: "", cui: "52188013", regCom: "J2025053505001", workPoint: "" },
     buyer: { name: "Firma SRL", address: "Str. Livrare 5", phone: "07", cif: "RO18547290", regCom: "J14/1/2020", seat: "Str. Sediu 1, Sfântu Gheorghe, jud. Covasna" },
     footer: "Document generat electronic, valabil fără semnătură și ștampilă.",
+    transport: { vehicle: "CV 12 ABC", driver: "angajat" },
   };
   const html = noteSection(c, "AVZ-2026-0001", "2026-11-05", undefined, "note-id-1");
   assert.ok(html.includes("CUI / CIF: 52188013"));
   assert.ok(html.includes("Reg. Com.: J2025053505001"));
   assert.ok(html.includes("CUI / CIF: RO18547290"));
   assert.ok(html.includes("Adresă de livrare: Str. Livrare 5"));
-  assert.match(html, /Mijloc de transport/);
+  assert.ok(html.includes("<b>CV 12 ABC</b>") && html.includes("<b>angajat</b>"));
   assert.match(html, /valabil fără semnătură/);
   assert.match(html, /ID audit sistem: note-id-1/);
   assert.doesNotMatch(html, /Semnătura expeditor/);

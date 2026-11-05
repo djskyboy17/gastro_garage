@@ -8,6 +8,7 @@ import type { DeliveryNoteRef } from "@/src/modules/delivery-notes/domain";
 type NotesDay = {
   date: string;
   allDeliveries: boolean;
+  vehicles?: string[];
   settingsRevision: number;
   canManage: boolean;
   canConfigure: boolean;
@@ -23,6 +24,7 @@ export default function DeliveryNotesPanel({ lang, date }: { lang: Language; dat
   const [data, setData] = useState<NotesDay | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [vehicle, setVehicle] = useState("");
 
   const load = useCallback(() => {
     fetch("/api/delivery-notes?date=" + encodeURIComponent(date), { cache: "no-store" })
@@ -62,7 +64,8 @@ export default function DeliveryNotesPanel({ lang, date }: { lang: Language; dat
   async function issue(orderId: string) {
     // Az ablakot a kattintásban nyitjuk meg (különben a böngésző letiltja), és a kiállítás után töltjük be.
     const win = window.open("", "_blank");
-    const v = await post("issue", { orderId });
+    const cars = data?.vehicles ?? [];
+    const v = await post("issue", { orderId, ...(cars.length ? { vehicle: vehicle || cars[0] } : {}) });
     if (v?.id && win) win.location.href = "/api/delivery-notes/print?id=" + v.id;
     else win?.close();
   }
@@ -86,6 +89,16 @@ export default function DeliveryNotesPanel({ lang, date }: { lang: Language; dat
         <p role="alert" className="portal-alert">
           {(messages[lang] as Record<string, string>)[error] ?? t("saveError")}
         </p>
+      )}
+      {data && (data.vehicles?.length ?? 0) > 1 && rows.length > 0 && (
+        <label className="cash-field">
+          {t("avizVehicle")}
+          <select value={vehicle || data.vehicles![0]} disabled={busy} onChange={(e) => setVehicle(e.target.value)}>
+            {data.vehicles!.map((p) => (
+              <option key={p}>{p}</option>
+            ))}
+          </select>
+        </label>
       )}
       {data && !rows.length && <p className="quiet-empty">{t("notesNone")}</p>}
       {rows.length > 0 && (

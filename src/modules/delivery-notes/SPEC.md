@@ -6,7 +6,7 @@
 - **Hol:** Beállítások → **Avizok** (tulajdonos, admin, diszpécser, konyha): cégadatok (csak admin szerkeszti), aviz-szabály és lábjegyzet, a kiválasztott nap avizjai. A korábbi Csomagolás fül neve **Termékcímkék**, és csak a címkéket mutatja.
 - **Cégadatok** (`company_profile`): név, CUI, Reg. Com., székhely, munkapont, telefon. Az avizon „Furnizor”: név, CUI/CIF, Reg. Com., Sediu, Punct de lucru (ha más, mint a székhely).
 - **Vevő** céges ügyfélnél: a számlázási név, CUI/CIF, Reg. Com., Sediu, valamint a szállítási cím és telefon.
-- **Szállítás:** „Mijloc de transport (nr. auto)” és „Șofer / delegat” üres sor kézi kitöltésre.
+- **Szállítás (v86):** a beállításban két autó rendszáma adható meg; kiállításkor választható (egy autónál automatikus), és a rendszám az avizra kerül. A „Șofer / delegat” sorba a beállított szöveg kerül (alapból „angajat”). [ELLENŐRIZENDŐ] a könyvelővel, hogy a delegat neve nélkül elég-e. Rendszám nélkül üres sor marad kézi kitöltésre.
 - **Lábjegyzet** (`delivery_note_settings.legal_footer`): ha ki van töltve, az aláírás-sorok helyett ez és a rendszerazonosító („ID audit sistem”) kerül az avizra. A tulajdonos döntése: már most a lábjegyzet („Document generat electronic, valabil fără semnătură și ștampilă…”). [ELLENŐRIZENDŐ] a könyvelővel, mert a Codul fiscal art. 319 alin. (29) a számlára vonatkozik; ha az avizra nem érvényes, a lábjegyzet törlésével visszajönnek az aláírás-sorok.
 - Pillanatkép: a cégadat, a vevőadat és a lábjegyzet kiállításkor rögzül; későbbi változás a kiállított avizt nem írja át.
 - A könyvelési profil többé nem kapcsolja be és nem teszi kötelezővé a „minden kiszállításhoz” szabályt.

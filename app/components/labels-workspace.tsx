@@ -32,7 +32,7 @@ export default function LabelsWorkspace({ lang }: { lang: Language }) {
     };
   }, [version]);
   if (!data) return error ? <p role="alert" className="portal-alert">{t(error)}</p> : <p role="status">{t("loading")}</p>;
-  const setting = (k: keyof LabelSettings, v: string) => setData({ ...data, settings: { ...data.settings, [k]: v } });
+  const setting = (k: keyof LabelSettings, v: string | boolean) => setData({ ...data, settings: { ...data.settings, [k]: v } });
   const row = (id: string, patch: Partial<Row>) =>
     setData({ ...data, products: data.products.map((p) => (p.productId === id ? { ...p, ...patch } : p)) });
   async function save() {
@@ -60,7 +60,7 @@ export default function LabelsWorkspace({ lang }: { lang: Language }) {
       setBusy(false);
     }
   }
-  const field = (k: keyof LabelSettings, max: number) => (
+  const field = (k: Exclude<keyof LabelSettings, "printDetails">, max: number) => (
     <label className="field">
       <span>{t("label" + k[0]!.toUpperCase() + k.slice(1))}</span>
       <input value={data.settings[k]} maxLength={max} disabled={busy} onChange={(e) => setting(k, e.target.value)} />
@@ -76,6 +76,10 @@ export default function LabelsWorkspace({ lang }: { lang: Language }) {
           {field("producerExtra", 200)}
           {field("defaultStorageRo", 300)}
           {field("defaultStorageHu", 300)}
+          <label className="production-check">
+            <input type="checkbox" checked={data.settings.printDetails} disabled={busy} onChange={(e) => setting("printDetails", e.target.checked)} />
+            {t("labelPrintDetails")}
+          </label>
         </div>
       </div>
       <h2 className="settings-section-title">{t("labelDishes")}</h2>

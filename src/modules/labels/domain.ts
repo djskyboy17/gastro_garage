@@ -10,6 +10,8 @@ export type LabelSettings = {
   /** Alapértelmezett tárolási feltétel, ha az ételnél nincs külön megadva. */
   defaultStorageRo: string;
   defaultStorageHu: string;
+  /** v85: összetevők és tápérték a nyomtatott címkén is (alapból ki: ezek a QR-kóddal érhetők el). [ELLENŐRIZENDŐ] */
+  printDetails: boolean;
 };
 export const emptyLabelSettings: LabelSettings = {
   producerName: "",
@@ -17,6 +19,7 @@ export const emptyLabelSettings: LabelSettings = {
   producerExtra: "",
   defaultStorageRo: "A se păstra la temperaturi între 0 și 4 °C.",
   defaultStorageHu: "0–4 °C között tárolandó.",
+  printDetails: false,
 };
 export const SHELF_LIFE_MAX = 60;
 
@@ -30,6 +33,7 @@ export function parseLabelSettings(content: string | null | undefined): LabelSet
       producerExtra: s(v.producerExtra, ""),
       defaultStorageRo: s(v.defaultStorageRo, emptyLabelSettings.defaultStorageRo),
       defaultStorageHu: s(v.defaultStorageHu, emptyLabelSettings.defaultStorageHu),
+      printDetails: v.printDetails === true,
     };
   } catch {
     return { ...emptyLabelSettings };
@@ -108,6 +112,8 @@ export type ConsumerLabel = {
   storage: { hu: string; ro: string };
   lot: string;
   producer: { name: string; address: string; extra: string };
+  /** v85: a beállítás szerint az összetevők és a tápérték a nyomtatott címkén is. */
+  printDetails?: boolean;
   url: string;
   missing: MissingLabelData[];
 };
@@ -158,6 +164,7 @@ export function consumerLabel(input: {
     storage,
     lot: input.batch?.code ?? lotCode(input.date, item.productId),
     producer: { name: settings.producerName, address: settings.producerAddress, extra: settings.producerExtra },
+    printDetails: settings.printDetails,
     url: `${input.baseUrl}/label?id=${encodeURIComponent(item.id)}`,
     missing,
   };

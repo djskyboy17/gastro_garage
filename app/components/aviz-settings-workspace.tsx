@@ -7,7 +7,7 @@ import { addDays, validDay } from "@/src/modules/menu/domain";
 import type { CompanyProfile } from "@/src/modules/delivery-notes/domain";
 import DeliveryNotesPanel from "./delivery-notes-panel";
 
-type SettingsView = { allDeliveries: boolean; legalFooter: string; settingsRevision: number; canConfigure: boolean; company: CompanyProfile; companyMissing: boolean };
+type SettingsView = { allDeliveries: boolean; legalFooter: string; vehicles: string[]; driverText: string; settingsRevision: number; canConfigure: boolean; company: CompanyProfile; companyMissing: boolean };
 
 /**
  * Beállítások → Avizok (v84): a saját cég adatai (az avizon „Furnizor”), az aviz-szabály és lábjegyzet, valamint a kiválasztott nap
@@ -20,6 +20,8 @@ export default function AvizSettingsWorkspace({ lang }: { lang: Language }) {
   const [company, setCompany] = useState<CompanyProfile | null>(null);
   const [all, setAll] = useState(false);
   const [footer, setFooter] = useState("");
+  const [cars, setCars] = useState(["", ""]);
+  const [driver, setDriver] = useState("angajat");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -38,6 +40,8 @@ export default function AvizSettingsWorkspace({ lang }: { lang: Language }) {
           setCompany(v.company);
           setAll(v.allDeliveries);
           setFooter(v.legalFooter);
+          setCars([v.vehicles[0] ?? "", v.vehicles[1] ?? ""]);
+          setDriver(v.driverText);
         },
         (e: Error) => setError(e.message),
       );
@@ -117,6 +121,16 @@ export default function AvizSettingsWorkspace({ lang }: { lang: Language }) {
               <input type="checkbox" checked={all} disabled={!edit || busy} onChange={(e) => setAll(e.target.checked)} />
               {t("avizSettingsAll")}
             </label>
+            {[0, 1].map((i) => (
+              <label className="cash-field" key={i}>
+                {t("avizVehicle")} {i + 1}
+                <input value={cars[i]} maxLength={20} disabled={!edit || busy} placeholder="CV 12 ABC" onChange={(e) => setCars(cars.map((c, j) => (j === i ? e.target.value : c)))} />
+              </label>
+            ))}
+            <label className="cash-field">
+              {t("avizDriver")}
+              <input value={driver} maxLength={100} disabled={!edit || busy} onChange={(e) => setDriver(e.target.value)} />
+            </label>
             <label className="cash-field" style={{ gridColumn: "1 / -1" }}>
               {t("avizFooter")}
               <textarea rows={3} maxLength={500} value={footer} disabled={!edit || busy} onChange={(e) => setFooter(e.target.value)} />
@@ -124,7 +138,7 @@ export default function AvizSettingsWorkspace({ lang }: { lang: Language }) {
             </label>
             {edit && (
               <div className="production-actions">
-                <button className="button" disabled={busy || (all === view.allDeliveries && footer === view.legalFooter)} onClick={() => void post("settings", { revision: view.settingsRevision, allDeliveries: all, legalFooter: footer }, "avizSettingsSaved")}>
+                <button className="button" disabled={busy} onClick={() => void post("settings", { revision: view.settingsRevision, allDeliveries: all, legalFooter: footer, vehicles: cars.filter((c) => c.trim()), driverText: driver }, "avizSettingsSaved")}>
                   <Save size={14} /> {t("avizSettingsSave")}
                 </button>
               </div>

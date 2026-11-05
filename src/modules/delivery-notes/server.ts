@@ -15,6 +15,8 @@ import {
   renderNotesHtml,
   reversalNote,
   companyProfileError,
+  normalizePlate,
+  parseVehicles,
   emptyCompanyProfile,
   type CompanyProfile,
   type DeliveryNoteContent,
@@ -47,8 +49,8 @@ const orderColumns =
   "id,customer_id AS customerId,date,time,status,delivery,production,revision,customer_name AS customerName,address,phone,fulfillment_mode AS fulfillmentMode,delivery_note_required AS deliveryNoteRequired,EXISTS (SELECT 1 FROM customer_billing b WHERE b.customer_id=orders.customer_id AND b.kind='company') AS companyBilling";
 
 async function loadNoteSettings() {
-  const row = await env.DB!.prepare("SELECT all_deliveries AS allDeliveries,legal_footer AS legalFooter,revision FROM delivery_note_settings WHERE id=1").first<{ allDeliveries: number; legalFooter: string; revision: number }>();
-  return { allDeliveries: !!row?.allDeliveries, legalFooter: row?.legalFooter ?? "", revision: row?.revision ?? 0 };
+  const row = await env.DB!.prepare("SELECT all_deliveries AS allDeliveries,legal_footer AS legalFooter,vehicles,driver_text AS driverText,revision FROM delivery_note_settings WHERE id=1").first<{ allDeliveries: number; legalFooter: string; vehicles: string; driverText: string; revision: number }>();
+  return { allDeliveries: !!row?.allDeliveries, legalFooter: row?.legalFooter ?? "", vehicles: parseVehicles(row?.vehicles), driverText: row?.driverText ?? "angajat", revision: row?.revision ?? 0 };
 }
 /** v84: a saját cég adatai (Beállítások → Avizok). */
 export async function loadCompanyProfile(): Promise<CompanyProfile> {
@@ -147,6 +149,8 @@ export async function handleDeliveryNotes(path: string, body: unknown, session: 
       date,
       allDeliveries: settings.allDeliveries,
       legalFooter: settings.legalFooter,
+      vehicles: settings.vehicles,
+      driverText: settings.driverText,
       company,
       companyMissing: !!companyProfileError(company),
       settingsRevision: settings.revision,
@@ -195,7 +199,7 @@ export async function handleDeliveryNotes(path: string, body: unknown, session: 
 
   if (path === "/api/delivery-notes/issue") {
     // Ismételt kérés (dupla kattintás, újrapróbálás) ugyanazt az avizt adja vissza.
-    const d = z.object({ orderId: z.string().min(1).max(200) }).strict().parse(body);
+    const d = z.object({ orderId: z.string().min(1).max(200), vehicle: z.string().trim().max(20).optional() }).strict().parse(body);
     const existing = await DB.prepare("SELECT id FROM delivery_notes WHERE order_id=? AND kind='issue' AND status='issued'").bind(d.orderId).first<{ id: string }>();
     if (existing) return json({ ok: true, id: existing.id });
     const order = await loadOrder(d.orderId);
@@ -219,6 +223,10 @@ export async function handleDeliveryNotes(path: string, body: unknown, session: 
           ? { name: billing.name.trim(), address: order.address, phone: order.phone, cif: normalizeTaxId(billing.cif), regCom: billing.regCom.trim(), seat }
           : { name: order.customerName, address: order.address, phone: order.phone },
       ...(settings.legalFooter.trim() ? { footer: settings.legalFooter.trim() } : {}),
+      // v86: a választott autó (csak a beállított rendszámok közül) és a sofőr/delegat szövege.
+      ...(settings.vehicles.length || settings.driverText.trim()
+        ? { transport: { vehicle: settings.vehicles.includes(normalizePlate(d.vehicle ?? "")) ? normalizePlate(d.vehicle ?? "") : settings.vehicles.length === 1 ? settings.vehicles[0]! : "", driver: settings.driverText.trim() } }
+        : {}),
       order: { id: order.id, code: orderCode(order.id), date: order.date, time: order.time, mode: order.fulfillmentMode === "pickup" ? "pickup" : "delivery" },
       lines: noteLines(labels),
     };
@@ -335,16 +343,17 @@ export async function handleDeliveryNotes(path: string, body: unknown, session: 
 
   if (path === "/api/delivery-notes/settings") {
     if (!isAdmin(session.role)) throw new DeliveryNoteError("FORBIDDEN", 403);
-    const d = z.object({ revision: z.number().int().min(0), allDeliveries: z.boolean(), legalFooter: z.string().trim().max(500) }).strict().parse(body);
+    const d = z.object({ revision: z.number().int().min(0), allDeliveries: z.boolean(), legalFooter: z.string().trim().max(500), vehicles: z.array(z.string().trim().max(20)).max(5).default([]), driverText: z.string().trim().max(100).default("") }).strict().parse(body);
+    const vehicles = [...new Set(d.vehicles.map(normalizePlate).filter(Boolean))];
     await DB.batch([
       DB.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN COALESCE((SELECT revision FROM delivery_note_settings WHERE id=1),0)=? THEN ? ELSE NULL END,'delivery_note_settings_saved','delivery_note_settings',?,?)").bind(
         crypto.randomUUID(),
         d.revision,
         actor,
-        JSON.stringify({ allDeliveries: d.allDeliveries, legalFooter: d.legalFooter }),
+        JSON.stringify({ allDeliveries: d.allDeliveries, legalFooter: d.legalFooter, vehicles, driverText: d.driverText }),
         now,
       ),
-      DB.prepare("INSERT INTO delivery_note_settings (id,all_deliveries,legal_footer,revision) VALUES (1,?,?,1) ON CONFLICT(id) DO UPDATE SET all_deliveries=excluded.all_deliveries,legal_footer=excluded.legal_footer,revision=delivery_note_settings.revision+1").bind(d.allDeliveries ? 1 : 0, d.legalFooter),
+      DB.prepare("INSERT INTO delivery_note_settings (id,all_deliveries,legal_footer,vehicles,driver_text,revision) VALUES (1,?,?,?,?,1) ON CONFLICT(id) DO UPDATE SET all_deliveries=excluded.all_deliveries,legal_footer=excluded.legal_footer,vehicles=excluded.vehicles,driver_text=excluded.driver_text,revision=delivery_note_settings.revision+1").bind(d.allDeliveries ? 1 : 0, d.legalFooter, JSON.stringify(vehicles), d.driverText),
     ]).catch(failOnGuard);
     return json({ ok: true });
   }

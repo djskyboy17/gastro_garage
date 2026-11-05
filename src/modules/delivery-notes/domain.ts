@@ -19,6 +19,8 @@ export type DeliveryNoteContent = {
   buyer: { name: string; address: string; phone: string; cif?: string; regCom?: string; seat?: string };
   /** v84: a kiállításkor érvényes lábjegyzet; ha van, aláírás-sorok helyett ez kerül az avizra. */
   footer?: string;
+  /** v86: kiállításkor választott autó rendszáma és a sofőr/delegat szövege. */
+  transport?: { vehicle: string; driver: string };
   order: { id: string; code: string; date: string; time: string; mode: "delivery" | "pickup" };
   lines: DeliveryNoteLine[];
   reason?: string;
@@ -33,6 +35,17 @@ export function noteRequired(order: { deliveryNoteRequired?: number | null; fulf
   const delivery = (order.fulfillmentMode ?? "delivery") !== "pickup";
   return !!order.deliveryNoteRequired || ((allDeliveries || !!order.companyBilling) && delivery);
 }
+
+/** v86: rendszámok a beállításból (nagybetű, szóköz nélkül egységesítve, legfeljebb 5). */
+export function parseVehicles(value: string | null | undefined): string[] {
+  try {
+    const v = JSON.parse(value ?? "[]") as unknown;
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && !!x.trim()).slice(0, 5) : [];
+  } catch {
+    return [];
+  }
+}
+export const normalizePlate = (p: string) => p.toUpperCase().replace(/\s+/g, " ").trim();
 
 export type CompanyProfile = { name: string; cui: string; regCom: string; address: string; workPoint: string; phone: string; revision: number };
 export const emptyCompanyProfile: CompanyProfile = { name: "", cui: "", regCom: "", address: "", workPoint: "", phone: "", revision: 0 };
@@ -91,7 +104,7 @@ export function noteSection(c: DeliveryNoteContent, numberText: string, issueDat
 <div class="meta"><p>Comandă: #${esc(c.order.code)} · livrare ${esc(roDate(c.order.date))} ${esc(c.order.time)}${c.order.mode === "pickup" ? " (ridicare personală)" : ""}</p></div></header>
 <div class="parties"><div><small>Furnizor</small><b>${esc(c.supplier.name) || "—"}</b>${field("CUI / CIF", c.supplier.cui)}${field("Reg. Com.", c.supplier.regCom)}${field(c.supplier.cui ? "Sediu" : "", c.supplier.address)}${field("Punct de lucru", c.supplier.workPoint)}${field("", c.supplier.extra)}</div>
 <div><small>Cumpărător</small><b>${esc(c.buyer.name)}</b>${field("CUI / CIF", c.buyer.cif)}${field("Reg. Com.", c.buyer.regCom)}${field("Sediu", c.buyer.seat)}${field(c.order.mode === "pickup" ? "Adresă" : "Adresă de livrare", c.buyer.address)}${field("Tel.", c.buyer.phone)}</div></div>
-<p class="transport">Mijloc de transport (nr. auto): <span class="blank"></span> Șofer / delegat: <span class="blank"></span></p>
+<p class="transport">Mijloc de transport (nr. auto): ${c.transport?.vehicle ? `<b>${esc(c.transport.vehicle)}</b>` : '<span class="blank"></span>'} Șofer / delegat: ${c.transport?.driver ? `<b>${esc(c.transport.driver)}</b>` : '<span class="blank"></span>'}</p>
 <table><thead><tr><th>Nr.</th><th>Denumire</th><th>U.M.</th><th>Cantitate</th><th>Lot</th></tr></thead><tbody>${rows}</tbody>
 <tfoot><tr><td colspan="3">Total porții</td><td class="n">${c.lines.reduce((s, l) => s + l.quantity, 0)}</td><td></td></tr></tfoot></table>
 ${

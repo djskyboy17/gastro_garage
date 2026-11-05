@@ -161,6 +161,7 @@ const settingsInput = z
         producerExtra: line(200),
         defaultStorageRo: line(300),
         defaultStorageHu: line(300),
+        printDetails: z.boolean().optional().default(false),
       })
       .strict(),
     products: z
