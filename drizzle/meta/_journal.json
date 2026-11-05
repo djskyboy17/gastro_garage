@@ -302,6 +302,27 @@
       "when": 1793919002153,
       "tag": "0042_aviz_vehicles",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "6",
+      "when": 1793921317872,
+      "tag": "0043_daily_materials",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "6",
+      "when": 1793921670664,
+      "tag": "0044_production_day_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "6",
+      "when": 1793922323045,
+      "tag": "0045_pending_materials_index",
+      "breakpoints": true
     }
   ]
 }

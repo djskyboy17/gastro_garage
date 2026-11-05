@@ -1,0 +1,1 @@
+CREATE INDEX `production_materials_pending` ON `production_materials` (`day`) WHERE "production_materials"."consumption_id" IS NULL;

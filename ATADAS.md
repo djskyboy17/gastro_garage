@@ -140,3 +140,35 @@ Tulajdonosi kérés: havi gyűjtőszámlánál a rendelés részleteiben ne legy
 ## Git-mentés – 2026-11-05
 
 A fenti helyi fejlesztések forrása, migrációi, tesztjei és dokumentációja a tulajdonos kérésére egy helyi Git-commitba rendezve. A helyi adatbázisok, mentések, tesztfutási adatok, titkok és gépi beállítások nem részei a commitnak. Push és online telepítés továbbra sem történt. Az utolsó kódellenőrzés: 176 sikeres teszt, TypeScript és production build.
+
+## Tulajdonosi működési szabály – napi anyagkiadás, 2026-11-06
+
+Kért következő változtatás, MÉG NINCS IMPLEMENTÁLVA: ételenként csak az elkészült adagszám rögzítése történjen; az alapanyagok végleges kiadása és a napi bon de consum csak a teljes napi zárás végén, közösen történjen. Az egyes étel rögzítése nem csökkentheti a nyersanyagkészletet. A fogyasztás az összes ténylegesen elkészült adagra vonatkozik, nem csak az eladottra; a maradék/selejt ettől külön késztermékmozgás.
+
+A jelenlegi close végpont ételenként fogyaszt és BC-t készít, a napi zárás már lezárt gyártási tételeket vár. Emiatt ez nem pusztán feliratmódosítás: a késztermék rendelkezésre állását és a nyersanyag-felhasználás könyvelését külön kell választani. A kézbesítés és az aviz nap közben továbbra is működjön. Napi véglegesítéskor közös, atomikus készletellenőrzés és anyagkiadás kell, ismételt zárásból nem lehet dupla fogyasztás; hiány/stale revision esetén semmi nem könyvelődhet részlegesen. Korábbi BC-ket és már kiadott anyagot nem szabad újra levonni; újranyitásnál a kapcsolódó helyesbítés szabályát is ki kell dolgozni. A korábbi alkalmazott migrációkat nem írjuk át.
+
+Ez a bejegyzés csak a kért szabályt és a szükséges átállást rögzíti; a futó alkalmazás anyagkiadási működése ettől még nem változott meg.
+
+## Megvalósítva – közös napi anyagkiadás, 2026-11-06
+
+Az előző fejezetben még függőként rögzített tulajdonosi szabály elkészült. A változtatás helyi; commit, push és online telepítés nem történt.
+
+- Konyhai terv → Gyártási tételek: az Elkészült adag mentése csak a tényleges adagokat és a rögzített receptből számolt anyagigény pillanatképét menti. Nem von le nyersanyagot és nem készít ételenként BC-t. A késztermék nap közben rendelkezésre áll a címkézéshez, avizhoz és kiszállításhoz.
+- Rendelés nélkül is felvehető gyártás: Étel hozzáadása a napi gyártáshoz → étel és tervezett adag → Tétel felvétele, majd a tényleges adag mentése. Ételenként és naponta továbbra is egy gyártási tétel van, összesített tényleges mennyiséggel.
+- Konyhai terv → Napi zárás → Nap lezárása: egy közös, atomikus FEFO anyagkiadás és egy napi bon de consum az összes új, halasztott gyártási tételhez. A dolgozói/selejt/adomány/maradék elszámolása ugyanebben a tranzakcióban történik. Készlethiány vagy közben változott adatok esetén nincs részleges levonás. Adminnak külön Napi bon de consum megnyitása gomb; a korábbi jogosultságok megmaradtak.
+- Bon de predare: ha kötelező/engedélyezett, a nap végén készül a tényleges anyagköltséggel, gyártási tételenként. A könyvelési profil az új halasztott tételek készre mentését megengedi a napi BP előtt; a régi tétellezárási védelem megmaradt.
+- Újranyitás: a napi BC és a hozzá tartozó BP-k sztornózódnak, a nyersanyag visszakerül, az elkészült adagszámok megmaradnak. Újbóli zárás új bizonylattal pontosan egyszer fogyaszt. Havi/korábbi bizonylatokat nem írunk át. Korábbi, már lekönyvelt gyártás és régi stock_issues nem kerül újra levonásra.
+- A régi POST /api/operations/issue rendelésenkénti anyagkiadás 410 USE_DAILY_MATERIALS hibával lezárva, a Raktárból a gomb eltávolítva. A régi kiadások olvashatók maradnak. A napi és előretekintő beszerzési terv a még le nem könyvelt, de már elkészült gyártás alapanyagigényét is figyelembe veszi, könyv szerinti készletváltoztatás nélkül.
+- Mobiljavítás: egy korábbi, 1250 px alatti globális CSS-szabály elrejtette a gyártási és napi zárási paneleket. Az új szerkeszthető panelek saját osztálya ezt felülírja; a többi panel elrendezése megmarad.
+- Generált/átnézett migrációk: 0043_daily_materials (halasztott anyagpillanatkép és a könyvelési trigger kiegészítése), 0044_production_day_guards (lezárt napra érkező új/módosított gyártás tiltása), 0045_pending_materials_index (csak a még nem könyvelt sorok indexe). Korábban alkalmazott migráció nincs átírva.
+- Normál helyi adatbázis: a 0042 alapállapot összes táblájának oszlopai ellenőrizve, előtte integritásvizsgált SQLite-mentés: work/backups/before-daily-materials-20261106-004340. Csak az új 0043–0045 migrációkat alkalmaztuk. A korábbi migrációs naplóhézag megmarad; nem szabad vakon a teljes történetet újrafuttatni. A normál adatbázisba tesztgyártás vagy tesztbefizetés nem került, integritás/FK rendben.
+- Ellenőrzés: 188 sikeres Node domain/migrációs teszt, TypeScript, production build. Elkülönített böngésző → API → D1 → újratöltés: 7+11 adag, 180 g közös anyagigény, 100 g készletnél teljes visszagörgetés; pótlás után 200→20 g és egy 1800 banis közös BC, két BP. Aviz a napi anyagkiadás előtt is kiállítható. Elavult előnézet és dupla/egyidejű zárás tiltott. Újranyitás/újrazárás után is pontos készlet. Mobil HU/RO és normál helyi, csak olvasási felületi próba sikeres.
+- A fizikai S25-próba és az éles Oblio/SPV továbbra is halasztott. A normál helyi fejlesztői cím http://127.0.0.1:5174/.
+
+### Párhuzamos Git-munka állapota
+
+A fejlesztés közben másik munkamenet létrehozta az e087439 (Simpler courier task card, v89) commitot, amelybe ennek a napi gyártási fejlesztésnek az app/src módosításai is bekerültek. Ebben a munkamenetben nem indítottunk commitot vagy push-t. A 0043–0045 migrációk és Drizzle-metaadatok, a db/schema.ts hozzáadása, a tests/daily-materials.test.mts és e dokumentáció a munka végén még helyi módosításként maradtak. Ezek a forrásmódosítások szükséges társai, és együtt kell őket verziókezelni; az e087439 önmagában nem tartalmazza a teljes adatbázis-átállást. Másik munkamenet változását nem vontuk vissza.
+
+### A kiegészítő Git-mentés lezárása
+
+A tulajdonos kérésére a napi anyagkiadás hiányzó sémája, 0043–0045 migrációi és metaadatai, tesztjei és átadási dokumentációja külön kiegészítő commitba rendezve. Ezzel az e087439 forrásmódosításaihoz szükséges adatbázis-átállás is verziókezelésbe kerül. Push és telepítés e munkamenetben nem történt.

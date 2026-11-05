@@ -1308,3 +1308,12 @@ export const archiveDocuments = sqliteTable(
     index("archive_documents_partner").on(t.partnerKey),
   ],
 );
+
+/** Ready production whose raw-material posting is deferred until the daily close. Legacy batches have no row. */
+export const productionMaterials = sqliteTable("production_materials", {
+  batchId: text("batch_id").primaryKey().references(() => productionBatches.id),
+  day: text("day").notNull(),
+  content: text("content").notNull(),
+  consumptionId: text("consumption_id").references(() => consumptionDocuments.id),
+  revision: integer("revision").notNull().default(0),
+}, (t) => [index("production_materials_day").on(t.day), index("production_materials_pending").on(t.day).where(sql`${t.consumptionId} IS NULL`)]);
