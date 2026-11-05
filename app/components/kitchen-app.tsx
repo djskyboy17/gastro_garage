@@ -52,6 +52,7 @@ import {
   Loader2,
   AlertCircle,
   FileText,
+  Building2,
   Archive,
 } from "lucide-react";
 import { messages } from "@/src/modules/shared/i18n";
@@ -133,6 +134,7 @@ const nav = [
   ["cash", Wallet],
   ["billing", FileText],
   ["archive", Archive],
+  ["company", Building2],
   ["avizes", FileText],
   ["safety", CheckCircle2],
   ["audit", History],
@@ -703,6 +705,8 @@ export default function KitchenApp() {
                             ? "archiveHint"
                           : tab === "avizes"
                             ? "settingsAbout_avizes"
+                          : tab === "company"
+                            ? "settingsAbout_company"
                           : tab === "billing"
                             ? "billingHint"
                           : tab === "recurring"
@@ -1376,6 +1380,7 @@ export default function KitchenApp() {
                 {tab === "billing" && <BillingWorkspace lang={lang} />}
                 {tab === "archive" && <ArchiveWorkspace lang={lang} />}
                 {tab === "avizes" && <AvizSettingsWorkspace lang={lang} />}
+                {tab === "company" && <AvizSettingsWorkspace lang={lang} part="company" />}
                 {tab === "cash" && <CashWorkspace key={day} lang={lang} initialDay={day} />}
                 {tab === "accounting" && <AccountingWorkspace lang={lang} />}
                 {tab === "stocktake" && <StocktakeWorkspace ops={data.operations} lang={lang} role={session.role} refresh={load}/>}

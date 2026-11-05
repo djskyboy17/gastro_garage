@@ -13,7 +13,7 @@ type SettingsView = { allDeliveries: boolean; legalFooter: string; vehicles: str
  * Beállítások → Avizok (v84): a saját cég adatai (az avizon „Furnizor”), az aviz-szabály és lábjegyzet, valamint a kiválasztott nap
  * avizjai. Aviz csak céges ügyfél kiszállított rendeléséhez kell; amíg nincs kiállítva, a rendelés nem indulhat el.
  */
-export default function AvizSettingsWorkspace({ lang }: { lang: Language }) {
+export default function AvizSettingsWorkspace({ lang, part = "aviz" }: { lang: Language; part?: "aviz" | "company" }) {
   const t = (k: string) => (messages[lang] as Record<string, string>)[k] ?? k;
   const [date, setDate] = useState(today());
   const [view, setView] = useState<SettingsView | null>(null);
@@ -88,7 +88,7 @@ export default function AvizSettingsWorkspace({ lang }: { lang: Language }) {
           {notice}
         </p>
       )}
-      {view && company && (
+      {part === "company" && view && company && (
         <section className="panel cash-section">
           <h2>
             <Building2 size={18} /> {t("companyTitle")}
@@ -112,7 +112,7 @@ export default function AvizSettingsWorkspace({ lang }: { lang: Language }) {
           </div>
         </section>
       )}
-      {view && (
+      {part === "aviz" && view && (
         <section className="panel cash-section">
           <h2>{t("avizSettingsTitle")}</h2>
           <p className="quiet-empty">{t("avizSettingsHint")}</p>
@@ -146,6 +146,7 @@ export default function AvizSettingsWorkspace({ lang }: { lang: Language }) {
           </div>
         </section>
       )}
+      {part === "aviz" && (<>
       <div className="production-toolbar">
         <button className="button secondary" aria-label={t("previous")} disabled={date <= addDays(today(), -90)} onClick={() => setDate(addDays(date, -1))}>
           <ChevronLeft size={16} />
@@ -159,6 +160,7 @@ export default function AvizSettingsWorkspace({ lang }: { lang: Language }) {
         </button>
       </div>
       <DeliveryNotesPanel key={date + ":" + version} lang={lang} date={date} />
+      </>)}
     </div>
   );
 }

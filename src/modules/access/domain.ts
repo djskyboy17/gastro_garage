@@ -11,11 +11,11 @@ export type Session = {userId:string;name:string;role:Role;canBootstrap:boolean}
 export const isAdmin = (role:Role) => role === "owner" || role === "admin";
 export const isMember = (role:Role) => ["owner","admin","dispatcher","kitchen","warehouse"].includes(role);
 /** Ritkán használt, beállítás jellegű nézetek: a főmenü helyett a Beállítások oldalról nyílnak. */
-export const settingsTabs = ["avizes","safety","fulfillment","portal","stocktake","labels","access","audit","accounting"] as const;
+export const settingsTabs = ["company","avizes","safety","fulfillment","portal","stocktake","labels","access","audit","accounting"] as const;
 export const isSettingsTab = (tab:string) => (settingsTabs as readonly string[]).includes(tab);
 export function tabsFor(role:Role): string[] {
-  if (isAdmin(role)) return ["overview","orders","recurring","kitchen","packing","delivery","catalog","customers","menu","fulfillment","portal","recipes","inventory","stocktake","labels","procurement","cash","billing","archive","avizes","safety","audit","access","settings","accounting"];
-  if (role === "dispatcher") return ["overview","orders","recurring","packing","delivery","catalog","customers","menu","fulfillment","portal","cash","billing","archive","avizes","settings"];
+  if (isAdmin(role)) return ["overview","orders","recurring","kitchen","packing","delivery","catalog","customers","menu","fulfillment","portal","recipes","inventory","stocktake","labels","procurement","cash","billing","archive","company","avizes","safety","audit","access","settings","accounting"];
+  if (role === "dispatcher") return ["overview","orders","recurring","packing","delivery","catalog","customers","menu","fulfillment","portal","cash","billing","archive","company","avizes","settings"];
   // v41: a konyha látja mindazt, ami az Áttekintésben van, plusz a raktárt és a beszerzést.
   if (isKitchenStaff(role)) return ["overview","orders","kitchen","packing","delivery","recipes","inventory","stocktake","procurement","avizes","safety","settings"];
   return [];
