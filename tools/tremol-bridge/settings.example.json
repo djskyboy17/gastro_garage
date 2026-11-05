@@ -1,0 +1,11 @@
+{
+  "mode": "preview",
+  "zfpPort": 4444,
+  "deviceSerial": "",
+  "operatorNumber": 1,
+  "operatorPassword": "",
+  "cash": { "slot": null, "name": "" },
+  "card": { "slot": null, "name": "" },
+  "vatByProduct": {},
+  "deliveryVat": null
+}

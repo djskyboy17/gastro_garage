@@ -1,5 +1,11 @@
 import { dateFormatter } from "./format.ts";
 export type Language = "hu" | "ro";
+export type ExpectedPaymentMethod = "" | "cash" | "card";
+export type FiscalReceiptState = "prepared" | "uncertain" | "issued" | "not_issued";
+export function nextFiscalReceiptState(state: FiscalReceiptState, target: FiscalReceiptState) {
+  if ((state === "prepared" || state === "uncertain") && ["uncertain", "issued", "not_issued"].includes(target)) return target;
+  throw new Error("FISCAL_STATE");
+}
 export function nextStocktakeState(status:string,action:'post'|'cancel'|'reverse'){
   if(status==='draft'&&action==='post')return 'posted';
   if(status==='draft'&&action==='cancel')return 'cancelled';
@@ -74,6 +80,7 @@ export type Item = {
   setGroup?: string;
 };
 export type Order = {
+  expectedPaymentMethod?: ExpectedPaymentMethod;
   /** v75: az iroda avizt kért ehhez a rendeléshez. */
   deliveryNoteRequired?: number;
   packingItems?:string;

@@ -95,3 +95,7 @@ Az étlap elején „Napi menü” kártya jelenik meg (leves + főétel + dessz
 ## Mobilos oldalmenü — v79
 - 820 px alatt a fejlécben csak a logó (a „Gastro Garage” név nélkül) és egy menügomb van. A menü jobbról csúszik be: az oldal részei (Rendelés, Átvétel, Saját rendeléseim – bejelentkezve; Heti menü, Kínálat, Catering, Kapcsolat), jelszó módosítása és kijelentkezés (vagy bejelentkezés), alul a telefonszám. A HU/RO váltó a fejlécben, a menügomb mellett van; a logó mobilon 46 px.
 - Linkre koppintva bezárul és a részhez ugrik; Escape, a háttér vagy az X is bezárja; nyitva a háttér nem görgethető. Az asztali nézet változatlan.
+
+## Tervezett fizetés
+
+A rendelésfeladáskor választott készpénz/kártya a rendelés pillanatképezett adata. A fizetési terv az előnézet ujjlenyomatába is beleszámít; utólag más móddal nem küldhető el ugyanaz az előnézet. A felületen kötelező a választás, régi API-kérésnél az elhagyott érték ismeretlen marad. A mező nem hoz létre befizetést és nem állít fizetett státuszt.

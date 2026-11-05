@@ -85,6 +85,16 @@
 .courier-payment>label{display:grid;gap:4px;font-size:13px}
 .courier-payment input[inputmode]{border:1px solid var(--line);border-radius:7px;padding:9px;font-size:16px;max-width:180px}
 .cash-field{display:grid;gap:4px;font-size:12px;color:var(--muted);font-weight:600}
+.accounting-workspace,.accounting-workspace .cash-section{min-width:0;grid-template-columns:minmax(0,1fr)}
+.accounting-workspace .button{max-width:100%;white-space:normal}
+.fiscal-panel{min-width:0;display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+.fiscal-panel .button{max-width:100%;white-space:normal}
+.fiscal-panel .cash-field{min-width:0;max-width:100%}
+.fiscal-panel select,.fiscal-panel input,.fiscal-panel textarea{max-width:100%;min-width:0}
+.fiscal-panel .fiscal-reason{width:100%}
+.fiscal-panel textarea{border:1px solid var(--line);border-radius:7px;padding:8px;min-height:70px;width:100%}
+.fiscal-receipt{border:1px solid var(--line);padding:10px;border-radius:7px;display:grid;gap:8px;min-width:0;overflow-wrap:anywhere}
+.accounting-workspace textarea{width:100%;min-width:0;min-height:80px;resize:vertical;border:1px solid var(--line);border-radius:7px;padding:8px 9px;background:#fff;color:var(--ink);font:inherit}
 .pay-form{align-items:end}
 /* v77: Számlázás (Oblio) */
 .bill-preview{display:grid;gap:6px}

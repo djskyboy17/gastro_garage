@@ -36,12 +36,18 @@ Egyeztetés (2026-11-04):
 ## 4. Z-jelentés egyeztetése
 - Naponta kézi rögzítés: Z-szám, bruttó összesen, ebből készpénz és kártya (és ha kell, TVA-kulcsonként).
 - A rendszer összeveti a nap rögzített fizetéseivel (készpénz és kártya külön): **eltérés** jól látható, indoklással zárható.
-- Eszközintegráció (a pénztárgép közvetlen olvasása) nincs, csak a típus ismeretében később.
+- A Tremol S25 lezárt napjának ANAF A4203 fájlja (XML vagy beágyazott XML-t tartalmazó DER P7B) a böngészőben tölti ki a Z-űrlapot. A nyers fájl és a nyugtatételek helyben maradnak. A fájl beolvasása nem ellenőrzi a P7B aláírását, és nincs közvetlen eszközkapcsolat.
+- Az űrlapra csak a kiválasztott naphoz tartozó, RON-ban és készpénzre/kártyára bontható Z-adatok kerülnek. A naponként egy Z-t kezelő űrlap másik már mentett Z-szám esetén elutasítja az importot. Mentéshez az operátor jóváhagyása szükséges.
+- Példa: a 0042-es jelentés 28,25 lej készpénze és 12,10 lej kártyás bevétele 40,35 lej összesent tölt ki. A jelentés csak a mentés után jelenik meg az egyeztető táblázatban és újratöltéskor.
 
 ## 5. Beszállítói kifizetések
 - A bevételezett beszállítói számláknál rögzíthető a kifizetés: dátum, összeg, mód (**pénztárból** / **bankból**), részfizetés is.
 - Pénztárból fizetett összeg automatikusan kiadásként a pénztárba kerül (egy tranzakcióban).
 - Lista: **nyitott tartozás** szállítónként, **lejárt** számlák (a fizetési határidő szerint) kiemelve.
+
+## Tremol S25 nyugtafájl
+
+Az állapottartó konyhai nyugtafolyamat a fiscal modulban található. A korábbi közvetlen, kifizetett-rendeléses exportot ez váltja fel; lásd az alábbi frissítést és a fiscal/SPEC.md fájlt.
 
 ## Jogosultság
 - Futár: csak a saját rendeléseinek fizetése és a saját „nálad lévő” összege.
@@ -50,7 +56,7 @@ Egyeztetés (2026-11-04):
 
 ## Ami NEM része
 - Banki utalás vevőtől, bankszámla-kivonat egyeztetése; nyitott vevőegyenleg számlával – az 5. fázissal (számlázás) jön.
-- Pénztárgép-integráció, online fizetés.
+- Több kassza, futárkassza, online fizetés és POS-tranzakció indítása.
 
 ## Lemondás befizetéssel
 - Befizetett (nettó nem nulla) rendelés nem mondható le (`ORDER_HAS_PAYMENTS`): előbb a befizetést kell sztornózni (visszaadni).
@@ -63,3 +69,17 @@ Egyeztetés (2026-11-04):
 4. Z-jelentés: készpénz 285, kártya 140; a rögzített fizetések: készpénz 285, kártya 130 → 10 lej kártya-eltérés látszik.
 5. 1000 lejes beszállítói számla, 400 pénztárból, 600 bankból → kifizetve; a pénztárban −400 kiadás; lejárt számla nincs a listán.
 6. Tévesen rögzített fizetés sztornója: az állapot visszaáll „nem fizetett”-re, a sztornó a naplóban és (ha leadott készpénz volt) a pénztárban is látszik.
+
+## Konyhai nyugtafolyamat – 2026-11-05
+
+A korábbi, már kifizetett rendelésből közvetlenül letölthető GET `/api/finance/tremol-job` export helyett a `fiscal` modul állapottartó folyamata használatos; a régi végpont 410-et ad. A rendelésben mentett tervezett készpénz/kártya és a nyugta állapota külön adat a tényleges befizetéstől. A nyugtázás semmilyen befizetést vagy pénztártételt nem hoz létre.
+
+A Pénztár külön panelje a visszaigazolt élő nyugtákat veti össze a mentett Z-vel. A meglévő beszedési egyeztetés megmarad; előnyomtatás esetén különbözhet a nyugtázás és a beszedés napja. A rendelés fizetési paneljének alapértelmezett módja a mentett terv, a kezelő a tényleges módot rögzíti. Részletek: `src/modules/fiscal/SPEC.md`.
+
+## Havi gyűjtőszámla: nincs rendelésenkénti beszedés – 2026-11-05
+
+A havi (`monthly`) ügyfél rendelésének GET /api/finance/order válasza collectionDeferred=true. A részletekben nincs fizetési státusz mező vagy új befizetési űrlap; befizetés nélküli rendelésnél a teljes fizetési panel rejtett. Ha korábban volt befizetés, az előzmény és sztornó nem vész el, de új beszedés nem indítható. A meglévő lekérdezés eredménye vezérli a státuszmezőt is, további API-hívás nélkül.
+
+POST /api/finance/payment havi ügyfélnél PAYMENT_MONTHLY_INVOICE (409). A recordPaymentStatements közös, iroda és futár által használt atomikus őre ugyanezt az aktuális customer_billing profilból ellenőrzi, így a közben megváltoztatott profil is tilt. A futár állapotvégpont érthető hibát ad, ha havi rendelést befizetéssel próbálnának kézbesíteni; beszedés nélküli kézbesítés megmarad. A normál és per_order profilok változatlanul fizethetők rendelésenként.
+
+A havi számla kiállítása utáni befizetést a billing modul számlafizetési végpontján rögzítjük. A rendelés payment mezőjét ettől nem hamisítjuk fizetettre; a számlaegyenleg az irányadó. Példa: havi rendelés kézbesítve, payments sor nélkül; kiállított havi számla kifizetése → sales_invoice_payments, továbbra sincs rendelésenkénti pénzbeszedés.

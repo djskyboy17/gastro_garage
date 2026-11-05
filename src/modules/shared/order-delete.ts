@@ -19,8 +19,8 @@ export async function hardDeleteOrder(orderId: string, guard: string, guardBinds
   try {
     await env.DB!.batch([
       env.DB!.prepare(
-        `INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN (${guard}) AND NOT EXISTS (SELECT 1 FROM delivery_notes WHERE order_id=?) AND NOT EXISTS (SELECT 1 FROM payments WHERE order_id=?) THEN 'system' ELSE NULL END,'order_delete_guard','','',?)`,
-      ).bind(guardRow, ...guardBinds, orderId, orderId, now),
+        `INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN (${guard}) AND NOT EXISTS (SELECT 1 FROM delivery_notes WHERE order_id=?) AND NOT EXISTS (SELECT 1 FROM payments WHERE order_id=?) AND NOT EXISTS (SELECT 1 FROM fiscal_receipts WHERE order_id=?) THEN 'system' ELSE NULL END,'order_delete_guard','','',?)`,
+      ).bind(guardRow, ...guardBinds, orderId, orderId, orderId, now),
       env.DB!.prepare("DELETE FROM order_items WHERE order_id=?").bind(orderId),
       env.DB!.prepare("DELETE FROM delivery_events WHERE order_id=?").bind(orderId),
       env.DB!.prepare("DELETE FROM portal_submissions WHERE order_id=?").bind(orderId),

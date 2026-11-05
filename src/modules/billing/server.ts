@@ -21,6 +21,7 @@ import {
   type SnapshotOrder,
 } from "./domain";
 import { OblioError, oblioClient } from "./oblio";
+import { orderCollectionAllowedSql } from "./order-collection";
 
 /**
  * Számlázás az Oblióval (v77). Iroda (tulajdonos, admin, diszpécser): előnézet, jóváhagyás és kiállítás, újrapróbálás, SPV,
@@ -80,6 +81,11 @@ async function loadInvoice(id: string) {
   const row = await env.DB!.prepare(`SELECT ${invoiceColumns} FROM sales_invoices WHERE id=?`).bind(id).first<InvoiceRow>();
   if (!row) throw new BillingError("NOT_FOUND", 404);
   return row;
+}
+/** Reads current policy; write batches also check the same SQL atomically. */
+export async function orderCollectionDeferred(orderId: string) {
+  const row = await env.DB!.prepare(`SELECT ${orderCollectionAllowedSql} AS allowed`).bind(orderId).first<{ allowed: number }>();
+  return row?.allowed !== 1;
 }
 /** Ügyfél számlázási módja (a futár és az aviz is használja): hiányzó sor = bon fiscal. */
 export async function billingModes(customerIds: string[]) {
@@ -286,6 +292,12 @@ export async function handleBilling(path: string, body: unknown, session: Sessio
   const params = new URL(req.url).searchParams;
   const actor = session.userId;
   const admin = isAdmin(session.role);
+
+  if (!write && path === "/api/billing/customer-mode") {
+    const customerId = z.string().min(1).max(200).parse(params.get("customerId"));
+    const modes = await billingModes([customerId]);
+    return json({ mode: modes.get(customerId) ?? "receipt" });
+  }
 
   if (!write && path === "/api/billing") {
     const period = params.get("period") ?? today().slice(0, 7);

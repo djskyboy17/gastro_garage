@@ -205,6 +205,7 @@ export type InvoiceLine = InvoiceLineAmounts & {
 };
 export type InvoiceHeader = {
   kind: InvoiceKind;
+  purpose?: "stock" | "expense";
   supplierName: string;
   supplierTaxId: string;
   series: string;

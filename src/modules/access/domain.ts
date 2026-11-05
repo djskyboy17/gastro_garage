@@ -11,10 +11,10 @@ export type Session = {userId:string;name:string;role:Role;canBootstrap:boolean}
 export const isAdmin = (role:Role) => role === "owner" || role === "admin";
 export const isMember = (role:Role) => ["owner","admin","dispatcher","kitchen","warehouse"].includes(role);
 /** Ritkán használt, beállítás jellegű nézetek: a főmenü helyett a Beállítások oldalról nyílnak. */
-export const settingsTabs = ["safety","fulfillment","portal","stocktake","labels","access","audit"] as const;
+export const settingsTabs = ["safety","fulfillment","portal","stocktake","labels","access","audit","accounting"] as const;
 export const isSettingsTab = (tab:string) => (settingsTabs as readonly string[]).includes(tab);
 export function tabsFor(role:Role): string[] {
-  if (isAdmin(role)) return ["overview","orders","recurring","kitchen","packing","delivery","catalog","customers","menu","fulfillment","portal","recipes","inventory","stocktake","labels","procurement","cash","billing","safety","audit","access","settings"];
+  if (isAdmin(role)) return ["overview","orders","recurring","kitchen","packing","delivery","catalog","customers","menu","fulfillment","portal","recipes","inventory","stocktake","labels","procurement","cash","billing","safety","audit","access","settings","accounting"];
   if (role === "dispatcher") return ["overview","orders","recurring","packing","delivery","catalog","customers","menu","fulfillment","portal","cash","billing","settings"];
   // v41: a konyha látja mindazt, ami az Áttekintésben van, plusz a raktárt és a beszerzést.
   if (isKitchenStaff(role)) return ["overview","orders","kitchen","packing","delivery","recipes","inventory","stocktake","procurement","safety","settings"];

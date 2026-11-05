@@ -34,3 +34,10 @@ A futártörzs (`couriers`) és a fiók–futár összekötés megszűnt (a `cou
 
 ## Havi számlás ügyfél — v77
 - Havi gyűjtőszámlás ügyfél rendelésénél a feladaton „Havi számla – nem kell fizetni” áll, a hátralék 0 (a futár nem szed pénzt).
+
+## Aviz megnyitása
+
+- A rendeléskártyán Aviz gomb nyitja meg a már kiállított dokumentum román nyomtatási nézetét. Kiállításra váró aviznál a gomb inaktív és érthető állapotjelzés látszik.
+- A GET `/api/courier/aviz?orderId=&date=` ellenőrzi az aktuális Futár szerepkört, a dátumtartományt és a feladat aktuális láthatóságát. Az egyfutáros modellben ez ugyanaz a közös feladatlista, amelyet a futárfelület használ.
+- Átvételes, lemondott vagy a választott feladatlistán kívüli rendelés avizja nem szolgálható ki. Sztornózott dokumentum helyett csak aktuálisan érvényes aviz nyitható meg. A megnyitás nem állít ki új bizonylatot.
+- Alkalmazott könyvelési profillal az aviz nélküli indulás adatbázisszinten tiltott, az állapot, befizetés és napló együttes visszagörgetésével.

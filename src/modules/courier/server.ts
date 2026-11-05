@@ -7,10 +7,11 @@ import type {Session} from '../access/domain';
 import type {Identity} from '../access/server';
 import {today,nextState,type Order} from '../shared/domain';
 import {validDay,addDays} from '../menu/domain';
-import {courierTask,type CourierTasks} from './domain';
+import {courierTask,courierOrderVisible,type CourierTasks} from './domain';
+import {printCourierAviz} from '../delivery-notes/server';
 import {orderBalance,paymentError,type Payment} from '../finance/domain';
 import {recordPaymentStatements,courierCashOnHand} from '../finance/server';
-import {billingModes} from '../billing/server';
+import {billingModes,orderCollectionDeferred} from '../billing/server';
 export class CourierError extends Error{constructor(public code:string,public status=400){super(code);}}
 const json=(v:unknown,status=200)=>Response.json(v,{status,headers:{'Cache-Control':'no-store'}});
 /**
@@ -18,9 +19,16 @@ const json=(v:unknown,status=200)=>Response.json(v,{status,headers:{'Cache-Contr
  * az összes kiszállításos feladatot látja, és a rendelésre a saját neve kerül (indulásnál).
  */
 function requireCourier(session:Session){if(session.role!=='courier')throw new CourierError('COURIER_ROLE_REQUIRED',403);}
-export async function handleCourier(path:string,body:unknown,user:Identity,session:Session,write:boolean,date:string):Promise<Response>{
+export async function handleCourier(path:string,body:unknown,user:Identity,session:Session,write:boolean,date:string,req:Request):Promise<Response>{
   const db=getDb(),now=new Date().toISOString();
   requireCourier(session);
+  if (!write && path === '/api/courier/aviz') {
+    if (!validDay(date) || date < addDays(today(), -30) || date > addDays(today(), 30)) throw new CourierError('COURIER_DATE');
+    const orderId = z.string().min(1).max(200).parse(new URL(req.url).searchParams.get('orderId'));
+    const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+    if (!order || !courierOrderVisible(order, date, today())) throw new CourierError('NOT_FOUND', 404);
+    return printCourierAviz(orderId);
+  }
   if(!write&&path==='/api/courier/tasks'){
     if(!validDay(date)||date<addDays(today(),-30)||date>addDays(today(),30))throw new CourierError('COURIER_DATE');
     const scope=and(eq(orders.status,'confirmed'),ne(orders.fulfillmentMode,'pickup'),or(eq(orders.date,date),eq(orders.delivery,'transit'),and(lt(orders.date,today()),ne(orders.delivery,'delivered'))));
@@ -30,8 +38,11 @@ export async function handleCourier(path:string,body:unknown,user:Identity,sessi
     const items=itemRows.map(r=>r.item),events=eventRows.map(r=>r.event);
     // v76: a beszedendő összeghez a rendelés végösszege és befizetései kellenek (árak a futárnak nem jelennek meg, csak a hátralék).
     const payRows=ids.length?(await env.DB!.prepare("SELECT order_id AS orderId,amount FROM payments WHERE order_id IN (SELECT value FROM json_each(?))").bind(JSON.stringify(ids)).all<Pick<Payment,'orderId'|'amount'>>()).results:[];
+    const avizRows = ids.length ? (await env.DB!.prepare("SELECT order_id AS orderId FROM delivery_notes WHERE order_id IN (SELECT value FROM json_each(?)) AND kind='issue' AND status='issued'").bind(JSON.stringify(ids)).all<{orderId:string}>()).results : [];
+    const avizOrders = new Set(avizRows.map(row => row.orderId));
     const cashOnHand=await courierCashOnHand(user.userId),modes=await billingModes(rows.map(o=>o.customerId));
     const data:CourierTasks={date,cashOnHand,courier:{name:session.name,vehicle:''},tasks:rows.map(o=>{const own=items.filter(i=>i.orderId===o.id),totalDue=own.reduce((s,i)=>s+i.price*i.quantity,0)+(o.deliveryFee??0),pays=payRows.filter(p=>p.orderId===o.id);const onAccount=modes.get(o.customerId)==='monthly';const task={...courierTask({...o,items:own} as Order),onAccount,due:onAccount?0:orderBalance(totalDue,pays,o.payment==='paid').due};return {...task,events:events.filter(e=>e.orderId===o.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(e=>{let note='';try{note=String(JSON.parse(e.detail).note??'');}catch{}return {kind:e.kind,note,createdAt:e.createdAt};})};})};
+    data.tasks = data.tasks.map(task => ({...task, avizAvailable: avizOrders.has(task.id)}));
     return json(data);
   }
   if(!write||path!=='/api/courier/state')return json({error:'NOT_FOUND'},404);
@@ -44,6 +55,7 @@ export async function handleCourier(path:string,body:unknown,user:Identity,sessi
   const updated=nextState({...o,items:[]} as Order,'delivery',d.value);
   // v76: kézbesítéskor a beszedett összeg ugyanabban a kötegben rögzül (csak 'delivered'-nél).
   if(d.payment&&d.value!=='delivered')throw new CourierError('VALIDATION');
+  if(d.payment && await orderCollectionDeferred(d.orderId))throw new CourierError('PAYMENT_MONTHLY_INVOICE',409);
   if(d.payment){const due=(await env.DB!.prepare("SELECT o.payment,o.delivery_fee+COALESCE((SELECT SUM(price*quantity) FROM order_items WHERE order_id=o.id),0) AS total,(SELECT COUNT(*) FROM payments WHERE order_id=o.id) AS n,COALESCE((SELECT SUM(amount) FROM payments WHERE order_id=o.id),0) AS paid FROM orders o WHERE o.id=?").bind(d.orderId).first<{payment:string;total:number;n:number;paid:number}>())!;const err=paymentError(d.payment.amount,due.payment==='paid'&&due.n===0?0:Math.max(0,due.total-due.paid));if(err)throw new CourierError(err);}
   const paymentStatements=d.payment?recordPaymentStatements({orderId:d.orderId,method:d.payment.method,amount:d.payment.amount,collectedBy:'courier',collectorId:user.userId,collectorName:session.name.slice(0,200),note:'',now}):[];
   // Induláskor a futár neve kerül a rendelésre (egyszerű szöveg, nincs összekötés).

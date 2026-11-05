@@ -51,7 +51,7 @@ const money = z.number().int().min(-100_000_000).max(100_000_000);
 
 type InvoiceRow = Omit<Invoice, "lines">;
 const invoiceColumns =
-  "id,kind,status,revision,supplier_name AS supplierName,supplier_tax_id AS supplierTaxId,series,number,issue_date AS issueDate,currency,subtotal,vat_total AS vatTotal,sgr_total AS sgrTotal,total,source,model,has_file AS hasFile,(SELECT mime FROM supplier_invoice_files f WHERE f.invoice_id=supplier_invoices.id) AS fileMime,note,cost_basis AS costBasis,received_date AS receivedDate,received_by AS receivedBy,received_at AS receivedAt,created_by AS createdBy,created_at AS createdAt,supplier_id AS supplierId,due_date AS dueDate,mismatch_reason AS mismatchReason";
+  "id,kind,purpose,status,revision,supplier_name AS supplierName,supplier_tax_id AS supplierTaxId,series,number,issue_date AS issueDate,currency,subtotal,vat_total AS vatTotal,sgr_total AS sgrTotal,total,source,model,has_file AS hasFile,(SELECT mime FROM supplier_invoice_files f WHERE f.invoice_id=supplier_invoices.id) AS fileMime,note,cost_basis AS costBasis,received_date AS receivedDate,received_by AS receivedBy,received_at AS receivedAt,created_by AS createdBy,created_at AS createdAt,supplier_id AS supplierId,due_date AS dueDate,mismatch_reason AS mismatchReason";
 const lineColumns =
   "id,invoice_id AS invoiceId,position,description,invoice_quantity AS invoiceQuantity,invoice_unit AS invoiceUnit,line_net AS lineNet,vat_rate AS vatRate,line_gross AS lineGross,deposit,skip,ingredient_id AS ingredientId,base_quantity AS baseQuantity,received_quantity AS receivedQuantity,expires,batch,lot_id AS lotId";
 
@@ -145,6 +145,7 @@ const saveInput = z
     id: uuid,
     revision: z.number().int().min(0),
     kind: z.enum(["factura", "bon_fiscal"]),
+    purpose: z.enum(["stock", "expense"]).optional(),
     supplierName: z.string().trim().max(200),
     supplierTaxId: z.string().trim().max(20),
     series: z.string().trim().max(40),
@@ -239,6 +240,12 @@ export async function handleInvoices(path: string, body: unknown, session: Sessi
 
   if (path === "/api/invoices/save") {
     const d = saveInput.parse(body);
+    const current = await env.DB!.prepare("SELECT purpose FROM supplier_invoices WHERE id=?").bind(d.id).first<{purpose: "stock" | "expense"}>();
+    if (!current) throw new InvoiceError("NOT_FOUND", 404);
+    const purpose = d.purpose ?? current.purpose;
+    if (purpose === "expense") {
+      d.lines = d.lines.map((line) => ({ ...line, skip: 1, ingredientId: null, baseQuantity: 0, receivedQuantity: null, expires: "", batch: "" }));
+    }
     if (new Set(d.lines.map((l) => l.id)).size !== d.lines.length) throw new InvoiceError("VALIDATION");
     const ids = [...new Set(d.lines.map((l) => l.ingredientId).filter((v): v is string => !!v))];
     if (ids.length) {
@@ -252,9 +259,9 @@ export async function handleInvoices(path: string, body: unknown, session: Sessi
       ...(lines.length ? [insertLines(d.id, lines)] : []),
       env
         .DB!.prepare(
-          "UPDATE supplier_invoices SET kind=?,supplier_name=?,supplier_tax_id=?,series=?,number=?,issue_date=?,currency=?,subtotal=?,vat_total=?,sgr_total=?,total=?,note=?,due_date=?,revision=revision+1 WHERE id=? AND revision=? AND status='draft'",
+          "UPDATE supplier_invoices SET kind=?,purpose=?,supplier_name=?,supplier_tax_id=?,series=?,number=?,issue_date=?,currency=?,subtotal=?,vat_total=?,sgr_total=?,total=?,note=?,due_date=?,revision=revision+1 WHERE id=? AND revision=? AND status='draft'",
         )
-        .bind(d.kind, d.supplierName, d.supplierTaxId, d.series, d.number, d.issueDate, d.currency, d.subtotal, d.vatTotal, d.sgrTotal, d.total, d.note, d.dueDate, d.id, d.revision),
+        .bind(d.kind, purpose, d.supplierName, d.supplierTaxId, d.series, d.number, d.issueDate, d.currency, d.subtotal, d.vatTotal, d.sgrTotal, d.total, d.note, d.dueDate, d.id, d.revision),
     ]);
     if (result[result.length - 1]!.meta.changes !== 1) throw new InvoiceError("CONFLICT", 409);
     return json({ ok: true, revision: d.revision + 1 });
@@ -277,13 +284,14 @@ export async function handleInvoices(path: string, body: unknown, session: Sessi
     const settings = await loadSettings(),
       costBasis = settings.costBasis;
     const receivable = lines.filter((l) => !l.skip);
-    if (!receivable.length) throw new InvoiceError("INVOICE_NOTHING_TO_RECEIVE");
+    const expense = invoice.purpose === "expense";
+    if (!expense && !receivable.length) throw new InvoiceError("INVOICE_NOTHING_TO_RECEIVE");
     for (const l of receivable) {
       const error = lineReceiveError(l, d.receivedDate, costBasis);
       if (error) throw new InvoiceError(error);
     }
     const ids = [...new Set(receivable.map((l) => l.ingredientId!))];
-    const ingredients = (await env.DB!.prepare(`SELECT id,ro,unit FROM ingredients WHERE id IN (${ids.map(() => "?").join(",")})`).bind(...ids).all<{ id: string; ro: string; unit: string }>()).results;
+    const ingredients = ids.length ? (await env.DB!.prepare(`SELECT id,ro,unit FROM ingredients WHERE id IN (${ids.map(() => "?").join(",")})`).bind(...ids).all<{ id: string; ro: string; unit: string }>()).results : [];
     // v72: szállító a törzsből CUI szerint; ha nincs, bevételezéskor felvesszük (név + CUI).
     const tax = normalizeTaxId(invoice.supplierTaxId).replace(/^RO/, "");
     const suppliersRows = (await env.DB!.prepare("SELECT id,tax_id AS taxId FROM suppliers").all<{ id: string; taxId: string }>()).results;
@@ -291,6 +299,19 @@ export async function handleInvoices(path: string, body: unknown, session: Sessi
     const supplierId = existingSupplier?.id ?? crypto.randomUUID();
     const label = (invoice.kind === "bon_fiscal" ? "Bon fiscal" : "Factura") + " " + [invoice.series + invoice.number, invoice.issueDate].filter(Boolean).join(" / ");
     const document = label.trim().slice(0, 200);
+    if (expense) {
+      if (d.receivedDate > today() || invoice.total === null || invoice.total <= 0) throw new InvoiceError("VALIDATION");
+      const content = JSON.stringify({ ...invoice, lines, supplierId, status: "received", costBasis: "gross", receivedDate: d.receivedDate, receivedBy: actor, receivedAt: now, mismatchReason: d.mismatchReason });
+      await run([
+        guard("expense_recorded", d.id, d.revision, content),
+        ...(!existingSupplier ? [env.DB!.prepare("INSERT INTO suppliers (id,name,tax_id,address,email,phone,note) VALUES (?,?,?,'','','','')").bind(supplierId, invoice.supplierName.slice(0, 200), invoice.supplierTaxId)] : []),
+        env.DB!.prepare("INSERT INTO expense_documents (id,invoice_id,kind,posting_day,amount,content,created_by,created_at) VALUES (?,?,'expense',?,?,?,?,?)")
+          .bind(crypto.randomUUID(), d.id, d.receivedDate, invoice.total, content, actor, now),
+        env.DB!.prepare("UPDATE supplier_invoices SET status='received',cost_basis='gross',revision=revision+1,received_date=?,received_by=?,received_at=?,supplier_id=?,mismatch_reason=? WHERE id=? AND revision=? AND status='draft'")
+          .bind(d.receivedDate, actor, now, supplierId, d.mismatchReason, d.id, d.revision),
+      ]);
+      return json({ ok: true, lots: 0, nirId: null });
+    }
     const nirId = crypto.randomUUID();
     const nir = allocateDocumentNumber("nir", d.receivedDate, now);
     const statements: D1PreparedStatement[] = [guard("invoice_received", d.id, d.revision, JSON.stringify({ lines: receivable.length, costBasis, nirId }))];
@@ -355,6 +376,21 @@ export async function handleInvoices(path: string, body: unknown, session: Sessi
     // a számla újra piszkozat lesz (javítható és újra bevételezhető). Az eredeti NIR megmarad, „sztornózva” jelöléssel.
     if (!isAdmin(session.role)) throw new InvoiceError("FORBIDDEN", 403);
     const d = z.object({ id: uuid, revision: z.number().int().min(0), reason: z.string().trim().min(1).max(500) }).strict().parse(body);
+    const expense = await env.DB!.prepare("SELECT id,amount,content FROM expense_documents WHERE invoice_id=? AND kind='expense' AND reversed_by IS NULL").bind(d.id).first<{id:string;amount:number;content:string}>();
+    if (expense) {
+      const reversalId = crypto.randomUUID();
+      const paid = await env.DB!.prepare("SELECT COALESCE(SUM(amount),0) AS amount FROM supplier_payments WHERE invoice_id=?").bind(d.id).first<{amount:number}>();
+      if (paid?.amount) throw new InvoiceError("INVOICE_EXPENSE_PAID", 409);
+      await run([
+        env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM supplier_invoices WHERE id=? AND revision=? AND status='received' AND purpose='expense') AND EXISTS (SELECT 1 FROM expense_documents WHERE id=? AND reversed_by IS NULL) AND COALESCE((SELECT SUM(amount) FROM supplier_payments WHERE invoice_id=?),0)=0 THEN ? ELSE NULL END,'expense_reversed',?,?,?)")
+          .bind(crypto.randomUUID(), d.id, d.revision, expense.id, d.id, actor, d.id, JSON.stringify({ reason: d.reason, original: expense.id }), now),
+        env.DB!.prepare("UPDATE expense_documents SET reversed_by=? WHERE id=? AND reversed_by IS NULL").bind(reversalId, expense.id),
+        env.DB!.prepare("INSERT INTO expense_documents (id,invoice_id,kind,posting_day,amount,content,reversal_of,created_by,created_at) VALUES (?,?,'reversal',?,?,?,?,?,?)")
+          .bind(reversalId, d.id, today(), -expense.amount, expense.content, expense.id, actor, now),
+        env.DB!.prepare("UPDATE supplier_invoices SET status='draft',revision=revision+1,cost_basis='',received_date='',received_by='',received_at='' WHERE id=? AND revision=?").bind(d.id, d.revision),
+      ]);
+      return json({ ok: true, nirId: null });
+    }
     const original = await env.DB!.prepare("SELECT id,year,number,content FROM nir_documents WHERE invoice_id=? AND kind='receipt' AND status='issued' ORDER BY created_at DESC LIMIT 1").bind(d.id).first<{ id: string; year: number; number: number; content: string }>();
     if (!original) throw new InvoiceError("CONFLICT", 409);
     const originalContent = JSON.parse(original.content) as NirContent;
@@ -398,6 +434,7 @@ export async function handleInvoices(path: string, body: unknown, session: Sessi
 
   if (path === "/api/invoices/discard") {
     const d = z.object({ id: uuid, revision: z.number().int().min(0) }).strict().parse(body);
+    if (await env.DB!.prepare("SELECT 1 FROM expense_documents WHERE invoice_id=? LIMIT 1").bind(d.id).first()) throw new InvoiceError("INVOICE_EXPENSE_HISTORY", 409);
     // v72: amelyik számlához NIR készült (akár sztornózva), az megmarad – bizonylat nem törölhető.
     if (await env.DB!.prepare("SELECT 1 FROM nir_documents WHERE invoice_id=? LIMIT 1").bind(d.id).first()) throw new InvoiceError("INVOICE_HAS_NIR", 409);
     const result = await run([

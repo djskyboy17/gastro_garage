@@ -84,3 +84,11 @@ Egyeztetés (2026-11-04):
 5. Sztornó után a rendelések újra számlázhatók, a régi számla „sztornózva”.
 6. SPV-elutasítás: a számla „hibás” állapotú, látszik az üzenet.
 7. Hiányos céges adat (nincs CUI): nem állítható ki, érthető hibaüzenettel.
+
+## Rendelésfelvétel számlázási módja – 2026-11-05
+
+GET /api/billing/customer-mode?customerId=…: a meglévő irodai szerepkörökkel elérhető, csak a mode mezőt visszaadó olvasás. A hiányzó ügyfélprofil receipt módot jelent. Nem tölti be a számlaegyenlegeket és számlalistákat. Az új rendelés per_order/monthly módnál kihagyja a készpénz/kártya választását és üres tervezett módot küld; sem számlát, sem befizetést nem hoz létre ettől.
+
+## Havi beszedés helye – 2026-11-05
+
+A havi gyűjtőszámlás ügyfél fizetése a kiállított számlához tartozik, nem a rendeléshez. A billing/order-collection.ts feltétele az aktuális ügyfélprofil alapján tiltja a rendelésenkénti pénzbeszedést és az új fiskális nyugta-előkészítést. A finance és fiscal modul az ellenőrzést az atomikus írási kötegben is használja. A meglévő POST /api/billing/payment csak issued, nem sztornó számlán enged befizetést; ez a működés megmarad. Egy havi számla kifizetése nem hoz létre külön payments sort a rendeléseken, így nem duplázzuk az összeget.

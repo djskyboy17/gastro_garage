@@ -1,9 +1,12 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
-import { Wallet, Printer, Undo2, Lock, Save, AlertTriangle, RefreshCw, HandCoins, Receipt, Truck } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Wallet, Printer, Undo2, Lock, Save, AlertTriangle, RefreshCw, HandCoins } from "lucide-react";
 import { messages } from "@/src/modules/shared/i18n";
 import { today, type Language } from "@/src/modules/shared/domain";
 import type { CashEntry, Payment, PaymentStatus } from "@/src/modules/finance/domain";
+import { readTremolZ, TremolZImportError } from "@/src/modules/finance/tremol-z";
+import { FiscalDayPanel } from "./fiscal-workspace";
+import WorkspaceDetails from "./workspace-details";
 
 const lei = (bani: number) => (bani / 100).toLocaleString("ro-RO", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " lei";
 const toBani = (s: string) => (/^\d{1,7}([.,]\d{1,2})?$/.test(s.trim()) ? Math.round(Number(s.trim().replace(",", ".")) * 100) : NaN);
@@ -20,10 +23,10 @@ async function call<T>(url: string, body?: unknown): Promise<T> {
 }
 
 /** Fizetés a rendelés részleteinél (v76): egyenleg, befizetések, új befizetés, sztornó. */
-export function OrderPaymentPanel({ lang, orderId, canEdit, onSaved }: { lang: Language; orderId: string; canEdit: boolean; onSaved: () => void }) {
+export function OrderPaymentPanel({ lang, orderId, canEdit, expectedMethod, onSaved, onCollectionLoaded }: { lang: Language; orderId: string; canEdit: boolean; expectedMethod?: string; onSaved: () => void; onCollectionLoaded?: (orderId: string, deferred: boolean) => void }) {
   const t = useT(lang);
-  const [data, setData] = useState<{ total: number; revision: number; balance: { paid: number; due: number; status: PaymentStatus }; payments: Payment[] } | null>(null);
-  const [method, setMethod] = useState<"cash" | "card">("cash");
+  const [data, setData] = useState<{ collectionDeferred: boolean; total: number; revision: number; balance: { paid: number; due: number; status: PaymentStatus }; payments: Payment[] } | null>(null);
+  const [method, setMethod] = useState<"cash" | "card">(expectedMethod === "card" ? "card" : "cash");
   const [amount, setAmount] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -31,11 +34,12 @@ export function OrderPaymentPanel({ lang, orderId, canEdit, onSaved }: { lang: L
     call<NonNullable<typeof data>>("/api/finance/order?id=" + encodeURIComponent(orderId)).then(
       (v) => {
         setData(v);
+        onCollectionLoaded?.(orderId, v.collectionDeferred);
         setAmount(fromBani(v.balance.due));
       },
       (e: Error) => setError(e.message),
     );
-  }, [orderId]);
+  }, [orderId, onCollectionLoaded]);
   useEffect(() => {
     load();
   }, [load]);
@@ -53,21 +57,23 @@ export function OrderPaymentPanel({ lang, orderId, canEdit, onSaved }: { lang: L
     }
   }
   if (!data) return error ? <p className="portal-alert">{t(error)}</p> : null;
+  if (data.collectionDeferred && data.payments.length === 0) return null;
   const legacy = data.balance.status === "paid" && data.payments.length === 0;
   return (
     <section className="pay-panel">
       <div className="pay-head">
         <strong>
-          <Wallet size={16} /> {t("payTitle")}
+          <Wallet size={16} /> {t(data.collectionDeferred ? "simplePaymentHistory" : "payTitle")}
         </strong>
         <span className={"badge " + (data.balance.status === "paid" ? "ready" : data.balance.status === "partial" ? "cooking" : "queued")}>{t("payStatus_" + data.balance.status)}</span>
       </div>
       <p className="pay-sums">
         {t("payTotal")}: <b>{lei(data.total)}</b> · {t("payPaid")}: <b>{lei(data.balance.paid)}</b> · {t("payDue")}: <b>{lei(data.balance.due)}</b>
       </p>
+      {data.collectionDeferred && <p className="pay-sums">{t("PAYMENT_MONTHLY_INVOICE")}</p>}
       {legacy && <small>{t("payLegacy")}</small>}
       {data.payments.length > 0 && (
-        <ul className="pay-list">
+        <details className="simple-history"><summary>{t("simplePaymentHistory")} ({data.payments.length})</summary><ul className="pay-list">
           {data.payments.map((p) => (
             <li key={p.id} className={p.reversedBy || p.reversalOf ? "is-reversed" : ""}>
               <span>
@@ -90,15 +96,15 @@ export function OrderPaymentPanel({ lang, orderId, canEdit, onSaved }: { lang: L
               )}
             </li>
           ))}
-        </ul>
+        </ul></details>
       )}
-      {canEdit && data.balance.due > 0 && (
-        <div className="pay-form">
-          <select value={method} disabled={busy} onChange={(e) => setMethod(e.target.value as "cash" | "card")}>
+      {canEdit && !data.collectionDeferred && data.balance.due > 0 && (
+        <div className="pay-form simple-pay-fields">
+          <label>{t("simpleMethod")}<select value={method} disabled={busy} onChange={(e) => setMethod(e.target.value as "cash" | "card")}>
             <option value="cash">{t("payMethod_cash")}</option>
             <option value="card">{t("payMethod_card")}</option>
-          </select>
-          <input inputMode="decimal" aria-label={t("payAmount")} value={amount} disabled={busy} onChange={(e) => setAmount(e.target.value)} />
+          </select></label>
+          <label>{t("payAmount")}<input inputMode="decimal" aria-label={t("payAmount")} value={amount} disabled={busy} onChange={(e) => setAmount(e.target.value)} /></label>
           <button
             className="button"
             disabled={busy || !(toBani(amount) > 0)}
@@ -147,18 +153,26 @@ export default function CashWorkspace({ lang, initialDay }: { lang: Language; in
   const [handoverNote, setHandoverNote] = useState<Record<string, string>>({});
   const [entry, setEntry] = useState({ kind: "other_out", amount: "", document: "", note: "" });
   const [z, setZ] = useState({ zNumber: "", total: "", cash: "", card: "", note: "" });
+  const [zImportMessage, setZImportMessage] = useState<{ key: string; error: boolean; date?: string }>();
   const [supPay, setSupPay] = useState<Record<string, { amount: string; method: "cash" | "bank" }>>({});
+  const loadSequence = useRef(0);
 
   const load = useCallback((d: string) => {
+    const sequence = ++loadSequence.current;
+    setView(null);
+    setZImportMessage(undefined);
     call<DayView>("/api/finance/day?date=" + d).then(
       (v) => {
+        if (sequence !== loadSequence.current) return;
         setView(v);
         setError("");
         setCounted(Object.fromEntries(v.couriers.map((c) => [c.courierUserId, fromBani(c.expected)])));
         setZ(v.z ? { zNumber: v.z.zNumber, total: fromBani(v.z.total), cash: fromBani(v.z.cash), card: fromBani(v.z.card), note: v.z.note } : { zNumber: "", total: "", cash: "", card: "", note: "" });
         setSupPay({});
       },
-      (e: Error) => setError(e.message),
+      (e: Error) => {
+        if (sequence === loadSequence.current) setError(e.message);
+      },
     );
   }, []);
   useEffect(() => {
@@ -178,6 +192,29 @@ export default function CashWorkspace({ lang, initialDay }: { lang: Language; in
       setBusy(false);
     }
   }
+  async function importZ(file: File) {
+    if (busy || view?.date !== date || date > today()) return;
+    setBusy(true);
+    setZImportMessage(undefined);
+    try {
+      const report = await readTremolZ(file);
+      if (report.date !== date) {
+        setZImportMessage({ key: "zImportDate", error: true, date: report.date });
+        return;
+      }
+      const savedNumber = view.z?.zNumber;
+      if (savedNumber && savedNumber.replace(/^0+(?=\d)/, "") !== report.zNumber.replace(/^0+(?=\d)/, "")) {
+        setZImportMessage({ key: "zImportExisting", error: true });
+        return;
+      }
+      setZ((draft) => ({ ...draft, zNumber: report.zNumber, total: fromBani(report.total), cash: fromBani(report.cash), card: fromBani(report.card) }));
+      setZImportMessage({ key: "zImportReview", error: false });
+    } catch (e) {
+      setZImportMessage({ key: e instanceof TremolZImportError ? e.code : "zImportInvalid", error: true });
+    } finally {
+      setBusy(false);
+    }
+  }
   const isToday = date === today();
   const open = view?.cash.status === "open";
   const canAdd = isToday && open;
@@ -187,8 +224,8 @@ export default function CashWorkspace({ lang, initialDay }: { lang: Language; in
     <div className="cash-workspace">
       <div className="production-toolbar">
         <label>
-          {t("date")}
-          <input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />
+          {t("simpleCashDate")}
+          <input type="date" value={date} disabled={busy} onChange={(e) => e.target.value && setDate(e.target.value)} />
         </label>
         <button className="text-button" onClick={() => load(date)} disabled={busy}>
           <RefreshCw size={16} />
@@ -207,54 +244,9 @@ export default function CashWorkspace({ lang, initialDay }: { lang: Language; in
           {t(error)}
         </div>
       )}
-      {view && (
+      {view?.date === date && (
         <>
-          <section className="panel cash-section">
-            <h2>
-              <Truck size={18} /> {t("cashCouriers")}
-            </h2>
-            {!view.couriers.length && <p className="quiet-empty">{t("cashCouriersNone")}</p>}
-            {view.couriers.map((c) => {
-              const c2 = toBani(counted[c.courierUserId] ?? "");
-              return (
-                <div className="cash-row" key={c.courierUserId}>
-                  <div>
-                    <strong>{c.courierName || "—"}</strong>
-                    <small>
-                      {t("cashExpected")}: {lei(c.expected)} ({c.count})
-                    </small>
-                  </div>
-                  <input className="production-num" inputMode="decimal" aria-label={t("cashCounted")} value={counted[c.courierUserId] ?? ""} disabled={busy || !canAdd} onChange={(e) => setCounted({ ...counted, [c.courierUserId]: e.target.value })} />
-                  {c2 !== c.expected && (
-                    <input className="cash-note" placeholder={t("cashHandoverNote")} value={handoverNote[c.courierUserId] ?? ""} disabled={busy || !canAdd} onChange={(e) => setHandoverNote({ ...handoverNote, [c.courierUserId]: e.target.value })} />
-                  )}
-                  <button
-                    className="button"
-                    disabled={busy || !canAdd || !(c2 >= 0) || (c2 !== c.expected && !(handoverNote[c.courierUserId] ?? "").trim())}
-                    onClick={() => void post("handover", { courierUserId: c.courierUserId, expected: c.expected, counted: c2, note: handoverNote[c.courierUserId] ?? "" })}
-                  >
-                    <HandCoins size={15} /> {t("cashHandover")}
-                  </button>
-                </div>
-              );
-            })}
-            {view.handovers.length > 0 && (
-              <details>
-                <summary>{t("cashHandoversToday")} ({view.handovers.length})</summary>
-                <ul className="pay-list">
-                  {view.handovers.map((h) => (
-                    <li key={h.id}>
-                      <span>
-                        {h.courierName} · {t("cashExpected")} {lei(h.expected)}
-                        {h.note ? " · " + h.note : ""}
-                      </span>
-                      <b className={diffClass(h.counted - h.expected)}>{lei(h.counted)}</b>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            )}
-          </section>
+
 
           <section className="panel cash-section">
             <h2>
@@ -304,7 +296,7 @@ export default function CashWorkspace({ lang, initialDay }: { lang: Language; in
               </ul>
             )}
             {canAdd ? (
-              <div className="pay-form">
+              <WorkspaceDetails title={t("simpleCashMovement")} hint={t("simpleCashMovementHint")}><div className="pay-form">
                 <select value={entry.kind} disabled={busy} onChange={(e) => setEntry({ ...entry, kind: e.target.value })}>
                   {["deposit", "other_in", "bank_deposit", "other_out"].map((k) => (
                     <option key={k} value={k}>
@@ -324,7 +316,7 @@ export default function CashWorkspace({ lang, initialDay }: { lang: Language; in
                 >
                   <Save size={15} /> {t("cashAdd")}
                 </button>
-              </div>
+              </div></WorkspaceDetails>
             ) : (
               open && <small>{t("cashTodayOnly")}</small>
             )}
@@ -350,10 +342,64 @@ export default function CashWorkspace({ lang, initialDay }: { lang: Language; in
             </div>
           </section>
 
-          <section className="panel cash-section">
-            <h2>
-              <Receipt size={18} /> {t("zTitle")}
-            </h2>
+          <WorkspaceDetails title={t("cashCouriers")} hint={view.couriers.length ? view.couriers.length + " · " + lei(view.couriers.reduce((sum, row) => sum + row.expected, 0)) : t("simpleNoCourierCash")} attention={view.couriers.length > 0}>
+            {!view.couriers.length && <p className="quiet-empty">{t("cashCouriersNone")}</p>}
+            {view.couriers.map((c) => {
+              const c2 = toBani(counted[c.courierUserId] ?? "");
+              return (
+                <div className="cash-row" key={c.courierUserId}>
+                  <div>
+                    <strong>{c.courierName || "—"}</strong>
+                    <small>
+                      {t("cashExpected")}: {lei(c.expected)} ({c.count})
+                    </small>
+                  </div>
+                  <input className="production-num" inputMode="decimal" aria-label={t("cashCounted")} value={counted[c.courierUserId] ?? ""} disabled={busy || !canAdd} onChange={(e) => setCounted({ ...counted, [c.courierUserId]: e.target.value })} />
+                  {c2 !== c.expected && (
+                    <input className="cash-note" placeholder={t("cashHandoverNote")} value={handoverNote[c.courierUserId] ?? ""} disabled={busy || !canAdd} onChange={(e) => setHandoverNote({ ...handoverNote, [c.courierUserId]: e.target.value })} />
+                  )}
+                  <button
+                    className="button"
+                    disabled={busy || !canAdd || !(c2 >= 0) || (c2 !== c.expected && !(handoverNote[c.courierUserId] ?? "").trim())}
+                    onClick={() => void post("handover", { courierUserId: c.courierUserId, expected: c.expected, counted: c2, note: handoverNote[c.courierUserId] ?? "" })}
+                  >
+                    <HandCoins size={15} /> {t("cashHandover")}
+                  </button>
+                </div>
+              );
+            })}
+            {view.handovers.length > 0 && (
+              <details>
+                <summary>{t("cashHandoversToday")} ({view.handovers.length})</summary>
+                <ul className="pay-list">
+                  {view.handovers.map((h) => (
+                    <li key={h.id}>
+                      <span>
+                        {h.courierName} · {t("cashExpected")} {lei(h.expected)}
+                        {h.note ? " · " + h.note : ""}
+                      </span>
+                      <b className={diffClass(h.counted - h.expected)}>{lei(h.counted)}</b>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </WorkspaceDetails>
+
+          <WorkspaceDetails title={t("zTitle")} hint={view.z ? "#" + view.z.zNumber : t("simpleZNeeded")} attention={!!view.reconcile.diff && Object.values(view.reconcile.diff).some((value) => value !== 0)}>
+            <label className="cash-field">
+              {t("zImportTremol")}
+              <input type="file" accept=".p7b,.xml" disabled={busy || date > today()} onChange={(e) => {
+                const file = e.currentTarget.files?.[0];
+                e.currentTarget.value = "";
+                if (file) void importZ(file);
+              }} />
+            </label>
+            {zImportMessage && (
+              <p role={zImportMessage.error ? "alert" : "status"} className={zImportMessage.error ? "error-banner" : undefined}>
+                {t(zImportMessage.key).replace("{date}", zImportMessage.date ?? "")}
+              </p>
+            )}
             <div className="pay-form">
               <label className="cash-field">{t("zNumber")}<input value={z.zNumber} disabled={busy} onChange={(e) => setZ({ ...z, zNumber: e.target.value })} /></label>
               <label className="cash-field">{t("zTotal")}<input inputMode="decimal" value={z.total} disabled={busy} onChange={(e) => setZ({ ...z, total: e.target.value })} /></label>
@@ -407,13 +453,12 @@ export default function CashWorkspace({ lang, initialDay }: { lang: Language; in
                 <AlertTriangle size={14} /> {t("zSplitWarning")}
               </p>
             )}
-          </section>
+          </WorkspaceDetails>
+
+      <FiscalDayPanel key={date + ":" + (view?.z?.revision ?? 0)} lang={lang} date={date} />
 
           {view.isAdmin && (
-            <section className="panel cash-section">
-              <h2>
-                <Receipt size={18} /> {t("supTitle")}
-              </h2>
+            <WorkspaceDetails title={t("supTitle")} hint={view.suppliers.length ? view.suppliers.length + " · " + lei(view.suppliers.reduce((sum, row) => sum + row.open, 0)) : t("simpleNoSupplierDebt")} attention={view.suppliers.some((row) => row.overdue)}>
               {!view.suppliers.length && <p className="quiet-empty">{t("supNone")}</p>}
               {view.suppliers.map((s) => {
                 const f = supPay[s.id] ?? { amount: fromBani(s.open), method: "bank" as const };
@@ -462,7 +507,7 @@ export default function CashWorkspace({ lang, initialDay }: { lang: Language; in
                   </div>
                 );
               })}
-            </section>
+            </WorkspaceDetails>
           )}
         </>
       )}

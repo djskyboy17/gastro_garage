@@ -54,3 +54,11 @@ Egyeztetés (2026-11-04):
 
 ## Havi számlás ügyfél — v77
 - Havi gyűjtőszámlás ügyfél kiszállításos rendeléséhez automatikusan kell aviz; a havi számla az avizok számaira hivatkozik, kiállításkor az avizok `invoice_id`-t kapnak (sztornókor törlődik).
+
+## Könyvelési profil és futárnézet
+
+A könyvelési profil alkalmazása bekapcsolja és kötelezővé teszi a minden kiszállításhoz szükséges avizt. A futárfelület Aviz gombja a meglévő dokumentumot nyitja meg, a kiszolgálás feltételeit a courier modul ellenőrzi. A staff nyomtatási végpontok jogosultsága megmarad.
+
+## Közös avizszabály helye – 2026-11-05
+
+Beállítások → Aviz beállítások alatt szerkeszthető a minden kiszállításhoz szükséges aviz szabálya. Adminjogosultság, a meglévő settings végpont, revision és audit megmaradt. A Csomagolás csak a napi kiállítási/nyomtatási munkafolyamatot mutatja, nem a közös beállítást. A fő rendelésrészletben sem kérünk külön avizjelölést minden rendeléshez. A kiszállításos rendelések mind szükségesként jelennek meg bekapcsolt közös szabálynál; személyes átvételre nem terjesztjük ki. A normál helyi tesztkörnyezetben a közös szabály alkalmazáson keresztül bekapcsolva.

@@ -42,3 +42,11 @@ The user made Sites public for testing. API actions require the platform-injecte
 ## Deferred requirements
 
 Tax classifications, invoices/e-Factura, complete consumer ingredient/nutrition disclosure, subrecipes, NIR, HACCP, notifications, capacity limits, offline writes, customer portal, recurring orders, deletion/correction workflows and accounting export. Recipe versions, lots, expiry and procurement proposals are now described in ../inventory/SPEC.md. Do not use this prototype to issue tax documents or certify food safety.
+
+## Egyszerű rendelésfelvétel – 2026-11-05
+
+Az új rendelés egyetlen adatfelület: ügyfél, dátum/idő, Napi menü, más tételek, legvégül megjegyzés. A rögzített alsó sávban összeg, tervezett Kártya/Készpénz, Mehet és Mégse; az ügyfél és ételek fizetésválasztás előtt is kitölthetők. A megadott fizetés csak terv; tényleges befizetés külön művelet.
+
+A kiválasztott ügyfél számlázási módját a billing modul adja. per_order/monthly esetén nincs készpénz/kártya kérdés, az expectedPaymentMethod üres. Nincs automatikus banki befizetés vagy számlakiállítás. Új ügyfél és profil nélküli ügyfél receipt módú. Betöltésig/hiba esetén a meglévő ügyfél rendelése nem menthető; az adatok megmaradnak újrapróbáláskor. Ügyfélváltásnál nincs átvett korábbi fizetési választás.
+
+Elfogadási példák: normál ügyfél két menüvel és egy külön étellel → fizetési mód kiválasztása, Mehet → unpaid rendelés. Számlás/gyűjtőszámlás ügyfél ugyanitt → fizetésválasztás nélkül Mehet → unpaid rendelés üres tervezett móddal. 390×568 képernyőn görgetve is látszik a Mehet/Mégse és a fizetésválasztás.

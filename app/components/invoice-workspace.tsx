@@ -1,4 +1,5 @@
 "use client";
+import WorkspaceDetails from "./workspace-details";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Camera, FileUp, PenLine, RefreshCw, ArrowLeft, Save, PackageCheck, Trash2, AlertTriangle, CheckCircle2, ExternalLink, Printer, Undo2 } from "lucide-react";
 import { messages } from "@/src/modules/shared/i18n";
@@ -43,6 +44,7 @@ type FormLine = {
 };
 type Form = {
   kind: InvoiceKind;
+  purpose: "stock" | "expense";
   supplierName: string;
   supplierTaxId: string;
   series: string;
@@ -65,6 +67,7 @@ const rateText = (v: number | null) => (v === null ? "" : String(v / 100).replac
 function toForm(i: Invoice): Form {
   return {
     kind: i.kind,
+    purpose: i.purpose ?? "stock",
     supplierName: i.supplierName,
     supplierTaxId: i.supplierTaxId,
     series: i.series,
@@ -112,6 +115,7 @@ function toBody(id: string, revision: number, f: Form) {
     id,
     revision,
     kind: f.kind,
+    purpose: f.purpose,
     supplierName: f.supplierName.trim(),
     supplierTaxId: f.supplierTaxId.trim().toUpperCase(),
     series: f.series.trim(),
@@ -127,7 +131,7 @@ function toBody(id: string, revision: number, f: Form) {
     lines: f.lines.map((l) => {
       const quantity = parseQuantity(l.quantity || "0");
       const vatRate = l.vatRate.trim() ? parseVatRate(l.vatRate) : null;
-      const base = l.baseQuantity.trim() ? parseQuantity(l.baseQuantity) : 0;
+      const base = f.purpose === "expense" ? 0 : l.baseQuantity.trim() ? parseQuantity(l.baseQuantity) : 0;
       if (quantity === null || quantity < 0) throw new Error("quantity");
       if (l.vatRate.trim() && vatRate === null) throw new Error("vatRate");
       if (base === null || base < 0) throw new Error("baseQuantity");
@@ -142,8 +146,8 @@ function toBody(id: string, revision: number, f: Form) {
         vatRate,
         lineGross: money(l.lineGross, "lineGross"),
         deposit: l.deposit,
-        skip: l.skip,
-        ingredientId: l.ingredientId || null,
+        skip: f.purpose === "expense" ? 1 : l.skip,
+        ingredientId: f.purpose === "expense" ? null : l.ingredientId || null,
         baseQuantity: Math.round(base / 1000),
         receivedQuantity: received === null ? null : Math.round(received / 1000),
         expires: l.expires,
@@ -339,7 +343,7 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
         const done = fresh?.invoices.find((i) => i.id === invoice.id);
         if (done) open(done);
         onReceived();
-        setSuccess("invoiceReceivedOk");
+        setSuccess(invoice.purpose === "expense" ? "invoiceExpenseRecorded" : "invoiceReceivedOk");
       } else setSuccess("invoiceSaved");
     } catch (e) {
       setError(e instanceof Error ? e.message : "saveError");
@@ -350,7 +354,7 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
   /** v72: NIR sztornó (admin): indoklás kell; a számla újra piszkozat lesz, a raktári tételek visszakerülnek. */
   async function reverse() {
     if (!selected) return;
-    const reason = window.prompt(t("invoiceReversePrompt"))?.trim();
+    const reason = window.prompt(t(selected.purpose === "expense" ? "invoiceExpenseReverse" : "invoiceReversePrompt"))?.trim();
     if (!reason) return;
     setBusy(true);
     setError("");
@@ -361,7 +365,7 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
       const again = fresh?.invoices.find((i) => i.id === selected.id);
       if (again) open(again);
       onReceived();
-      setSuccess("invoiceReversedOk");
+      setSuccess(selected.purpose === "expense" ? "invoiceExpenseReversed" : "invoiceReversedOk");
     } catch (e) {
       setError(e instanceof Error ? e.message : "saveError");
     } finally {
@@ -437,7 +441,7 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
           <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ""; }} />
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" hidden onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ""; }} />
         </div>
-        <p className="ops-note">{data && !data.aiEnabled ? t("invoiceAiDisabled") : t("invoiceIntro")}</p>
+        <p className="ops-note">{data && !data.aiEnabled ? t("simpleInvoiceManualHint") : t("simpleInvoiceHint")}</p>
         {status && <p className="invoice-status" role="status"><RefreshCw size={16} className="spin" />{t(status)}</p>}
         {errorText && (
           <div className="portal-alert" role="alert">
@@ -448,6 +452,7 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
         )}
         {success && <p className="portal-success" role="status"><CheckCircle2 size={18} />{t(success)}</p>}
         {isAdmin && data && (
+          <WorkspaceDetails title={t("simplePurchasingSettings")} hint={t(data.costBasis === "gross" ? "invoiceCostGross" : "invoiceCostNet")}>
           <div className="invoice-settings">
             <label>
               {t("invoiceCostBasis")}
@@ -463,6 +468,7 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
             </label>
             {committee !== null && <button type="button" className="button secondary" disabled={busy} onClick={() => void saveBasis(data.costBasis, committee)}>{t("invoiceSave")}</button>}
           </div>
+          </WorkspaceDetails>
         )}
         {data && !data.invoices.length && <p className="quiet-empty">{t("invoiceEmpty")}</p>}
         {data && data.invoices.length > 0 && (
@@ -489,7 +495,7 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
                     </td>
                     <td>{[i.series, i.number].filter(Boolean).join(" ") || "—"}{i.nirs?.some((n) => n.kind === "receipt" && n.status === "issued") && <small>{i.nirs.filter((n) => n.kind === "receipt" && n.status === "issued").map((n) => n.number).join(", ")}</small>}</td>
                     <td className="number">{ron(i.total)}</td>
-                    <td><span className={"badge " + (i.status === "received" ? "delivered" : "pending")}>{t(i.status === "received" ? "invoiceStatusReceived" : "invoiceStatusDraft")}</span></td>
+                    <td><span className={"badge " + (i.status === "received" ? "delivered" : "pending")}>{t(i.status === "received" ? i.purpose === "expense" ? "invoiceExpenseRecorded" : "invoiceStatusReceived" : "invoiceStatusDraft")}</span>{i.purpose === "expense" && <small>{t("invoicePurposeExpense")}</small>}</td>
                   </tr>
                 ))}
               </tbody>
@@ -501,6 +507,7 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
 
   // ——— Részletek ———
   const readonly = selected.status !== "draft";
+  const expense = form.purpose === "expense";
   const basis = data?.costBasis ?? "net";
   const header = { total: parseMoney(form.total), sgrTotal: parseMoney(form.sgrTotal) ?? 0 };
   const check = totalsCheck(header, form.lines.map(lineAmounts));
@@ -571,6 +578,12 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
           <section className="panel invoice-section">
             <h2>{t("invoiceHeader")}</h2>
             <div className="invoice-grid">
+              <label>{t("invoicePurpose")}
+                <select value={form.purpose} disabled={readonly || busy} onChange={(e) => update({ purpose: e.target.value as Form["purpose"] })}>
+                  <option value="stock">{t("invoicePurposeStock")}</option>
+                  <option value="expense">{t("invoicePurposeExpense")}</option>
+                </select>
+              </label>
               <label>
                 {t("invoiceKind")}
                 <select value={form.kind} disabled={readonly || busy} onChange={(e) => update({ kind: e.target.value as InvoiceKind })}>
@@ -607,7 +620,7 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
           <section className="panel invoice-section">
             <div className="invoice-lines-head">
               <h2>{t("invoiceLines")}</h2>
-              {!readonly && (
+              {!readonly && !expense && (
                 <label className="invoice-all-expires">
                   {t("invoiceExpiresAll")}
                   <input type="date" value={allExpires} disabled={busy} onChange={(e) => setAllExpires(e.target.value)} />
@@ -622,14 +635,14 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
               const cost = stockCost(l);
               const lot = selected.lines.find((s) => s.id === l.id)?.lotId;
               return (
-                <div className={"invoice-line" + (l.skip ? " skipped" : "")} key={l.id}>
+                <div className={"invoice-line" + (l.skip && !expense ? " skipped" : "")} key={l.id}>
                   <div className="invoice-line-top">
                     <span className="invoice-line-n">{index + 1}</span>
                     <input className="invoice-line-desc" value={l.description} disabled={readonly || busy} maxLength={300} aria-label={t("invoiceDescription")} onChange={(e) => updateLine(l.id, { description: e.target.value })} />
-                    <label className="invoice-skip">
+                    {!expense && <label className="invoice-skip">
                       <input type="checkbox" checked={l.skip === 1} disabled={readonly || busy} onChange={(e) => updateLine(l.id, { skip: e.target.checked ? 1 : 0 })} />
                       {t(l.deposit ? "invoiceDepositLine" : "invoiceSkip")}
-                    </label>
+                    </label>}
                     {!readonly && (
                       <button type="button" className="icon-button" aria-label={t("deleteLine")} disabled={busy} onClick={() => { setForm((f) => (f ? { ...f, lines: f.lines.filter((x) => x.id !== l.id) } : f)); setDirty(true); }}>
                         <Trash2 size={15} />
@@ -643,7 +656,7 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
                     <label>{t("invoiceVatRate")}<input value={l.vatRate} inputMode="decimal" disabled={readonly || busy} onChange={(e) => updateLine(l.id, { vatRate: e.target.value })} /></label>
                     <label>{t("invoiceLineGross")}<input value={l.lineGross} inputMode="decimal" placeholder={moneyText(grossOf(amounts))} disabled={readonly || busy} onChange={(e) => updateLine(l.id, { lineGross: e.target.value })} /></label>
                   </div>
-                  {!l.skip && (
+                  {!l.skip && !expense && (
                     <div className="invoice-line-grid stock">
                       <label className="wide">
                         {t("invoiceIngredient")}
@@ -673,11 +686,14 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
               {t("note")}
               <textarea value={form.note} maxLength={1000} disabled={readonly || busy} onChange={(e) => update({ note: e.target.value })} />
             </label>
-            <p className="invoice-summary">
+            {expense ? <p className="invoice-summary">{t("invoiceExpenseHint")}</p> : <p className="invoice-summary">
               {t("invoiceStockLines")}: <b>{receivable.length}</b> · {t(basis === "net" ? "invoiceCostNet" : "invoiceCostGross")}: <b>{ron(stockValue)}</b>
-            </p>
+            </p>}
             {readonly ? (
-              <p className="ops-note">{t("invoiceReceivedOn")}: {selected.receivedDate}</p>
+              <div>
+                <p className="ops-note">{t(expense ? "invoiceExpenseRecorded" : "invoiceReceivedOn")}: {selected.receivedDate}</p>
+                {expense && isAdmin && <button className="danger-button" disabled={busy} onClick={() => void reverse()}><Undo2 size={15}/>{t("invoiceExpenseReverse")}</button>}
+              </div>
             ) : (
               <div className="invoice-buttons">
                 {!check.ok && (
@@ -687,11 +703,11 @@ export default function InvoiceWorkspace({ lang, ingredients, isAdmin, onReceive
                   </label>
                 )}
                 <label>
-                  {t("invoiceReceivedDate")}
+                  {t(expense ? "invoiceExpenseDate" : "invoiceReceivedDate")}
                   <input type="date" value={receivedDate} max={today()} disabled={busy} onChange={(e) => setReceivedDate(e.target.value)} />
                 </label>
                 <button type="button" className="button secondary" disabled={busy} onClick={() => void run("save")}><Save size={17} />{t("invoiceSave")}</button>
-                <button type="button" className="button" disabled={busy || !receivable.length} onClick={() => void run("receive")}><PackageCheck size={17} />{t("invoiceReceive")}</button>
+                <button type="button" className="button" disabled={busy || (!expense && !receivable.length)} onClick={() => void run("receive")}><PackageCheck size={17} />{t(expense ? "invoiceRecordExpense" : "invoiceReceive")}</button>
                 {!nirs.length && <button type="button" className="danger-button" disabled={busy} onClick={() => void run("discard")}><Trash2 size={15} />{t("invoiceDiscard")}</button>}
               </div>
             )}

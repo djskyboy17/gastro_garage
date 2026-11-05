@@ -69,3 +69,74 @@ Gyors eligazítás annak, aki a projektet nagyjából ismeri, de csak a **GitHub
 - 4. fázis: aviz (szállítólevél) – `FEJLESZTESI-TERV.md`.
 - A könyvelővel egyeztetendő: bon de predare, selejt-PV formája, készletértékelés (FIFO / súlyozott átlag).
 - Nyitott: a cégadatok a NIR-en / BC-n / PV-n; e-mailes jelszó-visszaállítás csak a végleges domain után; a teljesítményjavítás felhős (CPU-keret, hidegindulás) ellenőrzése.
+
+## Helyi fejlesztés – 2026-11-05, könyvelési testreszabás
+
+A fenti v74-es éles átadást követő, még nem commitolt helyi munka. A jelenlegi forrásban korábbi Tremol-híd és pénztárfejlesztés is található; ezeket megőriztük. E munkaszakaszban online telepítés, commit és push nem történt.
+
+- Könyvelési profil: bruttó bevételezés, kötelező BP és minden kiszállításhoz aviz. Beállítások → Könyvelési szabályok. A normál helyi adatbázisban a profil alkalmazása továbbra is külön adminművelet; a teszteket elkülönített adatbázison végeztük.
+- Futár rendeléskártya: Aviz megnyitása, jogosultságvizsgálattal.
+- Költségszámla: Beszerzés → Számlák → A számla besorolása → Egyéb költség. Készlet/NIR nélkül véglegesíthető, naplózott negatív korrekcióval javítható. Kifizetés esetén előbb a kifizetés helyesbítése kell.
+- Kimutatások: heti BC és havi, román nyelvű nyomtatási csomag. Belső bizonylatok, összesítők, meglévő Z/pénztár/konyhai zárás adatok; hiánylista és következő hónap 10-i határidő. Eredeti számla-, Z/POS- és bankmellékletek külön csatolandók/nyomtatandók; nincs automatikusan összevont eredeti PDF-csomag vagy archivált átadási státusz.
+- Új migrációk: 0034 könyvelési profil és védőtriggerek, 0035 költségbejegyzések, 0036 dátumindexek. Tiszta tesztadatbázison minden migráció végigfutott. A normál helyi adatbázis sémája most 0036; integritás és FK rendben.
+- Helyi migrációs eltérés: a korábbi nyilvántartás 0019-nél megállt, de a séma már 0033 volt. Baseline-ellenőrzés után csak a 0034–0036 migrációkat alkalmaztuk külön, a korábbi bejegyzések átírása nélkül. A teljes régi lista automatikus alkalmazása továbbra is 0020-nál ütközhet; ezt külön kell rendezni.
+- Mentések: work/backups/before-accounting-20261105-114532, before-expenses-20261105-125642, before-report-indexes-20261105-125855. Ezek helyi futásadatok, Gitből kizárva.
+- Ellenőrzés: 166 üzleti teszt, TypeScript, production build; elkülönített teljes böngészős költség/javítás/nyomtatás/jogosultság tesztek. Részletek: src/modules/accounting/SPEC.md és src/modules/invoices/SPEC.md.
+- Következő feladat: tervezett készpénz/kártya a rendelésben és az egyetlen konyhai Tremol S25 nyomtatási folyamata. Oblio/SPV és több kassza továbbra is halasztott.
+
+## Helyi fejlesztés – konyhai S25 nyugtafolyamat, 2026-11-05
+
+- Rendelésfelvétel és ügyfélportál: tervezett készpénz/kártya külön mező; a portál előnézetéhez kötve. Régi/ismétlődő rendelésnél az iroda választhat. A tényleges befizetés továbbra is külön művelet.
+- Rendelés részletei → Konyhai kassza: szimulált próba, állapottartó élő nyugta-előkészítés, tízperces .gastrobon, ellenőrzött .gastroresult import, előzmények és adminisztrátori egyeztetés. Ismételt/egyidejű kiadás elleni adatbázis- és helyi naplóvédelem, bizonytalan eredménynél megállás.
+- Pénztár: egy konyhai készülék beállítása és a visszaigazolt élő nyugták összevetése a mentett Z-vel. Szimulációk nem számítanak valódi nyugtának, és nem hoznak létre befizetést. A normál helyi alkalmazás szimulációs alapmódban maradt; sorozatszám és élő feladat nem került bele a tesztekből.
+- Új modul: src/modules/fiscal/SPEC.md. A régi GET /api/finance/tremol-job helyett az új nyugtafolyamat használandó. Az élő nyugtázott rendelés ár-, mennyiség-, díj-, dátum- és tervezettmód-adatai zároltak; a főzés és kézbesítés tovább haladhat. Nyugtasztornó/visszatérítés továbbfejlesztése későbbi fázis.
+- Windows-kiegészítő: tools/tremol-bridge. Új eredményexport és Egyeztetes.cmd; a korábbi journal és helyi settings.json frissítéskor megmarad. Telepíthető csomag: work/releases/gastro-garage-tremol-s25-addon.zip. Csak a felsorolt programfájlokat és a kitöltetlen példakonfigurációt tartalmazza, futásadatot nem.
+- 0037_kitchen_fiscal.sql generált és átnézett migráció, hozzáadott pillanatkép-védő triggerekkel. Tiszta adatbázison végigfutott a teljes történet; a korábbi helyi migrációs eltérés miatt a normál helyi adatbázison csak a 0037 futott külön. A 75 táblás séma és indexei egyeznek a Drizzle-pillanatképpel; integritás és idegen kulcsok rendben.
+- Mentés a frissítés előtt: work/backups/before-fiscal-20261105-134159, SQLite backup és ellenőrzött 0036 alapállapot.
+- Ellenőrzés: 170 Node domain/migrációs teszt; TypeScript és production build; PowerShell 5.1 régi és v2 mock SDK-teszt; elkülönített teljes böngésző → API → D1 → újratöltés, HU/RO és mobil. A normál helyi alkalmazás olvasási/felületi próbája is sikeres.
+- Az élő módú szoftverpróbák elkülönített adatbázisban, mesterséges eredményfájllal és helyettesített SDK-val futottak. A saját Tremol S25 USB-kapcsolata, firmware/SDK-verziója, TVA-besorolása, fizetésihelyei és sorozatszáma készülékes beállítást és próbát igényelnek. A webes és a helyi híd live beállítása egyaránt szükséges a valódi kiadáshoz.
+- Minden ebben a helyi projektben készült. Commit, push és online telepítés nem történt. Oblio/SPV, több kassza és futárkassza továbbra is halasztott.
+
+## Tulajdonosi döntés – halasztott S25 készülékes próba (2026-11-05)
+
+A hiánylistán szereplő 1. pontot, a Tremol S25 fizikai beállítását és készülékes próbáját a tulajdonos későbbre halasztotta. Ide tartozik az USB-kapcsolat, a sorozatszám, a firmware/SDK-egyezés, a TVA-besorolás, a készpénzes/kártyás fizetésihelyek és a tényleges nyomtatás ellenőrzése. Erre akkor térünk vissza, amikor a tulajdonos jelzi. A készülékes próba továbbra is nyitott, sikeresnek nem jelölhető; a helyi kasszafolyamat szimulációs módban marad. A többi fejlesztés folytatható.
+
+## Helyi fejlesztés – egyszerűbb kezelőfelület, 2026-11-05
+
+Tulajdonosi irányelv: a frontend legyen a lehető legegyszerűbb, a meglévő backend és üzleti működés maradjon meg. A további funkcióknál is a napi teendő, az egyértelmű következő lépés és a szükség esetén lenyitható részletek legyenek az alapelvek. A fontos figyelmeztetést és mentési hibát mindig láthatóan kell jelezni.
+
+- Rövidebb főmenü: napi munkafolyamatok elöl; étlap, ételek, ügyfelek, receptek, rendszeres rendelések és számlák a További funkciók alatt. Minden menüpont a meglévő szerepkör szerinti hozzáférést követi.
+- Rendelés: az állapotok és a következő művelet a pénzügyi panelek elé került. A lemondás külön További műveletek alatt; a szállítási részletek lenyithatók. A tényleges fizetés űrlapja látható, a befizetési előzmények és javítások lenyithatók.
+- Nyugta: tömör állapot, lenyitható részletek és előzmények. Bizonytalan nyomtatásnál külön látható figyelmeztetés és automatikusan nyitott részletek. A készülékes próba halasztása érvényben marad, a normál helyi kassza szimulációs módú.
+- Pénztár: egyenleg és pénztárkönyv előre; egyéb pénzmozgás, futárelszámolás, Z, nyugtaegyeztetés és beszállítói fizetés külön, lenyitható részek. Eltérés vagy sürgős elszámolás esetén az érintett rész kinyílik.
+- Könyvelés: havi és heti nyomtatás külön, egyszerű kártyán; a ritkán használt könyvelési beállítások lenyithatók. Beszerzés → Számlák: bevételezési beállítások lenyithatók; a számlafeldolgozás megmaradt.
+- Új közös UI-elemek: app/components/workspace-navigation.tsx, workspace-details.tsx, app/simple-ui.css; magyar/román UI-szótár: src/modules/shared/simple-i18n.ts.
+- Backendmódosítás és sémafrissítés nincs. A 160 korábban meglévő backend/API/migráció/kasszahíd fájl bájtonkénti ellenőrzése változatlanságot igazolt; csak megjelenítési kód és UI-szótárak módosultak.
+- Ellenőrzés: 170 sikeres domain/migrációs teszt, TypeScript és production build. Elkülönített böngésző → API → D1 → újratöltés: főzési állapot, befizetés, pénztári tétel, költségszámla, kimutatás megnyitása, bizonytalan nyomtatás és Z-eltérés láthatósága. Mobil HU/RO, konyhai szerepkör és billentyűzettel nyitható menü ellenőrizve.
+- A normál helyi alkalmazáson csak olvasási és felületi próba történt. Online telepítés, commit és push nem történt.
+
+## Helyi fejlesztés – rendelésfelvétel és aviz, 2026-11-05
+
+- Végleges tulajdonosi pontosítás: először az ügyfél, dátum és ételek tölthetők ki; nincs fizetést kérő nyitóképernyő. Alul a két nagy Kártya/Készpénz gomb, majd a Mehet/Mégse. Csak a középső űrlaprész görgethető; az összeg és a gombok asztali és mobilnézetben elérhetők. A megjegyzés az utolsó adatmező.
+- Számlás (`per_order`) és gyűjtőszámlás (`monthly`) ügyfélnél automatikusan kimarad a készpénz/kártya választás. A tervezett mód ilyenkor üres; nem feltételezünk átutalást és nem jelöljük fizetettnek. A számlázási módot a meglévő billing modul könnyű, irodai jogosultságú olvasási végpontja adja; betöltési hiba esetén a mentés vár a sikeres újrapróbálásig. Ügyfélváltás törli az előző fizetési választást.
+- Nagy Napi menü gomb a kiválasztott nap mentett leves/főétel összetételével és közös menüárával; alatta más tételek. Nem konfigurált napra a menügomb tiltott, más étel továbbra is rendelhető.
+- A meglévő POST /api/orders bővült az @napi_menu kezelésével: szerveroldali ár és két recepthez kapcsolható pillanatképsor, összeghelyes bani-felosztás, menünap/menüár revision-ellenőrzés a tranzakcióban. Elavult menü esetén új ügyfél sem jön létre; korábbi rendelés ára nem változik. Nincs új migráció és nincs rendelésfelvételkori készletfogyasztás.
+- Aviz közös szabály: Beállítások → Aviz beállítások; kikerült a Csomagolásból és az egyedi rendelés jelölése a napi felületről. A kiállítás/megnyitás műveletei megmaradtak. A normál helyi adatbázisban a „Minden kiszállításhoz kötelező aviz” bejelentkezett tulajdonosként, az alkalmazás mentésével bekapcsolva. Előtte ellenőrzött SQLite-mentés: work/backups/before-aviz-settings-20261105-154233.
+- Ellenőrzés: 174 sikeres domain/migrációs teszt, TypeScript, production build. Elkülönített böngésző → API → D1 → újratöltés: napi menü összeghelyes mentése, normál/számlás/gyűjtőszámlás ügyfél, ügyfélváltás, betöltési hiba és újrapróbálás, mobil 390×568 és HU/RO. Mentett rendelések továbbra is unpaid állapotúak. A tesztadatok az elkülönített work/order-entry adatbázisban maradtak.
+- A normál helyi kassza szimulációs alapmódú maradt; fizikai S25-próba továbbra is halasztott. Commit, push és online telepítés nem történt.
+
+## Helyi fejlesztés – havi gyűjtőszámlás rendelés pénzbeszedés nélkül, 2026-11-05
+
+Tulajdonosi kérés: havi gyűjtőszámlánál a rendelés részleteiben ne legyen fizetés, mert a számlázás előtt nincs pénzbeszedés.
+
+- A részletekben havi módnál eltűnik a fizetési státusz mező, az új befizetési űrlap és az új konyhai nyugta készítése. A számlapanel megmarad a havi gyűjtőszámla tájékoztatásával. A korábban létrejött befizetések/nyugták előzménye és javítási, egyeztetési lehetősége megmarad; nem törlünk vagy jelölünk fizetettnek korábbi adatot.
+- A finance/fiscal olvasás jelzi a collectionDeferred szabályt; a fizetési státusz a már meglévő kérés eredményéből frissül, ehhez nincs külön frontend-lekérdezés.
+- Az iroda és a futár rendelésenkénti új beszedését, illetve a havi rendelés új készpénz/kártya tervezését és nyugta-előkészítését a szerver is tiltja (PAYMENT_MONTHLY_INVOICE). A közös billing/order-collection.ts SQL-feltétel az írási kötegben is lefut, így a közben átállított ügyfélprofil sem enged pénzbeszedést. A havi ügyfél rendeléséhez korábban előkészített élő nyugtafájl sem tölthető le új kiadás céljából; meglévő eredmény egyeztetése továbbra is lehetséges.
+- A fizetés a kiállított számla meglévő befizetési folyamatában történik; a függőben lévő számlánál ez a végpont már eddig is tiltott. A rendelésbefizetést havi módban számlázás után sem használjuk, hogy ugyanaz a pénz ne kerüljön két helyre.
+- Nincs új migráció vagy normál helyi adatmódosítás. A havi szabály az ügyfél mentett számlázási profilját követi. Receipt/per_order rendelés beszedése változatlan; a normál kártyás befizetés és szimulált nyugta-előkészítés is kipróbálva.
+- Ellenőrzés: 176 sikeres domain/migrációs teszt, TypeScript, production build. Elkülönített teljes böngésző → API → D1 → újratöltés: havi rendelés rögzítése, eltűnő fizetési/nyugtaelemek, tiltott irodai készpénz/kártya és futárbeszedés, kézbesítés beszedés nélkül, korábbi előzmények megőrzése, HU/RO, szimulált havi számla kiállítása és számlára fizetése. D1-ben nincs rendelésbefizetés/nyugta a havi tesztrendeléshez; egy befizetés van a kiállított számláján.
+- Online telepítés, commit és push nem történt. Fizikai S25, éles Oblio/SPV továbbra is halasztott; a próbák elkülönített adatbázison és szimulációval futottak.
+
+## Git-mentés – 2026-11-05
+
+A fenti helyi fejlesztések forrása, migrációi, tesztjei és dokumentációja a tulajdonos kérésére egy helyi Git-commitba rendezve. A helyi adatbázisok, mentések, tesztfutási adatok, titkok és gépi beállítások nem részei a commitnak. Push és online telepítés továbbra sem történt. Az utolsó kódellenőrzés: 176 sikeres teszt, TypeScript és production build.

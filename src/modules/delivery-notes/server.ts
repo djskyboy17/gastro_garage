@@ -69,6 +69,17 @@ export async function hasActiveNote(orderId: string) {
   return !!(await env.DB!.prepare(activeNoteSql).bind(orderId).first());
 }
 
+/** The courier endpoint checks the order's current task visibility before rendering. */
+export async function printCourierAviz(orderId: string) {
+  const row = await env.DB!.prepare("SELECT year,number,issue_date AS issueDate,content FROM delivery_notes WHERE order_id=? AND kind='issue' AND status='issued'")
+    .bind(orderId).first<{ year: number; number: number; issueDate: string; content: string }>();
+  if (!row) throw new DeliveryNoteError("AVIZ_PENDING", 404);
+  const number = (await noteNumbers())(row.year, row.number);
+  return new Response(renderNotesHtml(number, [noteSection(JSON.parse(row.content) as DeliveryNoteContent, number, row.issueDate)]), {
+    headers: { "Content-Type": "text/html; charset=utf-8", "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'", "Cache-Control": "private, no-store" },
+  });
+}
+
 /**
  * Avizos rendelés lemondása (v75): végleges törlés helyett „lemondott” állapot, és az aviz sztornója ugyanabban a kötegben.
  * Ugyanazok a feltételek, mint a törlésnél: visszaigazolt, a főzés és a kiszállítás még nem kezdődött el, változat egyezik.

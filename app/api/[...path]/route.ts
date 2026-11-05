@@ -11,6 +11,8 @@ import {handleProduction,ProductionError} from "@/src/modules/production/server"
 import {handleDeliveryNotes,DeliveryNoteError,hasActiveNote,cancelOrderWithNote} from "@/src/modules/delivery-notes/server";
 import {handleFinance,FinanceError,cancelPaymentState} from "@/src/modules/finance/server";
 import {handleBilling,BillingError} from "@/src/modules/billing/server";
+import {handleAccounting,AccountingError} from "@/src/modules/accounting/server";
+import {handleFiscal,FiscalError} from "@/src/modules/fiscal/server";
 import { env } from "cloudflare:workers";
 import { currentUser, handleAuth, AuthError } from "@/src/modules/auth/server";
 import { sessionFor, handleAccess, loadMembers, AccessError } from "@/src/modules/access/server";
@@ -19,10 +21,11 @@ import { getDb } from "@/db";
 import { loadPublicCatalog, handlePortal, PortalError } from "@/src/modules/portal/server";
 import { loadRecurring, handleRecurring, RecurringError } from "@/src/modules/recurring/server";
 import { loadSafety, handleSafety, SafetyError } from "@/src/modules/safety/server";
-import { products, customers, orders, orderItems, audit, workspaceOwners, recipes } from "@/db/schema";
-import { desc, eq, inArray } from "drizzle-orm";
+import { products, customers, orders, orderItems, audit, workspaceOwners, recipes, menuDays, menuSettings, menuLines } from "@/db/schema";
+import { desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
-import { nextState, today, CATEGORIES, DAILY_CATEGORIES, SECTIONS, type Order } from "@/src/modules/shared/domain";
+import { nextState, today, CATEGORIES, DAILY_CATEGORIES, SECTIONS, SET_CART_ID, type Order } from "@/src/modules/shared/domain";
+import { expandOrderMenu } from "@/src/modules/menu/order-menu";
 import { hardDeleteOrder } from "@/src/modules/shared/order-delete";
 import { demoProducts, demoCustomers } from "@/src/modules/shared/seed";
 import {
@@ -93,7 +96,7 @@ async function handle(req: Request, write: boolean) {
     if(path.startsWith('/api/courier/')){
       let body:unknown;
       if(write){const raw=await req.text();if(raw.length>40000)return json({error:'TOO_LARGE'},413);body=JSON.parse(raw);}
-      return await handleCourier(path,body,identity,session,write,new URL(req.url).searchParams.get('date')??today());
+      return await handleCourier(path,body,identity,session,write,new URL(req.url).searchParams.get('date')??today(),req);
     }
     if (path.startsWith("/api/portal/")) {
       let body:unknown;
@@ -109,6 +112,20 @@ async function handle(req: Request, write: boolean) {
     // v71: a futó változat (csak bejelentkezett dolgozónak).
     if (!write && path === "/api/version" && isMember(session.role)) return json({ version: env.BUILD_VERSION ?? "", commit: env.BUILD_COMMIT ?? "", builtAt: env.BUILD_TIME ?? "" });
     if (!isMember(session.role) && path !== "/api/access/request") return json({error:"ACCESS_PENDING"},403);
+    if (path.startsWith("/api/fiscal/")) {
+      let body: unknown;
+      if (write) { const raw = await req.text(); if (raw.length > 16000) return json({ error: "TOO_LARGE" }, 413); body = JSON.parse(raw); }
+      return await handleFiscal(path, body, session, write, req);
+    }
+    if (path === "/api/accounting" || path.startsWith("/api/accounting/")) {
+      let body: unknown;
+      if (write) {
+        const raw = await req.text();
+        if (raw.length > 4000) return json({ error: "TOO_LARGE" }, 413);
+        body = JSON.parse(raw);
+      }
+      return await handleAccounting(path, body, session, write, req);
+    }
     // v65: beszállítói számlák (Beszerzés). A beolvasáshoz nagyobb kérés kell (a számla képe / PDF-je base64-ben).
     if(path==="/api/invoices"||path.startsWith("/api/invoices/")){
       if(!isAdmin(session.role)&&!isKitchenStaff(session.role))return json({error:"FORBIDDEN"},403);
@@ -462,6 +479,8 @@ async function handle(req: Request, write: boolean) {
           date,
           time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
           note: z.string().max(1500),
+          expectedPaymentMethod: z.enum(["", "cash", "card"]).default(""),
+          menuRevision: z.object({ day: z.number().int().min(0), price: z.number().int().min(0) }).strict().optional(),
           items: z
             .array(
               z.object({
@@ -487,14 +506,18 @@ async function handle(req: Request, write: boolean) {
       const c = created ?? found;
       if (!c) return json({ error: "CUSTOMER_MISSING" }, 400);
       const catalog = await db.select().from(products);
+      const hasMenu = d.items.some((item) => item.productId === SET_CART_ID);
+      const [menuDay] = hasMenu ? await db.select().from(menuDays).where(eq(menuDays.date, d.date)) : [];
+      const [menuPrice] = hasMenu ? await db.select().from(menuSettings).where(eq(menuSettings.id, 1)) : [];
+      const menuRows = hasMenu ? await db.select().from(menuLines).where(eq(menuLines.date, d.date)) : [];
+      if (hasMenu && (!d.menuRevision || menuDay?.revision !== d.menuRevision.day || menuPrice?.revision !== d.menuRevision.price)) return json({ error: "MENU_PREVIEW_CHANGED" }, 409);
+      const requested = expandOrderMenu(d.items, catalog, menuDay?.active && menuPrice ? { soupId: menuDay.setSoupId ?? "", mainId: menuDay.setMainId ?? "", price: menuPrice.setPrice, lineIds: menuRows.map((line) => line.productId) } : null);
       // Order snapshots need recipe identifiers, not lots, movements or production history.
-      const recipeCatalog = (await db.select().from(recipes).where(inArray(recipes.productId,d.items.map(item=>item.productId))))
+      const recipeCatalog = (await db.select().from(recipes).where(inArray(recipes.productId,requested.map(item=>item.productId))))
         .map(recipe=>({...recipe,lines:[]}));
-      const seen = new Set<string>();
-      const items = d.items.map((i) => {
+      const items = requested.map((i) => {
         const p = catalog.find((p) => p.id === i.productId && p.active);
-        if (!p || seen.has(i.productId)) throw new Error("INVALID_ITEM");
-        seen.add(i.productId);
+        if (!p) throw new Error("INVALID_ITEM");
         return {
           id: crypto.randomUUID(),
           orderId: d.id,
@@ -502,13 +525,16 @@ async function handle(req: Request, write: boolean) {
           hu: p.hu,
           ro: p.ro,
           allergens: p.allergens,
-          price: p.price,
+          price: i.price,
+          setGroup: i.setGroup,
           quantity: i.quantity,
           recipeId: latestRecipe(p.id, recipeCatalog)?.id ?? null,
         };
       });
       // Az ügyfélnek a rendelés előtt kell létrejönnie (a rendelés hivatkozik rá); a köteg egy tranzakció.
+      try {
       await db.batch(([
+        ...(hasMenu ? [db.insert(audit).values({ ...log("order_menu_checked", d.id, ""), actor: sql<string>`CASE WHEN EXISTS (SELECT 1 FROM menu_days WHERE date=${d.date} AND revision=${menuDay!.revision} AND active=1) AND EXISTS (SELECT 1 FROM menu_settings WHERE id=1 AND revision=${menuPrice!.revision}) THEN ${actor} ELSE NULL END` })] : []),
         ...(created
           ? [db.insert(customers).values(created), db.insert(audit).values(log("customer_created", created.id, created.name))]
           : []),
@@ -521,6 +547,7 @@ async function handle(req: Request, write: boolean) {
           date: d.date,
           time: d.time,
           note: d.note,
+          expectedPaymentMethod: d.expectedPaymentMethod,
           production: "queued",
           delivery: "pending",
           payment: "unpaid",
@@ -531,6 +558,10 @@ async function handle(req: Request, write: boolean) {
         ...items.map((i) => db.insert(orderItems).values(i)),
         db.insert(audit).values(log("order_created", d.id, c.name)),
       ]) as unknown as Parameters<typeof db.batch>[0]);
+      } catch (error) {
+        if (hasMenu && /NOT NULL constraint failed: audit.actor/.test(String(error) + " " + String((error as { cause?: unknown })?.cause))) return json({ error: "MENU_PREVIEW_CHANGED" }, 409);
+        throw error;
+      }
       return json({ ok: true, id: d.id }, 201);
     }
     if (path === "/api/orders/state") {
@@ -560,6 +591,8 @@ async function handle(req: Request, write: boolean) {
       // v50: főzés előtti lemondás = végleges törlés (rendelés, tételek, kapcsolódó sorok és napló is).
       // A nextState már ellenőrizte, hogy a főzés és a kiszállítás még nem kezdődött el.
       if (d.field === "status" && d.value === "cancelled") {
+        if (await env.DB!.prepare("SELECT 1 FROM fiscal_receipts WHERE order_id=? AND mode='live' AND state<>'not_issued' LIMIT 1").bind(d.id).first()) return json({ error: "FISCAL_ORDER_LOCKED" }, 409);
+        const hasFiscalRows = !!await env.DB!.prepare("SELECT 1 FROM fiscal_receipts WHERE order_id=? LIMIT 1").bind(d.id).first();
         // v76: befizetett rendelés nem mondható le, amíg a befizetést vissza nem adták (sztornó).
         const paid = await cancelPaymentState(d.id);
         if (paid.net !== 0) return json({ error: "ORDER_HAS_PAYMENTS" }, 409);
@@ -569,7 +602,7 @@ async function handle(req: Request, write: boolean) {
           return json({ ok: true, deleted: false });
         }
         // v76: ha volt (sztornózott) befizetése, a bizonylatai miatt nem törlődik, csak lemondott lesz.
-        if (paid.hasRows) {
+        if (paid.hasRows || hasFiscalRows) {
           const r = await env.DB!.batch([
             env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM orders WHERE id=? AND revision=? AND status IN ('requested','confirmed') AND production='queued' AND delivery='pending') AND (SELECT COALESCE(SUM(amount),0) FROM payments WHERE order_id=?)=0 THEN ? ELSE NULL END,'order_cancelled',?,?,?)").bind(crypto.randomUUID(), d.id, d.revision, d.id, actor, d.id, JSON.stringify({ note: d.note }), now),
             env.DB!.prepare("UPDATE orders SET status='cancelled',revision=revision+1 WHERE id=? AND revision=?").bind(d.id, d.revision),
@@ -614,6 +647,8 @@ async function handle(req: Request, write: boolean) {
     }
     return json({ error: "NOT_FOUND" }, 404);
   } catch (e) {
+    if (e instanceof FiscalError) return json({ error: e.code }, e.status);
+    if (/FISCAL_ORDER_LOCKED/.test(String(e))) return json({ error: "FISCAL_ORDER_LOCKED" }, 409);
     if (e instanceof PackingError) return json({error:e.message},e.status);
     if (e instanceof LabelError) return json({error:e.message},e.status);
     if (e instanceof KitchenError) return json({error:e.code},e.status);
@@ -622,6 +657,9 @@ async function handle(req: Request, write: boolean) {
     if (e instanceof CourierError) return json({error:e.code},e.status);
     if (e instanceof FulfillmentError) return json({error:e.code},e.status);
     if (/FULFILLMENT_CAPACITY/.test(String(e)))return json({error:"FULFILLMENT_CAPACITY"},409);
+    if (e instanceof AccountingError) return json({error:e.code},e.status);
+    const accountingCode = String(e).match(/ACCOUNTING_(?:GROSS|HANDOVER|DELIVERY)_REQUIRED|AVIZ_REQUIRED/)?.[0];
+    if (accountingCode) return json({ error: accountingCode }, 409);
     if (e instanceof StocktakeError) return json({error:e.code},e.status);
     if (e instanceof MenuError) return json({error:e.code},e.status);
     if (/MENU_CAPACITY/.test(String(e))) return json({error:"MENU_CAPACITY"},409);
@@ -652,6 +690,7 @@ async function handle(req: Request, write: boolean) {
         "COURIER_REQUIRED",
         "ALREADY_STARTED",
         "INVALID_ITEM",
+        "MENU_SET_UNAVAILABLE",
         "INVALID_SAFETY_RESULT",
         "RECURRING_RANGE",
       ].includes(code)

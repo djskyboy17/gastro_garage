@@ -15,6 +15,12 @@ A Beszerzés „Számlák” lapja. Román Factură és Bon Fiscal fotóról vag
 4. **Elvetés** (`POST /api/invoices/discard`): csak piszkozat; a számla, a sorok és a fájl törlődik, a napló megmarad.
 
 ## Szabályok
+
+- A számla besorolása `stock` vagy `expense`, a régi rekordok `stock` értékkel maradnak használhatók. A költségszámla véglegesítéséhez a szállító, bizonylatszám, dátum, RON végösszeg és eltérés esetén indoklás szükséges. A költségsorok készletmezőit a szerver üríti.
+- A költség véglegesítése ugyanabban a kötegben naplózza a számla és sorai pillanatképét, elmenti a változtathatatlan költségbejegyzést és véglegesíti a számlát. NIR és raktármozgás a készletbeszerzésekhez készül.
+- Költség helyesbítése csak adminnak, indokkal és rendezett kifizetésekkel lehetséges. Az eredeti bejegyzés megmarad, külön negatív korrekció készül a helyesbítés napjára. A számla javítható piszkozat lesz, de a korábbi költségbejegyzések miatt véglegesen nem törölhető. Párhuzamos vagy elavult kérésből nem lesz két aktív költségbejegyzés.
+
+- A könyvelési profil alkalmazása után az új bevételezések bruttó bekerülési értéket használnak. A nettó visszaállítását és a profilalkalmazással párhuzamos nettó bevételezést adatbázis-trigger tiltja. A korábbi NIR-ek értéke a kiállításkori pillanatkép szerint marad.
 - **Pénz** egész baniban; a számlamennyiség ezredekben (`invoice_quantity` 1250 = 1,25), a raktári mennyiség alapegységben (g / ml / db).
 - **Román formátum:** egyetlen vessző mindig tizedesjel („12,5” = 12,50); „1.234,56” és „1,234.56” is értelmezett. Dátum: DD.MM.YYYY → YYYY-MM-DD. CUI/CIF: „RO” előtag megmarad, az ellenőrző számjegyet (kulcs 753217532) a felület jelzi, de nem tiltja.
 - **Átváltás:** kg → g ×1000, l → ml ×1000, buc → db ×1; más esetben kézzel kell megadni. Alapanyag választásakor, ha egyértelmű, a raktári mennyiség magától kitöltődik.

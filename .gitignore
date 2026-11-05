@@ -43,3 +43,6 @@ yarn-error.log*
 
 # OS metadata
 .DS_Store
+
+# Helyi tervezési minták (nem kerülnek a tárolóba)
+/design/

@@ -87,12 +87,6 @@ export default function DeliveryNotesPanel({ lang, date }: { lang: Language; dat
           {(messages[lang] as Record<string, string>)[error] ?? t("saveError")}
         </p>
       )}
-      {data?.canConfigure && (
-        <label className="notes-setting">
-          <input type="checkbox" checked={data.allDeliveries} disabled={busy} onChange={(e) => void post("settings", { revision: data.settingsRevision, allDeliveries: e.target.checked })} />
-          {t("notesAllDeliveries")}
-        </label>
-      )}
       {data && !rows.length && <p className="quiet-empty">{t("notesNone")}</p>}
       {rows.length > 0 && (
         <ul className="notes-list">
@@ -174,4 +168,40 @@ export function DeliveryNoteFlag({ lang, orderId, revision, value, onSaved }: { 
       {error && <small className="production-short">{(messages[lang] as Record<string, string>)[error] ?? t("saveError")}</small>}
     </label>
   );
+}
+
+/** A közös avizszabály a Beállítások oldalon szerkeszthető. */
+export function DeliveryNoteSettings({ lang }: { lang: Language }) {
+  const t = (key: string) => messages[lang][key] ?? key;
+  const [data, setData] = useState<NotesDay | null>(null), [all, setAll] = useState(false), [error, setError] = useState(''), [busy, setBusy] = useState(false), [saved, setSaved] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const day = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Bucharest' }).format(new Date());
+        const response = await fetch('/api/delivery-notes?date=' + day, { cache: 'no-store', signal: controller.signal });
+        const result = await response.json() as NotesDay & { error?: string };
+        if (!response.ok) throw new Error(result.error ?? 'loadError');
+        if (!controller.signal.aborted) { setData(result); setAll(result.allDeliveries); }
+      } catch (e) { if (!controller.signal.aborted) setError((e as Error).message); }
+    })();
+    return () => controller.abort();
+  }, []);
+  async function save() {
+    if (!data || busy) return;
+    setBusy(true); setError(''); setSaved(false);
+    try {
+      const response = await fetch('/api/delivery-notes/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revision: data.settingsRevision, allDeliveries: all }) });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? 'saveError');
+      setData({ ...data, allDeliveries: all, settingsRevision: data.settingsRevision + 1 }); setSaved(true);
+    } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+  }
+  return <section className='panel aviz-settings' aria-label={t('avizSettingsTitle')}>
+    <h3>{t('avizSettingsTitle')}</h3><p>{t('avizSettingsHint')}</p>
+    {error && <p role='alert' className='portal-alert'>{t(error)}</p>}
+    {saved && <p role='status' className='portal-success'>{t('avizSettingsSaved')}</p>}
+    {!data && !error && <p role='status'>{t('loading')}</p>}
+    {data?.canConfigure && <><label><input type='checkbox' checked={all} disabled={busy} onChange={(event) => { setAll(event.target.checked); setSaved(false); }} />{t('avizSettingsAll')}</label><button type='button' className='button' disabled={busy || all === data.allDeliveries} onClick={() => void save()}>{t('avizSettingsSave')}</button></>}
+  </section>;
 }

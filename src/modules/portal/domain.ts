@@ -3,9 +3,9 @@ import {orderFulfillment,type FulfillmentSnapshot} from "../fulfillment/domain.t
 import type {Product,Order,Language} from "../shared/domain";
 export type PublicProduct = Pick<Product,"id"|"hu"|"ro"|"descriptionHu"|"descriptionRo"|"category"|"price"|"portion"|"allergens"|"hasImage"|"imageRevision">&{section:string;info?:import("../inventory/nutrition").PublicDishInfo|null};
 export type PortalProfile={name:string;address:string;phone:string;revision:number};
-export type PortalOrder=Pick<Order,"id"|"customerName"|"address"|"phone"|"date"|"time"|"note"|"status"|"production"|"delivery"|"payment"|"revision"|"createdAt"|"reviewNote">&{fulfillmentMode:string;deliveryFee:number;fulfillment:FulfillmentSnapshot|null;items:Pick<Order["items"][number],"id"|"hu"|"ro"|"allergens"|"price"|"quantity"|"setGroup">[]};
+export type PortalOrder=Pick<Order,"id"|"customerName"|"address"|"phone"|"date"|"time"|"note"|"status"|"production"|"delivery"|"payment"|"expectedPaymentMethod"|"revision"|"createdAt"|"reviewNote">&{fulfillmentMode:string;deliveryFee:number;fulfillment:FulfillmentSnapshot|null;items:Pick<Order["items"][number],"id"|"hu"|"ro"|"allergens"|"price"|"quantity"|"setGroup">[]};
 export type PortalData={profile:PortalProfile|null;orders:PortalOrder[]};
-export type PortalPreview={fulfillment:FulfillmentSnapshot;subtotal:number;quote:string;profile:PortalProfile;date:string;time:string;note:string;items:{productId:string;hu:string;ro:string;allergens:string;price:number;quantity:number;setGroup:string}[];total:number};
+export type PortalPreview={expectedPaymentMethod?:""|"cash"|"card";fulfillment:FulfillmentSnapshot;subtotal:number;quote:string;profile:PortalProfile;date:string;time:string;note:string;items:{productId:string;hu:string;ro:string;allergens:string;price:number;quantity:number;setGroup:string}[];total:number};
 export type PortalAccount={userId:string;customerId:string;name:string;address:string;phone:string;active:number;revision:number;createdAt:string};
 export function publicProduct(p:Product):PublicProduct {
   const{id,hu,ro,descriptionHu,descriptionRo,category,price,portion,allergens,hasImage,imageRevision}=p;
@@ -13,7 +13,7 @@ export function publicProduct(p:Product):PublicProduct {
 }
 export function publicOrder(o:Order):PortalOrder {
   const{id,customerName,address,phone,date,time,note,status,production,delivery,payment,revision,createdAt,reviewNote}=o;
-  return {fulfillmentMode:o.fulfillmentMode??"delivery",deliveryFee:o.deliveryFee??0,fulfillment:orderFulfillment(o),id,customerName,address,phone,date,time,note,status,production,delivery,payment,revision,createdAt,reviewNote,items:o.items.map(({id,hu,ro,allergens,price,quantity,setGroup})=>({id,hu,ro,allergens,price,quantity,setGroup:setGroup??""}))};
+  return {expectedPaymentMethod:o.expectedPaymentMethod??"",fulfillmentMode:o.fulfillmentMode??"delivery",deliveryFee:o.deliveryFee??0,fulfillment:orderFulfillment(o),id,customerName,address,phone,date,time,note,status,production,delivery,payment,revision,createdAt,reviewNote,items:o.items.map(({id,hu,ro,allergens,price,quantity,setGroup})=>({id,hu,ro,allergens,price,quantity,setGroup:setGroup??""}))};
 }
 export function validPortalSlot(date:string,time:string,now=new Date()){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(time))return false;

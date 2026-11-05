@@ -54,7 +54,7 @@ test("Beállítások: a ritkán használt nézetek a Beállítások alá kerüln
   }
   assert.deepEqual(settingsTabs.filter((t) => tabsFor("kitchen").includes(t)), ["safety", "stocktake"]);
   assert.deepEqual(settingsTabs.filter((t) => tabsFor("dispatcher").includes(t)), ["fulfillment", "portal"]);
-  assert.deepEqual(settingsTabs.filter((t) => tabsFor("owner").includes(t)), ["safety", "fulfillment", "portal", "stocktake", "labels", "access", "audit"]);
+  assert.deepEqual(settingsTabs.filter((t) => tabsFor("owner").includes(t)), ["safety", "fulfillment", "portal", "stocktake", "labels", "access", "audit", "accounting"]);
   // Címkeadatokat csak tulajdonos és admin ment (v32).
   for (const role of ["owner", "admin"] as const) assert.equal(canWrite(role, "/api/labels/settings", {}), true);
   for (const role of ["dispatcher", "kitchen", "warehouse", "courier"] as const) assert.equal(canWrite(role, "/api/labels/settings", {}), false);

@@ -1,8 +1,7 @@
 "use client";
 import { dateFormatter, numberFormatter } from "@/src/modules/shared/format";
 import PackingWorkspace from "./packing-workspace";
-import { CustomerPicker, type CustomerChoice } from "./customer-picker";
-import { TimeInput24 } from "./time-input";
+import OrderEntryForm from "./order-entry-form";
 import { ProductImage, ProductImageControls } from "./product-image";
 import {orderFulfillment,fulfillmentTime} from "@/src/modules/fulfillment/domain";
 import {
@@ -51,7 +50,6 @@ import {
   Tag,
   Menu,
   Loader2,
-  Trash2,
   AlertCircle,
   FileText,
 } from "lucide-react";
@@ -60,8 +58,12 @@ import OperationsWorkspace from "./operations-workspace";
 import PurchasingWorkspace from "./purchasing-workspace";
 import ProductionWorkspace, { ProductionWarning } from "./production-workspace";
 import DayCloseWorkspace from "./day-close-workspace";
-import { DeliveryNoteFlag } from "./delivery-notes-panel";
+import { DeliveryNoteSettings } from "./delivery-notes-panel";
 import CashWorkspace, { OrderPaymentPanel } from "./cash-workspace";
+import { OrderFiscalPanel } from "./fiscal-workspace";
+import AccountingWorkspace from "./accounting-workspace";
+import WorkspaceNavigation from "./workspace-navigation";
+import WorkspaceDetails from "./workspace-details";
 import BillingWorkspace, { OrderInvoicePanel } from "./billing-workspace";
 import { VersionInfo } from "./version-info";
 import FulfillmentWorkspace from "./fulfillment-workspace";
@@ -132,6 +134,7 @@ const nav = [
   ["audit", History],
   ["access", Users],
   ["settings", Settings],
+  ["accounting", FileText],
 ] as const;
 const allergenKeys = [
   "gluten",
@@ -216,7 +219,6 @@ export default function KitchenApp() {
   // v55: a szerkesztett étel; null = új étel.
   const [editingProduct, setEditingProduct] = useState<AppData["products"][number] | null>(null);
   // v56: az új rendelés ügyfele (meglévő vagy helyben felvett új).
-  const [customerChoice, setCustomerChoice] = useState<CustomerChoice>(null);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -224,11 +226,12 @@ export default function KitchenApp() {
   const [toast, setToast] = useState("");
   const [modal, setModal] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [collectionPolicy, setCollectionPolicy] = useState<{ orderId: string; deferred: boolean | null } | null>(null);
+  const onCollectionLoaded = useCallback((orderId: string, deferred: boolean) => {
+    setCollectionPolicy((current) => current?.orderId === orderId ? { orderId, deferred } : current);
+  }, []);
   const [mobile, setMobile] = useState(false);
-  const [lines, setLines] = useState([{ productId: "", quantity: 1 }]);
   const [orderId, setOrderId] = useState("");
-  const [newDate, setNewDate] = useState(today);
-  const [newTime, setNewTime] = useState("12:00");
   const [deliveryNote, setDeliveryNote] = useState("");
   const t = (key: string) => messages[lang][key] ?? key;
   const can = (path:string, body:unknown = {}) => session ? canWrite(session.role,"/api/"+path,body) : false;
@@ -329,16 +332,13 @@ export default function KitchenApp() {
     setError("");
     setModal(type);
     if (type === "order") {
-      setLines([{ productId: data.products.find((p) => p.active === 1)?.id ?? "", quantity: 1 }]);
-      setCustomerChoice(null);
       setOrderId(crypto.randomUUID());
-      setNewDate(day);
-      setNewTime("12:00");
     }
   }
   function detail(o: Order) {
     setDeliveryNote("");
     setSelected(o.id);
+    setCollectionPolicy({ orderId: o.id, deferred: null });
     open("detail");
   }
   async function change(o: Order, field: string, value: string) {
@@ -556,20 +556,7 @@ export default function KitchenApp() {
         allergens: f.getAll("allergens").join(","),
         ...(editingProduct ? { id: editingProduct.id, revision: editingProduct.portalRevision ?? 0 } : {}),
       };
-    else
-      body = {
-        id: orderId,
-        ...(customerChoice?.mode === "existing" ? { customerId: customerChoice.id } : {}),
-        ...(customerChoice?.mode === "new" ? { newCustomer: { name: customerChoice.name, address: customerChoice.address, phone: customerChoice.phone } } : {}),
-        date: newDate,
-        time: newTime,
-        note: f.get("note"),
-        items: lines,
-      };
-    if (modal === "order" && !customerChoice) {
-      setError("CUSTOMER_MISSING");
-      return;
-    }
+    else return;
     if (
       await mutate(
         modal === "customer"
@@ -581,7 +568,6 @@ export default function KitchenApp() {
       )
     ) {
       setModal(null);
-      if (modal === "order") setDay(newDate);
     }
   }
   const noData =
@@ -616,21 +602,7 @@ export default function KitchenApp() {
             <small>{t("brand")}</small>
           </a>
           <p className="nav-label">{t("workspace")}</p>
-          <nav aria-label={t("workspace")}>
-            {nav.filter(([key]) => session && tabsFor(session.role).includes(key) && !isSettingsTab(key)).map(([key, Icon], i) => (
-              <button
-                key={key}
-                className={tab === key || (key === "settings" && isSettingsTab(tab)) ? "active" : ""}
-                onClick={() => navigate(key)}
-              >
-                <Icon size={19} />
-                <span>{t(key)}</span>
-                {key === "portal" && data.orders.some(o=>o.status==="requested") ? <span className="nav-count">{data.orders.filter(o=>o.status==="requested").length}</span> : key === "orders" && active.length > 0 ? (
-                  <span className="nav-count">{active.length}</span>
-                ) : null}
-              </button>
-            ))}
-          </nav>
+          <WorkspaceNavigation lang={lang} onNavigate={navigate} entries={nav.filter(([key]) => tabsFor(session.role).includes(key) && !isSettingsTab(key)).map(([key, Icon]) => ({ id: key, Icon, label: t(key), active: tab === key || (key === "settings" && isSettingsTab(tab)), count: key === "orders" ? active.length : undefined }))} />
           <div className="sidebar-bottom">
             <div className="seedling">
               <Leaf size={24} />
@@ -639,7 +611,7 @@ export default function KitchenApp() {
             </div>
             <a
               href="/signout?return_to=/"
-             
+
               className="profile"
             >
               <span className="avatar owner-avatar">{session.name.slice(0,2).toUpperCase()}</span>
@@ -708,6 +680,8 @@ export default function KitchenApp() {
                           ? "deliveryTitle"
                           : tab === "settings"
                             ? "settingsTitle"
+                            : tab === "accounting"
+                              ? "simpleAccountingTitle"
                             : tab,
                   )}
                 </h1>
@@ -764,7 +738,7 @@ export default function KitchenApp() {
                 ) : null}
               </div>
             </div>
-            {error && (
+            {error && modal !== "order" && (
               <div role="alert" className="error-banner">
                 <AlertCircle size={18} />
                 <span>{t(error) === error ? t("saveError") : t(error)}</span>
@@ -1364,14 +1338,15 @@ export default function KitchenApp() {
                 {tab === "settings" && (
                   <>
                     <div className="settings-grid">
+                      {isAdmin(session.role) && <DeliveryNoteSettings lang={lang} />}
                       {nav
                         .filter(([key]) => isSettingsTab(key) && tabsFor(session.role).includes(key))
                         .map(([key, Icon]) => (
                           <button type="button" className="panel settings-card" key={key} onClick={() => navigate(key)}>
                             <Icon size={22} />
                             <span>
-                              <strong>{t(key)}</strong>
-                              <small>{t("settingsAbout_" + key)}</small>
+                              <strong>{t(key === "accounting" ? "simpleAccountingTitle" : key)}</strong>
+                              <small>{t(key === "accounting" ? "simpleAccountingPageHint" : "settingsAbout_" + key)}</small>
                             </span>
                             <ChevronRight size={18} className="settings-card-arrow" />
                           </button>
@@ -1393,6 +1368,7 @@ export default function KitchenApp() {
                 {tab === "labels" && <LabelsWorkspace lang={lang}/>}
                 {tab === "billing" && <BillingWorkspace lang={lang} />}
                 {tab === "cash" && <CashWorkspace key={day} lang={lang} initialDay={day} />}
+                {tab === "accounting" && <AccountingWorkspace lang={lang} />}
                 {tab === "stocktake" && <StocktakeWorkspace ops={data.operations} lang={lang} role={session.role} refresh={load}/>}
                 {tab === "menu" && <MenuWorkspace products={data.products} lang={lang}/>}
                 {tab === "portal" && <PortalManagement data={data} lang={lang} role={session.role} busy={busy} mutate={mutate} refresh={load} onOrder={detail}/>}
@@ -1484,6 +1460,7 @@ export default function KitchenApp() {
             )}
             close={() => !busy && setModal(null)}
             closeLabel={t("close")}
+            className={modal === "order" ? "order-entry-modal" : undefined}
           >
             {error && (
               <div role="alert" className="error-banner">
@@ -1545,23 +1522,13 @@ export default function KitchenApp() {
                   <span>{t("amount")}</span>
                   <strong>{money(total(selectedOrder))}</strong>
                 </div>
-                {selectedOrder.note && (
-                  <p className="detail-note">{selectedOrder.note}</p>
-                )}
-                {selectedOrder.fulfillmentMode!=="pickup" && selectedOrder.status === "confirmed" && <OrderDeliveryEditor key={"delivery-"+selectedOrder.id+":"+selectedOrder.revision} data={data} lang={lang} busy={busy} mutate={mutate} order={selectedOrder} canSwitch={can("delivery/to-pickup")}/>}
-                {can("orders/state",{field:"delivery"}) && selectedOrder.status === "confirmed" && selectedOrder.delivery !== "delivered" && <div className="detail-delivery-note"><Field label={t("deliveryNote")}><textarea maxLength={500} value={deliveryNote} onChange={e=>setDeliveryNote(e.target.value)}/></Field><small>{t("recordedResult")}</small></div>}
-                {selectedOrder.status==="requested" && can("orders/state",{field:"status"}) && <OrderRequestReview key={"review-"+selectedOrder.id+":"+selectedOrder.revision} order={selectedOrder} lang={lang} busy={busy} mutate={mutate}/>}
-                {selectedOrder.reviewNote && <p className="portal-review-note">{selectedOrder.reviewNote}</p>}
-                {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <OrderPaymentPanel key={"pay-"+selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} canEdit onSaved={() => void load()} />}
-                {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <OrderInvoicePanel key={"inv-"+selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} onSaved={() => void load()} />}
-                {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <DeliveryNoteFlag key={"note-"+selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} revision={selectedOrder.revision} value={!!selectedOrder.deliveryNoteRequired} onSaved={() => void load()} />}
-                
+                <section className="order-next-step" aria-label={t("simpleNextStep")}>
                 <div className="state-grid">
                   {[
                     ["production", selectedOrder.production],
                     ["delivery", selectedOrder.delivery],
                     ["payment", selectedOrder.payment],
-                  ].map(([label, state]) => (
+                  ].filter(([label]) => label !== "payment" || !["owner", "admin", "dispatcher"].includes(session.role) || (collectionPolicy?.orderId === selectedOrder.id && collectionPolicy.deferred === false)).map(([label, state]) => (
                     <div key={label}>
                       <small>{t(label==="delivery"&&selectedOrder.fulfillmentMode==="pickup"?"fulfillPickupStatus":label)}</small>
                       <Badge state={state} label={label==="delivery"&&selectedOrder.fulfillmentMode==="pickup"&&state==="delivered"?"fulfillPickedUp":undefined} />
@@ -1626,6 +1593,7 @@ export default function KitchenApp() {
                     )}
                     {can("orders/state",{field:"status"}) && selectedOrder.production === "queued" &&
                       selectedOrder.delivery === "pending" && (
+                        <details className="order-other-actions"><summary>{t("simpleOtherActions")}</summary>
                         <button
                           disabled={busy}
                           className="danger-button"
@@ -1636,10 +1604,27 @@ export default function KitchenApp() {
                         >
                           {t("cancelOrder")}
                         </button>
+                        </details>
                       )}
                   </div>
                 )}
+                </section>
+                {selectedOrder.note && (
+                  <p className="detail-note">{selectedOrder.note}</p>
+                )}
+                {selectedOrder.status === "confirmed" && <WorkspaceDetails title={t("simpleDeliveryOptions")} hint={t("simpleDeliveryHint")} attention={selectedOrder.delivery === "transit" || selectedOrder.delivery === "failed"}>
+                {selectedOrder.fulfillmentMode!=="pickup" && selectedOrder.status === "confirmed" && <OrderDeliveryEditor key={"delivery-"+selectedOrder.id+":"+selectedOrder.revision} data={data} lang={lang} busy={busy} mutate={mutate} order={selectedOrder} canSwitch={can("delivery/to-pickup")}/>}
+                {can("orders/state",{field:"delivery"}) && selectedOrder.status === "confirmed" && selectedOrder.delivery !== "delivered" && <div className="detail-delivery-note"><Field label={t("deliveryNote")}><textarea maxLength={500} value={deliveryNote} onChange={e=>setDeliveryNote(e.target.value)}/></Field><small>{t("recordedResult")}</small></div>}
+                </WorkspaceDetails>}
+                {selectedOrder.status==="requested" && can("orders/state",{field:"status"}) && <OrderRequestReview key={"review-"+selectedOrder.id+":"+selectedOrder.revision} order={selectedOrder} lang={lang} busy={busy} mutate={mutate}/>}
+                {selectedOrder.reviewNote && <p className="portal-review-note">{selectedOrder.reviewNote}</p>}
+                {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <OrderPaymentPanel key={"pay-"+selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} expectedMethod={selectedOrder.expectedPaymentMethod} canEdit onCollectionLoaded={onCollectionLoaded} onSaved={() => void load()} />}
+                {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <OrderFiscalPanel key={"fiscal-"+selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} admin={isAdmin(session.role)} onSaved={() => void load()} />}
+                {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <OrderInvoicePanel key={"inv-"+selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} onSaved={() => void load()} />}
+
               </>
+            ) : modal === "order" ? (
+              <OrderEntryForm data={data} lang={lang} orderId={orderId} initialDate={day} busy={busy} error={error} onCancel={() => setModal(null)} onSave={async (body) => { const ok = await mutate("orders", body); if (ok) { setDay(body.date); setModal(null); } return ok; }} />
             ) : (
               <form onSubmit={submit} key={modal + ":" + (editingProduct?.id ?? "new")}>
                 {modal === "customer" && (
@@ -1733,138 +1718,6 @@ export default function KitchenApp() {
                     </fieldset>
                   </>
                 )}
-                {modal === "order" && (
-                  <>
-                    <div className="field">
-                      <span className="field-label">{t("customer")}</span>
-                      <CustomerPicker customers={data.customers} t={t} value={customerChoice} onChange={setCustomerChoice} />
-                    </div>
-                    <div className="form-grid">
-                      <Field label={t("date")}>
-                        <input
-                          type="date"
-                          required
-                          value={newDate}
-                          onChange={(e) => setNewDate(e.target.value)}
-                        />
-                      </Field>
-                      <Field label={t("time")}>
-                        <TimeInput24
-                          required
-                          value={newTime}
-                          onChange={setNewTime}
-                        />
-                      </Field>
-                    </div>
-                    <div className="order-lines">
-                      {lines.map((line, i) => (
-                        <div className="order-line" key={i}>
-                          <Field label={t("items")}>
-                            <select
-                              required
-                              value={line.productId}
-                              onChange={(e) =>
-                                setLines((prev) =>
-                                  prev.map((l, j) =>
-                                    j === i
-                                      ? { ...l, productId: e.target.value }
-                                      : l,
-                                  ),
-                                )
-                              }
-                            >
-                              <option value="" disabled>
-                                {t("chooseProduct")}
-                              </option>
-                              {data.products
-                                .filter(
-                                  (p) =>
-                                    p.id === line.productId ||
-                                    (p.active === 1 && !lines.some((l) => l.productId === p.id)),
-                                )
-                                .map((p) => (
-                                  <option key={p.id} value={p.id}>
-                                    {title(p)} · {money(p.price)}
-                                  </option>
-                                ))}
-                            </select>
-                          </Field>
-                          <Field label={t("quantity")}>
-                            <input
-                              type="number"
-                              min="1"
-                              max="1000"
-                              step="1"
-                              required
-                              value={line.quantity || ""}
-                              onChange={(e) =>
-                                setLines((prev) =>
-                                  prev.map((l, j) =>
-                                    j === i
-                                      ? {
-                                          ...l,
-                                          quantity: Number(e.target.value),
-                                        }
-                                      : l,
-                                  ),
-                                )
-                              }
-                            />
-                          </Field>
-                          <button
-                            type="button"
-                            className="icon-button"
-                            aria-label={t("deleteLine")}
-                            disabled={lines.length === 1}
-                            onClick={() =>
-                              setLines((prev) => prev.filter((_, j) => j !== i))
-                            }
-                          >
-                            <Trash2 size={17} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    <Button
-                      secondary
-                      onClick={() =>
-                        setLines((prev) => [
-                          ...prev,
-                          {
-                            productId:
-                              data.products.find(
-                                (p) => !prev.some((l) => l.productId === p.id),
-                              )?.id ?? "",
-                            quantity: 1,
-                          },
-                        ])
-                      }
-                      disabled={lines.length >= data.products.length}
-                    >
-                      <Plus size={15} />
-                      {t("addLine")}
-                    </Button>
-                    
-                <div className="detail-total">
-                      <span>{t("amount")}</span>
-                      <strong>
-                        {money(
-                          lines.reduce(
-                            (s, l) =>
-                              s +
-                              (data.products.find((p) => p.id === l.productId)
-                                ?.price ?? 0) *
-                                l.quantity,
-                            0,
-                          ),
-                        )}
-                      </strong>
-                    </div>
-                    <Field label={t("note")}>
-                      <textarea name="note" maxLength={1500} />
-                    </Field>
-                  </>
-                )}
                 <div className="form-actions">
                   <button
                     type="button"
@@ -1907,11 +1760,13 @@ function Modal({
   close,
   closeLabel,
   children,
+  className,
 }: {
   title: string;
   close: () => void;
   closeLabel: string;
   children: ReactNode;
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -1924,7 +1779,7 @@ function Modal({
   return (
     <dialog
       ref={ref}
-      className="modal"
+      className={"modal" + (className ? " " + className : "")}
       onCancel={(e) => {
         e.preventDefault();
         close();

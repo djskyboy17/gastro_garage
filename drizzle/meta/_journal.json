@@ -239,6 +239,34 @@
       "when": 1793832881872,
       "tag": "0033_billing",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1793874829582,
+      "tag": "0034_accounting_profile",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1793878093193,
+      "tag": "0035_expenses",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1793879915447,
+      "tag": "0036_accounting_report_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1793881581908,
+      "tag": "0037_kitchen_fiscal",
+      "breakpoints": true
     }
   ]
 }

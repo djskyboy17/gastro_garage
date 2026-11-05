@@ -46,6 +46,7 @@ export const customers = sqliteTable("customers", {
   note: text("note").notNull(),
 });
 export const orders = sqliteTable("orders", {
+  expectedPaymentMethod: text("expected_payment_method", { enum: ["", "cash", "card"] }).notNull().default(""),
   packingItems:text("packing_items").notNull().default("[]"),
   packingReady:integer("packing_ready").notNull().default(0),
   packingCheckedAt:text("packing_checked_at").notNull().default(""),
@@ -559,6 +560,7 @@ export const supplierInvoices = sqliteTable(
   {
     id: text("id").primaryKey(),
     kind: text("kind").notNull(),
+    purpose: text("purpose").notNull().default("stock"),
     status: text("status").notNull().default("draft"),
     revision: integer("revision").notNull().default(0),
     supplierName: text("supplier_name").notNull().default(""),
@@ -593,8 +595,28 @@ export const supplierInvoices = sqliteTable(
     check("supplier_invoice_status", sql`${t.status} IN ('draft','received')`),
     check("supplier_invoice_source", sql`${t.source} IN ('ai','manual')`),
     index("supplier_invoice_created").on(t.createdAt),
+    index("supplier_invoice_issued").on(t.issueDate),
+    index("supplier_invoice_received").on(t.receivedDate),
   ],
 );
+export const expenseDocuments = sqliteTable("expense_documents", {
+  id: text("id").primaryKey(),
+  invoiceId: text("invoice_id").notNull().references(() => supplierInvoices.id),
+  kind: text("kind").notNull(),
+  postingDay: text("posting_day").notNull(),
+  amount: integer("amount").notNull(),
+  content: text("content").notNull(),
+  reversalOf: text("reversal_of"),
+  reversedBy: text("reversed_by"),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (t) => [
+  check("expense_document_kind", sql`${t.kind} IN ('expense','reversal')`),
+  index("expense_document_period").on(t.postingDay),
+  uniqueIndex("expense_document_reversal").on(t.reversalOf),
+  uniqueIndex("expense_document_active").on(t.invoiceId).where(sql`${t.kind}='expense' AND ${t.reversedBy} IS NULL`),
+]);
+
 /** A számla eredeti képe vagy PDF-je (base64), a termékképekhez hasonlóan az adatbázisban. */
 export const supplierInvoiceFiles = sqliteTable("supplier_invoice_files", {
   invoiceId: text("invoice_id").primaryKey().references(() => supplierInvoices.id),
@@ -640,7 +662,22 @@ export const invoiceItemMappings = sqliteTable("invoice_item_mappings", {
   factor: integer("factor").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
-/** Beszerzési beállítások (egy sor): bekerülési érték nettó vagy bruttó. [ELLENŐRIZENDŐ] a könyvelővel – alapból nettó. */
+/** A könyvelővel egyeztetett profil, alkalmazásának napjával és a mentesség megjegyzésével. */
+export const accountingProfile = sqliteTable(
+  "accounting_profile",
+  {
+    id: integer("id").primaryKey(),
+    taxStatus: text("tax_status").notNull(),
+    exemptionNote: text("exemption_note").notNull().default(""),
+    appliedOn: text("applied_on").notNull(),
+    revision: integer("revision").notNull().default(0),
+    updatedBy: text("updated_by").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [check("accounting_profile_singleton", sql`${t.id}=1`), check("accounting_profile_tax_status", sql`${t.taxStatus}='non_vat_payer'`)],
+);
+
+/** Beszerzési beállítások. A könyvelési profil alkalmazása bruttó értékelést ír elő. */
 export const purchaseSettings = sqliteTable(
   "purchase_settings",
   {
@@ -700,6 +737,7 @@ export const nirDocuments = sqliteTable(
   (t) => [
     uniqueIndex("nir_number").on(t.year, t.number),
     index("nir_invoice").on(t.invoiceId),
+    index("nir_issued").on(t.issueDate),
     check("nir_kind", sql`${t.kind} IN ('receipt','reversal')`),
     check("nir_status", sql`${t.status} IN ('issued','reversed')`),
   ],
@@ -765,6 +803,7 @@ export const consumptionDocuments = sqliteTable(
   (t) => [
     uniqueIndex("consumption_number").on(t.year, t.number),
     index("consumption_batch").on(t.batchId),
+    index("consumption_issued").on(t.issueDate),
     check("consumption_kind", sql`${t.kind} IN ('consumption','reversal')`),
     check("consumption_status", sql`${t.status} IN ('issued','reversed')`),
   ],
@@ -847,6 +886,7 @@ export const productionDocuments = sqliteTable(
   (t) => [
     uniqueIndex("production_document_number").on(t.docType, t.year, t.number),
     index("production_document_day").on(t.day),
+    index("production_document_issued").on(t.issueDate),
     check("production_document_type", sql`${t.docType} IN ('write_off','handover')`),
     check("production_document_kind", sql`${t.kind} IN ('issue','reversal')`),
     check("production_document_status", sql`${t.status} IN ('issued','reversed')`),
@@ -880,6 +920,7 @@ export const deliveryNotes = sqliteTable(
     uniqueIndex("delivery_note_number").on(t.year, t.number),
     uniqueIndex("delivery_note_one_active").on(t.orderId).where(sql`${t.kind}='issue' AND ${t.status}='issued'`),
     index("delivery_note_day").on(t.day),
+    index("delivery_note_issued").on(t.issueDate),
     check("delivery_note_kind", sql`${t.kind} IN ('issue','reversal')`),
     check("delivery_note_status", sql`${t.status} IN ('issued','reversed')`),
   ],
@@ -1107,6 +1148,7 @@ export const salesInvoices = sqliteTable(
   (t) => [
     uniqueIndex("sales_invoice_key").on(t.idempotencyKey),
     index("sales_invoice_customer").on(t.customerId),
+    index("sales_invoice_issued").on(t.issueDate),
     check("sales_invoice_kind", sql`${t.kind} IN ('order','monthly','storno')`),
     check("sales_invoice_status", sql`${t.status} IN ('pending','failed','issued','stornoed')`),
   ],
@@ -1170,3 +1212,41 @@ export const oblioSimulated = sqliteTable("oblio_simulated", {
   cancelled: integer("cancelled").notNull().default(0),
   createdAt: text("created_at").notNull(),
 });
+export const fiscalSettings = sqliteTable("fiscal_settings", {
+  id: integer("id").primaryKey(),
+  mode: text("mode").notNull().default("simulation"),
+  deviceSerial: text("device_serial").notNull().default(""),
+  revision: integer("revision").notNull().default(0),
+}, (t) => [check("fiscal_settings_singleton", sql`${t.id}=1`), check("fiscal_settings_mode", sql`${t.mode} IN ('simulation','live')`)]);
+
+export const fiscalReceipts = sqliteTable("fiscal_receipts", {
+  id: text("id").primaryKey(),
+  orderId: text("order_id").notNull().references(() => orders.id),
+  mode: text("mode").notNull(),
+  state: text("state").notNull(),
+  revision: integer("revision").notNull().default(0),
+  day: text("day").notNull(),
+  method: text("method").notNull(),
+  total: integer("total").notNull(),
+  content: text("content").notNull(),
+  token: text("token").notNull(),
+  deviceSerial: text("device_serial").notNull(),
+  receiptNumber: text("receipt_number").notNull().default(""),
+  receiptCounter: integer("receipt_counter"),
+  expiresAt: text("expires_at").notNull(),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull(),
+  completedAt: text("completed_at").notNull().default(""),
+  result: text("result").notNull().default(""),
+  resolution: text("resolution").notNull().default(""),
+}, (t) => [
+  check("fiscal_receipt_mode", sql`${t.mode} IN ('simulation','live')`),
+  check("fiscal_receipt_state", sql`${t.state} IN ('prepared','uncertain','issued','not_issued')`),
+  check("fiscal_receipt_method", sql`${t.method} IN ('cash','card')`),
+  check("fiscal_receipt_total", sql`${t.total}>0 AND ${t.total}<=100000000`),
+  index("fiscal_receipt_order").on(t.orderId),
+  index("fiscal_receipt_day").on(t.day, t.mode, t.state),
+  uniqueIndex("fiscal_receipt_live_order").on(t.orderId).where(sql`${t.mode}='live' AND ${t.state}<>'not_issued'`),
+  uniqueIndex("fiscal_receipt_device_busy").on(t.deviceSerial).where(sql`${t.mode}='live' AND ${t.state} IN ('prepared','uncertain')`),
+  uniqueIndex("fiscal_receipt_number").on(t.deviceSerial, t.day, t.receiptNumber).where(sql`${t.mode}='live' AND ${t.state}='issued'`),
+]);

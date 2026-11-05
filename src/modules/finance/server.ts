@@ -3,6 +3,8 @@ import { z } from "zod";
 import type { Session } from "../access/domain";
 import { isAdmin } from "../access/domain";
 import { today } from "../shared/domain";
+import { orderCollectionDeferred } from "../billing/server";
+import { orderCollectionAllowedSql } from "../billing/order-collection";
 import { validDay } from "../menu/domain";
 import { loadSettings as loadLabelSettings } from "../labels/server";
 import {
@@ -70,8 +72,8 @@ export function recordPaymentStatements(p: { orderId: string; method: PaymentMet
   const id = crypto.randomUUID(),
     d = today(),
     cashEntryId = p.method === "cash" && p.collectedBy === "office" ? crypto.randomUUID() : null;
-  const guard = `EXISTS (SELECT 1 FROM orders WHERE id=? AND status='confirmed') AND ${dueSql}>=?${cashEntryId ? " AND " + cashOpenSql : ""}${p.extraGuard ? " AND " + p.extraGuard.sql : ""}`;
-  const binds = [p.orderId, p.orderId, p.amount, ...(cashEntryId ? [d] : []), ...(p.extraGuard?.binds ?? [])];
+  const guard = `EXISTS (SELECT 1 FROM orders WHERE id=? AND status='confirmed') AND ${dueSql}>=? AND ${orderCollectionAllowedSql}${cashEntryId ? " AND " + cashOpenSql : ""}${p.extraGuard ? " AND " + p.extraGuard.sql : ""}`;
+  const binds = [p.orderId, p.orderId, p.amount, p.orderId, ...(cashEntryId ? [d] : []), ...(p.extraGuard?.binds ?? [])];
   return [
     DB.prepare(`INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN ${guard} THEN ? ELSE NULL END,'payment_recorded',?,?,?)`).bind(
       crypto.randomUUID(),
@@ -127,9 +129,10 @@ export async function handleFinance(path: string, body: unknown, session: Sessio
   const actor = session.userId;
   if (!write && path === "/api/finance/order") {
     const id = z.string().min(1).max(200).parse(params.get("id"));
-    const [order, payments] = await Promise.all([orderTotal(id), orderPayments(id)]);
-    return json({ total: order.total, revision: order.revision, balance: orderBalance(order.total, payments, order.payment === "paid"), payments });
+    const [order, payments, collectionDeferred] = await Promise.all([orderTotal(id), orderPayments(id), orderCollectionDeferred(id)]);
+    return json({ collectionDeferred, total: order.total, revision: order.revision, balance: orderBalance(order.total, payments, order.payment === "paid"), payments });
   }
+  if (!write && path === "/api/finance/tremol-job") return json({ error: "FISCAL_USE_WORKFLOW" }, 410);
   if (!write && path === "/api/finance/day") {
     const date = params.get("date") ?? today();
     if (!validDay(date)) throw new FinanceError("VALIDATION");
@@ -192,7 +195,8 @@ export async function handleFinance(path: string, body: unknown, session: Sessio
 
   if (path === "/api/finance/payment") {
     const d = z.object({ orderId: z.string().min(1).max(200), revision: z.number().int().min(0), method: z.enum(["cash", "card"]), amount: money, note: z.string().trim().max(300) }).strict().parse(body);
-    const [order, payments] = await Promise.all([orderTotal(d.orderId), orderPayments(d.orderId)]);
+    const [order, payments, collectionDeferred] = await Promise.all([orderTotal(d.orderId), orderPayments(d.orderId), orderCollectionDeferred(d.orderId)]);
+    if (collectionDeferred) throw new FinanceError("PAYMENT_MONTHLY_INVOICE", 409);
     if (order.status !== "confirmed") throw new FinanceError("PAYMENT_ORDER_STATE");
     if (order.revision !== d.revision) throw new FinanceError("CONFLICT", 409);
     const error = paymentError(d.amount, orderBalance(order.total, payments, order.payment === "paid").due);
@@ -327,7 +331,7 @@ export async function handleFinance(path: string, body: unknown, session: Sessio
       cashEntryId = d.method === "cash" ? crypto.randomUUID() : null;
     const open = "(SELECT total FROM supplier_invoices WHERE id=?)-(SELECT COALESCE(SUM(amount),0) FROM supplier_payments WHERE invoice_id=?)";
     await run([
-      audit("supplier_payment_recorded", `${open}>=?${cashEntryId ? ` AND ${cashOpenSql} AND ${cashBalanceSql}>=?` : ""}`, [d.invoiceId, d.invoiceId, d.amount, ...(cashEntryId ? [d0, d.amount] : [])], d.invoiceId, { amount: d.amount, method: d.method }),
+      audit("supplier_payment_recorded", `EXISTS (SELECT 1 FROM supplier_invoices WHERE id=? AND status='received') AND ${open}>=?${cashEntryId ? ` AND ${cashOpenSql} AND ${cashBalanceSql}>=?` : ""}`, [d.invoiceId, d.invoiceId, d.invoiceId, d.amount, ...(cashEntryId ? [d0, d.amount] : [])], d.invoiceId, { amount: d.amount, method: d.method }),
       DB.prepare("INSERT INTO supplier_payments (id,invoice_id,day,method,amount,reversal_of,reversed_by,cash_entry_id,note,actor,created_at) VALUES (?,?,?,?,?,NULL,NULL,?,?,?,?)").bind(id, d.invoiceId, d0, d.method, d.amount, cashEntryId, d.note, actor, now),
       ...(cashEntryId
         ? [DB.prepare("INSERT INTO cash_entries (id,day,kind,amount,document,note,ref_id,reversal_of,actor,created_at) VALUES (?,?,'supplier_payment',?,?,?,?,NULL,?,?)").bind(cashEntryId, d0, -d.amount, (inv.series + " " + inv.number).trim(), inv.supplierName + (d.note ? " – " + d.note : ""), id, actor, now)]
