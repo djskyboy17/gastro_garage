@@ -18,5 +18,6 @@ declare namespace Cloudflare {
     BUILD_TIME?: string;
     DB?: D1Database;
     BUCKET?: R2Bucket;
+    ARCHIVE?: R2Bucket;
   }
 }

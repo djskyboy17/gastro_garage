@@ -11,6 +11,7 @@ import {handleProduction,ProductionError} from "@/src/modules/production/server"
 import {handleDeliveryNotes,DeliveryNoteError,hasActiveNote,cancelOrderWithNote} from "@/src/modules/delivery-notes/server";
 import {handleFinance,FinanceError,cancelPaymentState} from "@/src/modules/finance/server";
 import {handleBilling,BillingError} from "@/src/modules/billing/server";
+import {handleArchive,ArchiveError} from "@/src/modules/archive/server";
 import {handleAccounting,AccountingError} from "@/src/modules/accounting/server";
 import {handleFiscal,FiscalError} from "@/src/modules/fiscal/server";
 import { env } from "cloudflare:workers";
@@ -134,6 +135,11 @@ async function handle(req: Request, write: boolean) {
       return await handleInvoices(path,body,session,write,req);
     }
     // v73: gyártási tételek és bon de consum (csak admin; a modul ellenőrzi).
+    // v82: bizonylat-archívum (a modul ellenőrzi a szerepköröket).
+    if(path==="/api/archive"||path.startsWith("/api/archive/")){
+      let body:unknown;if(write){const raw=await req.text();if(raw.length>2000)return json({error:"TOO_LARGE"},413);body=raw?JSON.parse(raw):{};}
+      return await handleArchive(path,body,session,write,req);
+    }
     // v77: kimenő számlázás az Oblióval (a modul ellenőrzi a szerepköröket).
     if(path==="/api/billing"||path.startsWith("/api/billing/")){
       let body:unknown;if(write){const raw=await req.text();if(raw.length>20000)return json({error:"TOO_LARGE"},413);body=JSON.parse(raw);}
@@ -674,6 +680,7 @@ async function handle(req: Request, write: boolean) {
     if (e instanceof DeliveryNoteError) return json({ error: e.code }, e.status);
     if (e instanceof FinanceError) return json({ error: e.code }, e.status);
     if (e instanceof BillingError) return json({ error: e.code }, e.status);
+    if (e instanceof ArchiveError) return json({ error: e.code }, e.status);
     if (e instanceof OperationError) return json({ error: e.code }, e.status);
     if (e instanceof z.ZodError || e instanceof SyntaxError)
       return json({ error: "VALIDATION" }, 400);

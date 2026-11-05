@@ -52,6 +52,7 @@ import {
   Loader2,
   AlertCircle,
   FileText,
+  Archive,
 } from "lucide-react";
 import { messages } from "@/src/modules/shared/i18n";
 import OperationsWorkspace from "./operations-workspace";
@@ -65,6 +66,7 @@ import AccountingWorkspace from "./accounting-workspace";
 import WorkspaceNavigation from "./workspace-navigation";
 import WorkspaceDetails from "./workspace-details";
 import BillingWorkspace, { OrderInvoicePanel } from "./billing-workspace";
+import ArchiveWorkspace from "./archive-workspace";
 import { VersionInfo } from "./version-info";
 import FulfillmentWorkspace from "./fulfillment-workspace";
 import StocktakeWorkspace from "./stocktake-workspace";
@@ -130,6 +132,7 @@ const nav = [
   ["procurement", ClipboardList],
   ["cash", Wallet],
   ["billing", FileText],
+  ["archive", Archive],
   ["safety", CheckCircle2],
   ["audit", History],
   ["access", Users],
@@ -695,6 +698,8 @@ export default function KitchenApp() {
                           ? "deliverySubtitle"
                           : tab === "cash"
                             ? "cashHint"
+                          : tab === "archive"
+                            ? "archiveHint"
                           : tab === "billing"
                             ? "billingHint"
                           : tab === "recurring"
@@ -1367,6 +1372,7 @@ export default function KitchenApp() {
                 {tab === "fulfillment" && <FulfillmentWorkspace lang={lang} role={session.role}/>}
                 {tab === "labels" && <LabelsWorkspace lang={lang}/>}
                 {tab === "billing" && <BillingWorkspace lang={lang} />}
+                {tab === "archive" && <ArchiveWorkspace lang={lang} />}
                 {tab === "cash" && <CashWorkspace key={day} lang={lang} initialDay={day} />}
                 {tab === "accounting" && <AccountingWorkspace lang={lang} />}
                 {tab === "stocktake" && <StocktakeWorkspace ops={data.operations} lang={lang} role={session.role} refresh={load}/>}

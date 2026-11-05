@@ -36,6 +36,7 @@ import {
 import { extractWithGemini, GEMINI_MODEL } from "./gemini";
 import { renderNirHtml } from "./nir-print";
 import { allocateDocumentNumber } from "../documents/server";
+import { archivedSourceFile } from "../archive/server";
 import { formatDocumentNumber, DOCUMENT_TYPES } from "../documents/domain";
 export { InvoiceError };
 
@@ -106,7 +107,10 @@ export async function serveInvoiceFile(req: Request) {
   if (!uuid.safeParse(id).success) return json({ error: "NOT_FOUND" }, 404);
   const row = await env.DB!.prepare("SELECT mime,data FROM supplier_invoice_files WHERE invoice_id=?").bind(id).first<{ mime: string; data: string }>();
   if (!row) return json({ error: "NOT_FOUND" }, 404);
-  return new Response(fromBase64(row.data), {
+  // v82: archiválás után az eredeti az R2-ben van (a D1-ben kiürül).
+  const archived = row.data ? null : await archivedSourceFile("supplier_invoices", id);
+  if (!row.data && !archived) return json({ error: "NOT_FOUND" }, 404);
+  return new Response(archived ? archived.body : fromBase64(row.data), {
     headers: { "Content-Type": row.mime, "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'", "Cache-Control": "private, no-store" },
   });
 }

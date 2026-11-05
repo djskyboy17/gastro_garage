@@ -3,8 +3,13 @@ import { runWithConnectorBinding } from "../lib/connector-context";
 import type { ConnectorBinding } from "../lib/connector-contract.mjs";
 import { startRedirect } from "../src/modules/shared/hosts";
 import { withSecurityHeaders } from "../src/modules/shared/security-headers";
+import { sweepArchive } from "../src/modules/archive/server";
 
 const worker = {
+  // v82: időzített archiválás (a bizonylatoktól függetlenül; hibája csak naplóba kerül).
+  scheduled(_controller: ScheduledController, _env: Cloudflare.Env, ctx: ExecutionContext) {
+    ctx.waitUntil(sweepArchive("system", 40).then((r) => { if (r.failed.length) console.error("archive sweep", JSON.stringify(r.failed).slice(0, 500)); }).catch((e) => console.error("archive sweep", String(e).slice(0, 300))));
+  },
   fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
     // gastrogarage.… → ügyfélrendelés, courier.… → futár; a többi cím a konyhai munkatér.
     const url = new URL(request.url);

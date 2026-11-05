@@ -46,14 +46,13 @@ const bindingConfig = (build: boolean) => ({
         },
       ]
     : [],
-  r2_buckets: r2
-    ? [
-        {
-          binding: r2,
-          bucket_name: "site-creator-r2",
-        },
-      ]
-    : [],
+  r2_buckets: [
+    ...(r2 ? [{ binding: r2, bucket_name: "site-creator-r2" }] : []),
+    // v82: bizonylat-archívum – privát R2-tároló (helyben a miniflare tárolja).
+    { binding: "ARCHIVE", bucket_name: "gastro-garage-archive" },
+  ],
+  // v82: a hiányzó archívum-tételek pótlása félóránként.
+  triggers: { crons: ["*/30 * * * *"] },
 });
 
 export default defineConfig(async ({ command }) => {

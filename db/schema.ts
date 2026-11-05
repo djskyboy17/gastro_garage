@@ -1250,3 +1250,34 @@ export const fiscalReceipts = sqliteTable("fiscal_receipts", {
   uniqueIndex("fiscal_receipt_device_busy").on(t.deviceSerial).where(sql`${t.mode}='live' AND ${t.state} IN ('prepared','uncertain')`),
   uniqueIndex("fiscal_receipt_number").on(t.deviceSerial, t.day, t.receiptNumber).where(sql`${t.mode}='live' AND ${t.state}='issued'`),
 ]);
+
+/**
+ * Bizonylat-archívum (v82): a feltöltött beszállítói számlák és a kiállított bizonylatok változatlan példánya a privát R2-tárolóban
+ * (`ARCHIVE`), itt a kereshető metaadat. Egyszer írható: forrásonként és típusonként (változatonként) egy tétel, törlés nincs.
+ */
+export const archiveDocuments = sqliteTable(
+  "archive_documents",
+  {
+    id: text("id").primaryKey(),
+    docType: text("doc_type").notNull(),
+    sourceTable: text("source_table").notNull(),
+    sourceId: text("source_id").notNull(),
+    version: integer("version").notNull().default(1),
+    number: text("number").notNull().default(""),
+    partnerKey: text("partner_key").notNull(),
+    partnerName: text("partner_name").notNull().default(""),
+    issueDate: text("issue_date").notNull(),
+    r2Key: text("r2_key").notNull(),
+    mime: text("mime").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    sha256: text("sha256").notNull(),
+    createdBy: text("created_by").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("archive_documents_key").on(t.r2Key),
+    uniqueIndex("archive_documents_source").on(t.sourceTable, t.sourceId, t.docType, t.version),
+    index("archive_documents_issue").on(t.issueDate),
+    index("archive_documents_partner").on(t.partnerKey),
+  ],
+);

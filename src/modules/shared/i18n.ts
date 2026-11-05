@@ -17,6 +17,7 @@ import { productionMessages } from "../production/i18n";
 import { deliveryNoteMessages } from "../delivery-notes/i18n";
 import { financeMessages } from "../finance/i18n";
 import { billingMessages } from "../billing/i18n";
+import { archiveMessages } from "../archive/i18n";
 import { accountingMessages } from "../accounting/i18n";
 import { fiscalMessages } from "../fiscal/i18n";
 import { simpleMessages } from "./simple-i18n";
@@ -43,6 +44,7 @@ export const messages: Record<"hu" | "ro", Record<string, string>> = {
     ...deliveryNoteMessages.hu,
     ...financeMessages.hu,
     ...billingMessages.hu,
+    ...archiveMessages.hu,
     ...accountingMessages.hu,
     brand: "Catering műhely",
     previous: "Előző nap",
@@ -278,6 +280,7 @@ export const messages: Record<"hu" | "ro", Record<string, string>> = {
     ...deliveryNoteMessages.ro,
     ...financeMessages.ro,
     ...billingMessages.ro,
+    ...archiveMessages.ro,
     ...accountingMessages.ro,
     brand: "Atelier de catering",
     previous: "Ziua precedentă",
