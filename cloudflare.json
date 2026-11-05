@@ -3,9 +3,15 @@
   "databaseName": "konyha-db",
   "databaseId": "8e4d74b3-eb33-4da1-8fe2-a0abe8c4dd6d",
   "domains": {
-    "portal": "gastrogarage.veres.no",
-    "kitchen": "konyha.veres.no",
-    "courier": "courier.veres.no"
+    "portal": "gastrogarage.ro",
+    "kitchen": "konyha.gastrogarage.ro",
+    "courier": "futar.gastrogarage.ro"
   },
-  "googleClientId": "888327717275-iipbjcsd32bfec21omtru99hrupa77g1.apps.googleusercontent.com"
+  "googleClientId": "888327717275-iipbjcsd32bfec21omtru99hrupa77g1.apps.googleusercontent.com",
+  "redirects": {
+    "www.gastrogarage.ro": "gastrogarage.ro",
+    "gastrogarage.veres.no": "gastrogarage.ro",
+    "konyha.veres.no": "konyha.gastrogarage.ro",
+    "courier.veres.no": "futar.gastrogarage.ro"
+  }
 }

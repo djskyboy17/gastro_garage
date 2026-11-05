@@ -138,7 +138,7 @@ if /i "%IDOZONA%"=="i" tzutil /s "GTB Standard Time"
 
 echo.
 echo Kesz. Ujrainditas utan a "%FIOK%" fiok automatikusan bejelentkezik,
-echo es megnyilik a https://konyha.veres.no/kijelzo oldal teljes kepernyon.
+echo es megnyilik a https://konyha.gastrogarage.ro/kijelzo oldal teljes kepernyon.
 echo Az elso inditaskor egyszer be kell lepni a konyhai dolgozoi fiokkal.
 echo.
 echo Kilepes a kioszk modbol: Ctrl+Alt+Del (billentyuzettel), vagy

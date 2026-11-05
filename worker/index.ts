@@ -1,7 +1,7 @@
 import handler from "vinext/server/fetch-handler";
 import { runWithConnectorBinding } from "../lib/connector-context";
 import type { ConnectorBinding } from "../lib/connector-contract.mjs";
-import { startRedirect } from "../src/modules/shared/hosts";
+import { startRedirect, hostRedirect, parseRedirects } from "../src/modules/shared/hosts";
 import { withSecurityHeaders } from "../src/modules/shared/security-headers";
 import { sweepArchive } from "../src/modules/archive/server";
 
@@ -13,6 +13,9 @@ const worker = {
   fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
     // gastrogarage.… → ügyfélrendelés, courier.… → futár; a többi cím a konyhai munkatér.
     const url = new URL(request.url);
+    // v81: a régi (veres.no) és a www cím a végleges gastrogarage.ro címekre irányít.
+    const moved = hostRedirect(url, request.method, parseRedirects(env.HOST_REDIRECTS));
+    if (moved) return withSecurityHeaders(new Response(null, { status: moved.status, headers: { Location: moved.location } }), true);
     const target = startRedirect(url.host, url.pathname, { portal: env.PORTAL_HOST, courier: env.COURIER_HOST });
     if (target) return withSecurityHeaders(Response.redirect(new URL(target, url).toString(), 302), url.protocol === "https:");
     let binding = ctx.props?.CONNECTORS;

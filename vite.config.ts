@@ -19,6 +19,8 @@ const cloudflareDeploy = existsSync("./cloudflare.json")
       databaseName?: string;
       databaseId?: string;
       domains?: { portal?: string; kitchen?: string; courier?: string };
+      /** v81: régi / másodlagos cím → végleges cím (a Worker átirányít). */
+      redirects?: Record<string, string>;
       googleClientId?: string;
     })
   : {};
@@ -33,6 +35,7 @@ const bindingConfig = (build: boolean) => ({
   vars: {
     PORTAL_HOST: cloudflareDeploy.domains?.portal ?? "",
     COURIER_HOST: cloudflareDeploy.domains?.courier ?? "",
+    HOST_REDIRECTS: JSON.stringify(cloudflareDeploy.redirects ?? {}),
     GOOGLE_CLIENT_ID: cloudflareDeploy.googleClientId ?? "",
   },
   main: "./worker/index.ts",
@@ -85,7 +88,8 @@ export default defineConfig(async ({ command }) => {
           // Saját aldomainek csak az éles buildbe kerülnek: a feltöltés létrehozza a DNS-t és a tanúsítványt.
           ...(command === "build" && cloudflareDeploy.domains
             ? {
-                routes: Object.values(cloudflareDeploy.domains)
+                // v81: a régi és a www címek is a Workerre mutatnak, hogy át tudjon irányítani.
+                routes: [...new Set([...Object.values(cloudflareDeploy.domains), ...Object.keys(cloudflareDeploy.redirects ?? {})])]
                   .filter(Boolean)
                   .map((pattern) => ({ pattern, custom_domain: true })),
               }

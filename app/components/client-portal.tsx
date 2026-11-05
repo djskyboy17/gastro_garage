@@ -21,7 +21,7 @@ const OFFERS=[["gpOfferDaily",Soup],["gpOfferStreet",Hamburger],["gpOfferMenu",B
 const EVENTS=["gpEventFamily","gpEventBirthday","gpEventBaptism","gpEventCompany","gpEventCommunity"];
 
 /**
- * Ügyfélportál (v57): a gastrogarage.veres.no rendelési oldala a „Gastro Garage” arculattal (sötétzöld, mustársárga, krém).
+ * Ügyfélportál (v57): a gastrogarage.ro rendelési oldala a „Gastro Garage” arculattal (sötétzöld, mustársárga, krém).
  * A logika ugyanaz, mint korábban: mai napi menü és étlap, kosár, átvétel (zóna, idősáv), profil, ellenőrzés és küldés, saját rendelések.
  */
 export default function ClientPortal(){

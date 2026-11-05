@@ -43,7 +43,7 @@ rem osszeomlas utan ne kerdezze, visszaallitsa-e a lapokat.
 reg add "HKCU\Software\Microsoft\Internet Explorer\Main" /v "FormSuggest PW Ask" /t REG_SZ /d no /f >nul
 reg add "HKCU\Software\Microsoft\Internet Explorer\Main" /v Check_Associations /t REG_SZ /d no /f >nul
 reg add "HKCU\Software\Microsoft\Internet Explorer\Recovery" /v AutoRecover /t REG_DWORD /d 2 /f >nul
-reg add "HKCU\Software\Microsoft\Internet Explorer\Main" /v "Start Page" /t REG_SZ /d "https://konyha.veres.no/kijelzo" /f >nul
+reg add "HKCU\Software\Microsoft\Internet Explorer\Main" /v "Start Page" /t REG_SZ /d "https://konyha.gastrogarage.ro/kijelzo" /f >nul
 
 rem Ha a tasklist nem erheto el, az IE bezarasara varunk (start /wait).
 set "FIGYEL=tasklist"
