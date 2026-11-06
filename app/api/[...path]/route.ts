@@ -12,6 +12,7 @@ import {handleDeliveryNotes,DeliveryNoteError,hasActiveNote,cancelOrderWithNote}
 import {handleFinance,FinanceError,cancelPaymentState} from "@/src/modules/finance/server";
 import {handleBilling,BillingError} from "@/src/modules/billing/server";
 import {handleArchive,ArchiveError} from "@/src/modules/archive/server";
+import {handleBackups,BackupError} from "@/src/modules/backup/server";
 import {handleAccounting,AccountingError} from "@/src/modules/accounting/server";
 import {handleFiscal,FiscalError} from "@/src/modules/fiscal/server";
 import { env } from "cloudflare:workers";
@@ -135,6 +136,8 @@ async function handle(req: Request, write: boolean) {
       return await handleInvoices(path,body,session,write,req);
     }
     // v73: gyártási tételek és bon de consum (csak admin; a modul ellenőrzi).
+    // v96: heti biztonsági mentés (csak tulajdonos és admin; a modul ellenőrzi).
+    if(path==="/api/backups"||path.startsWith("/api/backups/"))return await handleBackups(path,session,write,req);
     // v82: bizonylat-archívum (a modul ellenőrzi a szerepköröket).
     if(path==="/api/archive"||path.startsWith("/api/archive/")){
       let body:unknown;if(write){const raw=await req.text();if(raw.length>2000)return json({error:"TOO_LARGE"},413);body=raw?JSON.parse(raw):{};}
@@ -681,6 +684,7 @@ async function handle(req: Request, write: boolean) {
     if (e instanceof FinanceError) return json({ error: e.code }, e.status);
     if (e instanceof BillingError) return json({ error: e.code }, e.status);
     if (e instanceof ArchiveError) return json({ error: e.code }, e.status);
+    if (e instanceof BackupError) return json({ error: e.code }, e.status);
     if (e instanceof OperationError) return json({ error: e.code }, e.status);
     if (e instanceof z.ZodError || e instanceof SyntaxError)
       return json({ error: "VALIDATION" }, 400);

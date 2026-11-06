@@ -71,6 +71,7 @@ import WorkspaceNavigation from "./workspace-navigation";
 import WorkspaceDetails from "./workspace-details";
 import BillingWorkspace from "./billing-workspace";
 import ArchiveWorkspace from "./archive-workspace";
+import BackupsWorkspace from "./backups-workspace";
 import { VersionInfo } from "./version-info";
 import FulfillmentWorkspace from "./fulfillment-workspace";
 import StocktakeWorkspace from "./stocktake-workspace";
@@ -137,6 +138,7 @@ const nav = [
   ["cash", Wallet],
   ["billing", FileText],
   ["archive", Archive],
+  ["backups", Download],
   ["company", Building2],
   ["avizes", FileText],
   ["safety", CheckCircle2],
@@ -1406,6 +1408,7 @@ export default function KitchenApp() {
                 {tab === "labels" && <LabelsWorkspace lang={lang}/>}
                 {tab === "billing" && <BillingWorkspace lang={lang} />}
                 {tab === "archive" && <ArchiveWorkspace lang={lang} />}
+                {tab === "backups" && <BackupsWorkspace lang={lang} />}
                 {tab === "avizes" && <AvizSettingsWorkspace lang={lang} />}
                 {tab === "company" && <AvizSettingsWorkspace lang={lang} part="company" />}
                 {tab === "cash" && <CashWorkspace key={day} lang={lang} initialDay={day} />}

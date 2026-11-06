@@ -55,7 +55,8 @@ const bindingConfig = (build: boolean) => ({
     { binding: "ARCHIVE", bucket_name: "gastro-garage-archive" },
   ],
   // v82: a hiányzó archívum-tételek pótlása félóránként.
-  triggers: { crons: ["*/30 * * * *"] },
+  // v96: hétfőnként 02:00 UTC-kor heti biztonsági mentés.
+  triggers: { crons: ["*/30 * * * *", "0 2 * * 1"] },
 });
 
 export default defineConfig(async ({ command }) => {
