@@ -45,12 +45,11 @@ function TaskCard({task,viewDate,lang,busy,act}:{task:CourierTask;viewDate:strin
    {task.delivery!=='delivered'&&<div className="courier-outcome">
     {['pending','failed'].includes(task.delivery)&&(task.production==='ready'?<button className="button courier-main" disabled={busy} onClick={()=>void send('transit')}><Truck size={20}/>{t('courierDepart')}</button>:<p>{t('courierWaitReady')}</p>)}
     {task.onAccount&&<p className="courier-cash">{t('courierOnAccount')}</p>}
-    {task.delivery==='transit'&&task.due>0&&<div className="courier-payment"><p>{t('courierDue')}: <b>{lei(task.due)}</b></p>{(()=>{const radios=<div className="courier-pay-methods">{(['cash','card','none'] as const).map(m=><label key={m}><input type="radio" name={'pay-'+task.id} checked={method===m} disabled={busy} onChange={()=>setMethod(m)}/>{t('courierPay_'+m)}</label>)}</div>;
-    // v90: ha a rendeléskor már megadták a fizetési módot, azt mutatjuk; változtatni csak „Másképp fizetett” alatt lehet.
-    return task.expectedPaymentMethod?<><p className="courier-pay-known">{t('courierPay_'+method)}</p><details className="courier-pay-other"><summary>{t('courierPayOther')}</summary>{radios}</details></>:radios;})()}{method!=='none'&&<label>{t('courierPaidAmount')}<input inputMode="decimal" value={amount} disabled={busy} onChange={e=>setAmount(e.target.value)}/></label>}{payInvalid&&<small className="courier-overdue">{t('PAYMENT_TOO_MUCH')}</small>}</div>}
+    {task.delivery==='transit'&&task.due>0&&<p className="courier-pay-line">{t('courierDue')}: <b>{lei(method==='none'?0:(Number.isInteger(amountBani)?amountBani:task.due))}</b> · <span>{t('courierPay_'+method)}</span>{payInvalid&&<small className="courier-overdue"> {t('PAYMENT_TOO_MUCH')}</small>}</p>}
     {task.delivery==='transit'&&<button className="button courier-main" disabled={busy||payInvalid} onClick={()=>void send('delivered')}><CheckCircle2 size={20}/>{t('markDelivered')}</button>}
    </div>}
    <details className="courier-more"><summary>{t('courierMore')}</summary>
+    {task.delivery==='transit'&&task.due>0&&<div className="courier-payment"><b>{t('courierPayOther')}</b><div className="courier-pay-methods">{(['cash','card','none'] as const).map(m=><label key={m}><input type="radio" name={'pay-'+task.id} checked={method===m} disabled={busy} onChange={()=>setMethod(m)}/>{t('courierPay_'+m)}</label>)}</div>{method!=='none'&&<label>{t('courierPaidAmount')}<input inputMode="decimal" value={amount} disabled={busy} onChange={e=>setAmount(e.target.value)}/></label>}</div>}
     <p className="courier-code">#{orderCode(task.id)}</p>
     <div className="courier-items">{task.items.map((i,index)=><div key={index}><strong>{i.quantity} × {i[lang]}</strong>{i.allergens&&<small>{t('allergens')}: {i.allergens.split(',').map(t).join(', ')}</small>}</div>)}</div>
     {task.note&&<p className="courier-note">{task.note}</p>}
