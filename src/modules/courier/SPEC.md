@@ -41,3 +41,10 @@ A futártörzs (`couriers`) és a fiók–futár összekötés megszűnt (a `cou
 - A GET `/api/courier/aviz?orderId=&date=` ellenőrzi az aktuális Futár szerepkört, a dátumtartományt és a feladat aktuális láthatóságát. Az egyfutáros modellben ez ugyanaz a közös feladatlista, amelyet a futárfelület használ.
 - Átvételes, lemondott vagy a választott feladatlistán kívüli rendelés avizja nem szolgálható ki. Sztornózott dokumentum helyett csak aktuálisan érvényes aviz nyitható meg. A megnyitás nem állít ki új bizonylatot.
 - Alkalmazott könyvelési profillal az aviz nélküli indulás adatbázisszinten tiltott, az állapot, befizetés és napló együttes visszagörgetésével.
+
+## Offline mód – v98
+- Telepíthető (manifest: `/courier.webmanifest`), service worker: `/courier-sw.js` (scope `/courier`): az oldal és a statikus fájlok térerő nélkül is megnyílnak; `/api/` soha nincs gyorsítótárban.
+- A nap feladatai és a bejelentkezés a telefonon tárolódnak (localStorage, naponként). Net nélkül az utoljára betöltött lista látszik.
+- Indulás, kézbesítés (beszedett összeggel), sikertelen kézbesítés net nélkül sorba kerül; a képernyő azonnal mutatja. Netkapcsolatkor (online esemény, félpercenként) sorrendben elmegy; a requestId miatt nem rögzül kétszer, a változatszám műveletenként eggyel nő.
+- Ha a szerver elutasítja (pl. közben lemondták, CONFLICT), a művelet kikerül a sorból, és a futár hibasort lát a rendelés kódjával. 401 (lejárt bejelentkezés) esetén a sor megmarad.
+- Net nélkül nem megy: aviz megnyitása (a nyomtatás a szervertől jön), dátumváltás olyan napra, amely még nem volt betöltve.
