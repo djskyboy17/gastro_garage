@@ -162,3 +162,9 @@
 .writeoff-panel{display:grid;gap:8px;margin:0 0 12px;padding:12px 14px;border:1px solid #e0b25c;background:#fff8ec;border-radius:12px}
 .writeoff-line{display:grid;grid-template-columns:minmax(0,1fr) 120px auto;gap:8px;align-items:center}.writeoff-line input,.writeoff-line select{padding:7px 9px;border:1px solid #cfd8c3;border-radius:8px;font:inherit}
 @media(max-width:600px){.writeoff-line{grid-template-columns:1fr 100px}}
+
+/* v102: gyorsleltár */
+.quick-count{margin-bottom:14px}.quick-count-tools{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:8px 0}.quick-count-tools input[type=search]{flex:1 1 220px;padding:9px 11px;border:1px solid #cfd8c3;border-radius:9px;font:inherit}
+.quick-count-table td{vertical-align:middle}.quick-count-table tr.is-diff{background:#fff8ec}.quick-count-input{display:flex;align-items:center;gap:6px}.quick-count-input input{width:96px;padding:8px;border:1px solid #cfd8c3;border-radius:8px;font-size:16px;text-align:right}
+.quick-count-note{margin-top:5px;width:100%;padding:6px 8px;border:1px solid #e0d2b0;border-radius:7px;font:inherit;font-size:14px}
+.quick-count-footer{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;margin-top:12px}.quick-count-footer label{display:grid;gap:4px}.quick-count-footer select{padding:8px;border-radius:8px;border:1px solid #cfd8c3;font:inherit}.quick-count-footer .button{min-height:50px;font-size:17px}

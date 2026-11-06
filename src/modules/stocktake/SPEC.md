@@ -15,3 +15,9 @@ Acceptance: blank count cannot post; zero count can; positive surplus above orig
 Migration rebuilds stock_lots with preserved IDs, original receipt data and references, using deferred foreign-key checks in a transaction; verify row counts, moves and PRAGMA foreign_key_check against a populated database. D1 migration reference: https://developers.cloudflare.com/d1/reference/migrations/.
 
 Deferred: annual legal inventory forms/valuations, blind counts, barcode scanning, multiple warehouses, arbitrary receipt/issue reversal and supplier returns. A stocktake does not cancel purchase receipts or production use.
+
+## Gyorsleltár – v102 (2026-11-06)
+- A Leltár és korrekciók oldal tetején egy táblázat a raktárban lévő összes tételről (kereső, „csak a lejáró”): rendszer szerinti mennyiség, „Számolt” mező kg / l / db-ban tizedesvesszővel (a rendszer alapegységre váltja), azonnali eltérés.
+- Csak a kitöltött sorok kerülnek a leltárba. Egy ok mindre (Mérési különbség / Romlás / Hiány / Többlet), eltérésnél soronként megjegyzés.
+- Egy gomb: create → save → (admin esetén) post a meglévő végpontokkal; nem adminnál piszkozat jóváhagyásra. Automatikus cím: „Leltár ÉÉÉÉ-HH-NN”.
+- Egy leltárban legfeljebb 300 tétel (korábban 30). A régi „Új leltár” varázsló megszűnt; az előzmények, a nyomtatás, a frissítés és a sztornó változatlan.

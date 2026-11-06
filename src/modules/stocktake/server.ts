@@ -30,7 +30,7 @@ export async function handleStocktake(path:string,body:unknown,actor:string):Pro
   const guard=(id:string,revision:number,status:string,extra='1=1')=>env.DB!.prepare(`INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS (SELECT 1 FROM stocktakes WHERE id=? AND revision=? AND status=?) AND (${extra}) THEN ? ELSE NULL END,'stocktake_checked',?,'',?)`).bind(crypto.randomUUID(),id,revision,status,actor,id,now);
   try{
     if(path==='/api/stocktake/create'){
-      const d=z.object({id,title:z.string().trim().min(1).max(200),lotIds:z.array(key).min(1).max(30)}).strict().parse(body);
+      const d=z.object({id,title:z.string().trim().min(1).max(200),lotIds:z.array(key).min(1).max(300)}).strict().parse(body);
       if(new Set(d.lotIds).size!==d.lotIds.length)throw new StocktakeError('VALIDATION');
       d.lotIds.sort();const request=JSON.stringify(d);
       const replay=async()=>{const [old]=await db.select().from(stocktakes).where(eq(stocktakes.id,d.id));if(!old)return false;if(old.request!==request)throw new StocktakeError('CONFLICT',409);return true;};
@@ -47,7 +47,7 @@ export async function handleStocktake(path:string,body:unknown,actor:string):Pro
     }
     const base=command.passthrough().parse(body),doc=await document(base.id);
     if(path==='/api/stocktake/save'){
-      const d=command.extend({lines:z.array(z.object({lotId:key,counted:z.number().int().min(0).max(10000000).nullable(),note:z.string().trim().max(1000)}).strict()).min(1).max(30)}).strict().parse(body);
+      const d=command.extend({lines:z.array(z.object({lotId:key,counted:z.number().int().min(0).max(10000000).nullable(),note:z.string().trim().max(1000)}).strict()).min(1).max(300)}).strict().parse(body);
       if(doc.status!=='draft')throw new StocktakeError('STOCKTAKE_STATE');
       if(doc.revision!==d.revision)throw new StocktakeError('CONFLICT',409);
       if(new Set(d.lines.map(l=>l.lotId)).size!==doc.lines.length||d.lines.length!==doc.lines.length||d.lines.some(l=>!doc.lines.some(s=>s.lotId===l.lotId)))throw new StocktakeError('VALIDATION');
