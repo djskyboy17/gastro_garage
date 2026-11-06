@@ -29,7 +29,7 @@ const lei=(bani:number)=>(bani/100).toLocaleString('ro-RO',{minimumFractionDigit
 function TaskCard({task,viewDate,lang,busy,act}:{task:CourierTask;viewDate:string;lang:Language;busy:boolean;act:(body:unknown)=>Promise<boolean>}){
   const [note,setNote]=useState(''),[pending,setPending]=useState<{requestId:string;orderId:string;revision:number;value:string;note:string;payment?:{method:string;amount:number}|null}|null>(null),t=(k:string)=>messages[lang][k]??k;
   // v76: kézbesítéskor a beszedett összeg (alapból a hátralék); „már fizetett” esetén nincs befizetés.
-  const [method,setMethod]=useState<'cash'|'card'|'none'>('cash'),[amount,setAmount]=useState((task.due/100).toFixed(2).replace('.',','));
+  const [method,setMethod]=useState<'cash'|'card'|'none'>(task.expectedPaymentMethod==='card'?'card':'cash'),[amount,setAmount]=useState((task.due/100).toFixed(2).replace('.',','));
   const amountBani=/^\d{1,6}([.,]\d{1,2})?$/.test(amount.trim())?Math.round(Number(amount.trim().replace(',','.'))*100):NaN;
   const payment=(value:string)=>value==='delivered'&&task.due>0&&method!=='none'?{method,amount:amountBani}:null;
   async function send(value:string){const p=payment(value),body=pending&&pending.value===value&&pending.note===note.trim()&&JSON.stringify(pending.payment??null)===JSON.stringify(p)?pending:{requestId:crypto.randomUUID(),orderId:task.id,revision:task.revision,value,note:note.trim(),...(p?{payment:p}:{})};setPending(body);await act(body);}
@@ -45,7 +45,9 @@ function TaskCard({task,viewDate,lang,busy,act}:{task:CourierTask;viewDate:strin
    {task.delivery!=='delivered'&&<div className="courier-outcome">
     {['pending','failed'].includes(task.delivery)&&(task.production==='ready'?<button className="button courier-main" disabled={busy} onClick={()=>void send('transit')}><Truck size={20}/>{t('courierDepart')}</button>:<p>{t('courierWaitReady')}</p>)}
     {task.onAccount&&<p className="courier-cash">{t('courierOnAccount')}</p>}
-    {task.delivery==='transit'&&task.due>0&&<div className="courier-payment"><p>{t('courierDue')}: <b>{lei(task.due)}</b></p><div className="courier-pay-methods">{(['cash','card','none'] as const).map(m=><label key={m}><input type="radio" name={'pay-'+task.id} checked={method===m} disabled={busy} onChange={()=>setMethod(m)}/>{t('courierPay_'+m)}</label>)}</div>{method!=='none'&&<label>{t('courierPaidAmount')}<input inputMode="decimal" value={amount} disabled={busy} onChange={e=>setAmount(e.target.value)}/></label>}{payInvalid&&<small className="courier-overdue">{t('PAYMENT_TOO_MUCH')}</small>}</div>}
+    {task.delivery==='transit'&&task.due>0&&<div className="courier-payment"><p>{t('courierDue')}: <b>{lei(task.due)}</b></p>{(()=>{const radios=<div className="courier-pay-methods">{(['cash','card','none'] as const).map(m=><label key={m}><input type="radio" name={'pay-'+task.id} checked={method===m} disabled={busy} onChange={()=>setMethod(m)}/>{t('courierPay_'+m)}</label>)}</div>;
+    // v90: ha a rendeléskor már megadták a fizetési módot, azt mutatjuk; változtatni csak „Másképp fizetett” alatt lehet.
+    return task.expectedPaymentMethod?<><p className="courier-pay-known">{t('courierPay_'+method)}</p><details className="courier-pay-other"><summary>{t('courierPayOther')}</summary>{radios}</details></>:radios;})()}{method!=='none'&&<label>{t('courierPaidAmount')}<input inputMode="decimal" value={amount} disabled={busy} onChange={e=>setAmount(e.target.value)}/></label>}{payInvalid&&<small className="courier-overdue">{t('PAYMENT_TOO_MUCH')}</small>}</div>}
     {task.delivery==='transit'&&<button className="button courier-main" disabled={busy||payInvalid} onClick={()=>void send('delivered')}><CheckCircle2 size={20}/>{t('markDelivered')}</button>}
    </div>}
    <details className="courier-more"><summary>{t('courierMore')}</summary>
