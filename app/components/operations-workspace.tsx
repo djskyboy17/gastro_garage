@@ -107,6 +107,10 @@ export default function OperationsWorkspace({
       : number(n) + " " + t(unit);
   const ingredient = (id: string) => ops.ingredients.find((i) => i.id === id);
   const [section, setSection] = useState("lots");
+  // v99: keresés a raktárban (alapanyag magyar/román neve, beszállító, tételszám, bizonylat); ékezetek nélkül is talál.
+  const [query, setQuery] = useState("");
+  const norm = (v: string) => v.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const hit = (...parts: (string | undefined | null)[]) => !query.trim() || norm(parts.filter(Boolean).join(" ")).includes(norm(query.trim()));
   const [modal, setModal] = useState<string | null>(null);
   const [minimum, setMinimum] = useState(false);
   const [unit, setUnit] = useState("g");
@@ -673,6 +677,10 @@ export default function OperationsWorkspace({
               </button>
             ))}
           </div>
+          <label className="field inventory-search">
+            <span>{t("inventorySearch")}</span>
+            <input type="search" value={query} maxLength={60} onChange={(e) => setQuery(e.target.value)} />
+          </label>
           <section className="panel">
             {section === "lots" && (
               <div className="table-wrap">
@@ -690,7 +698,7 @@ export default function OperationsWorkspace({
                   </thead>
                   <tbody>
                     {ops.lots
-                      .slice()
+                      .filter((l) => { const i = ingredient(l.ingredientId); return hit(i?.hu, i?.ro, l.supplier, l.batch, l.document); })
                       .sort((a, b) => a.expires.localeCompare(b.expires))
                       .map((l) => {
                         const i = ingredient(l.ingredientId);
@@ -764,7 +772,7 @@ export default function OperationsWorkspace({
                     </tr>
                   </thead>
                   <tbody>
-                    {ops.ingredients.map((i) => (
+                    {ops.ingredients.filter((i) => hit(i.hu, i.ro)).map((i) => (
                       <tr key={i.id}>
                         <td>
                           <strong>{name(i)}</strong>
@@ -827,7 +835,7 @@ export default function OperationsWorkspace({
                     </tr>
                   </thead>
                   <tbody>
-                    {ops.moves.map((m) => {
+                    {ops.moves.filter((m) => { const lot = ops.lots.find((l) => l.id === m.lotId); const i = lot ? ingredient(lot.ingredientId) : undefined; return hit(i?.hu, i?.ro, lot?.batch, lot?.supplier, m.note); }).map((m) => {
                       const lot = ops.lots.find((l) => l.id === m.lotId);
                       const i = lot ? ingredient(lot.ingredientId) : undefined;
                       const issue = ops.issues.find((s) => s.id === m.issueId);

@@ -155,3 +155,5 @@
 .order-detail-modal .order-next-step,.order-detail-modal .order-next-step .button{font-size:17px}
 .order-detail-modal .order-next-step .button{min-height:56px}
 @media(max-width:600px){.order-detail-modal .modal-header h2{font-size:23px}.order-detail-modal .detail-total strong{font-size:26px}}
+
+.inventory-search{max-width:420px;margin:12px 0}.inventory-search input{font-size:16px}

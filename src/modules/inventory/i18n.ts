@@ -117,6 +117,7 @@ export const operationMessages = {
     noPlan: "Erre a napra nincs még kiadásra váró alapanyagigény.",
     downloadPlan: "Bevásárlólista CSV",
     inventoryDemo: "Raktári mintaadatok",
+    inventorySearch: "Keresés: alapanyag, beszállító, tételszám",
     inventoryDemoHint:
       "Az egyszerűsített tesztreceptek és a minta készlet segítenek kipróbálni a hiányszámítást.",
     pcs: "db",
@@ -274,6 +275,7 @@ export const operationMessages = {
       "Nu există necesar de ingrediente neacoperit prin consum pentru această zi.",
     downloadPlan: "Listă de cumpărături CSV",
     inventoryDemo: "Date demonstrative pentru stoc",
+    inventorySearch: "Caută: materie primă, furnizor, lot",
     inventoryDemoHint:
       "Rețetele simplificate și stocurile demonstrative permit testarea calculului necesarului.",
     pcs: "buc.",
