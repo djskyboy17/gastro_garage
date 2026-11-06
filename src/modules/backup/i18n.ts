@@ -2,9 +2,10 @@
 export const backupMessages = {
   hu: {
     backups: "Biztonsági mentések",
-    bookkeepingAbout_backups: "Hetente automatikus adatbázis-mentés, letölthető.",
-    backupIntro: "A rendszer minden hétfőn hajnalban automatikusan elmenti a teljes adatbázist a szerverre. Az utolsó 12 mentés marad meg; bármelyik letölthető, és baj esetén visszatölthető.",
-    backupNow: "Mentés most",
+    bookkeepingAbout_backups: "A teljes adatbázis letöltése kérésre.",
+    backupIntro: "Automatikus mentés nincs: a gomb a teljes adatbázist azonnal letölti a gépedre. Tartsd biztonságos helyen (pl. OneDrive). A számlák és bizonylatok ettől függetlenül az Archívumban legalább 10 évig megmaradnak.",
+    backupNow: "Mentés letöltése most",
+    backupStored: "Korábban a szerveren tárolt mentések:",
     backupRunning: "Mentés folyamatban…",
     backupDone: "A mentés elkészült.",
     backupNone: "Még nincs mentés.",
@@ -15,9 +16,10 @@ export const backupMessages = {
   },
   ro: {
     backups: "Copii de siguranță",
-    bookkeepingAbout_backups: "Copie automată săptămânală a bazei de date, descărcabilă.",
-    backupIntro: "Sistemul salvează automat întreaga bază de date pe server în fiecare luni dimineața. Se păstrează ultimele 12 copii; oricare poate fi descărcată și, la nevoie, restaurată.",
-    backupNow: "Salvează acum",
+    bookkeepingAbout_backups: "Descărcarea întregii baze de date la cerere.",
+    backupIntro: "Nu există copie automată: butonul descarcă imediat întreaga bază de date pe calculatorul tău. Păstreaz-o într-un loc sigur (de ex. OneDrive). Facturile și documentele rămân oricum în Arhivă cel puțin 10 ani.",
+    backupNow: "Descarcă copia acum",
+    backupStored: "Copii păstrate anterior pe server:",
     backupRunning: "Se salvează…",
     backupDone: "Copia de siguranță a fost creată.",
     backupNone: "Nu există încă nicio copie.",

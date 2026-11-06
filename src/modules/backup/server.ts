@@ -5,7 +5,7 @@ import { isAdmin } from "../access/domain";
 /**
  * Heti biztonsági mentés (v96): a teljes adatbázis SQL-fájlként a privát R2-tárolóba (`backups/`), letölthetően.
  * A fájl visszatölthető (`wrangler d1 execute <db> --remote --file=…`): törli a táblák tartalmát, a triggereket a
- * betöltés idejére eltávolítja, majd visszaállítja. Az utolsó 12 mentés marad meg.
+ * betöltés idejére eltávolítja, majd visszaállítja. v97: a mentések 10 évig megmaradnak.
  */
 export class BackupError extends Error {
   constructor(public code: string, public status = 400) {
@@ -13,7 +13,8 @@ export class BackupError extends Error {
   }
 }
 const json = (v: unknown, status = 200) => Response.json(v, { status, headers: { "Cache-Control": "no-store" } });
-const KEEP = 12;
+/** v97: a mentések 10 évig megmaradnak (a számviteli bizonylatok megőrzési idejéhez igazítva). */
+const KEEP_YEARS = 10;
 const PAGE = 2000;
 
 function sqlValue(v: unknown): string {
@@ -59,7 +60,7 @@ export async function dumpDatabase(): Promise<{ sql: string; tables: number; row
   return { sql: out.join("\n") + "\n", tables: tables.length, rows };
 }
 
-/** Mentés készítése az R2-be; a 12-nél régebbiek törlődnek. */
+/** Mentés készítése az R2-be; a 10 évnél régebbiek törlődnek. */
 export async function createBackup(actor: string) {
   const r2 = env.ARCHIVE;
   if (!r2) throw new BackupError("ARCHIVE_NOT_CONFIGURED", 503);
@@ -68,8 +69,8 @@ export async function createBackup(actor: string) {
   const key = `backups/${now.slice(0, 4)}/backup-${now.slice(0, 19).replace(/[:T]/g, "-")}.sql`;
   await r2.put(key, sql, { httpMetadata: { contentType: "application/sql; charset=utf-8" }, customMetadata: { tables: String(tables), rows: String(rows), actor } });
   await env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,?,'backup_created','backup',?,?)").bind(crypto.randomUUID(), actor, JSON.stringify({ key, tables, rows, bytes: sql.length }), now).run();
-  const all = await listBackups();
-  for (const old of all.slice(KEEP)) await r2.delete(old.key);
+  const limit = new Date(Date.now() - KEEP_YEARS * 366 * 86400000).toISOString();
+  for (const old of (await listBackups()).filter((b) => b.uploaded < limit)) await r2.delete(old.key);
   return { key, tables, rows, bytes: sql.length };
 }
 
@@ -99,6 +100,14 @@ export async function handleBackups(path: string, session: Session, write: boole
       headers: { "Content-Type": "application/sql; charset=utf-8", "Content-Disposition": `attachment; filename="${key.split("/").pop()}"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" },
     });
   }
-  if (write && path === "/api/backups/run") return json({ ok: true, ...(await createBackup(session.userId)) });
+  // v97: nincs automatikus mentés – kérésre a teljes adatbázis azonnal letöltődik (a szerveren nem tárolódik).
+  if (!write && path === "/api/backups/download") {
+    const { sql, tables, rows } = await dumpDatabase();
+    const now = new Date().toISOString();
+    await env.DB!.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,?,'backup_downloaded','backup',?,?)").bind(crypto.randomUUID(), session.userId, JSON.stringify({ tables, rows, bytes: sql.length }), now).run();
+    return new Response(sql, {
+      headers: { "Content-Type": "application/sql; charset=utf-8", "Content-Disposition": `attachment; filename="gastro-garage-mentes-${now.slice(0, 10)}.sql"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" },
+    });
+  }
   return json({ error: "NOT_FOUND" }, 404);
 }

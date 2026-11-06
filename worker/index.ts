@@ -4,16 +4,10 @@ import type { ConnectorBinding } from "../lib/connector-contract.mjs";
 import { startRedirect, hostRedirect, parseRedirects } from "../src/modules/shared/hosts";
 import { withSecurityHeaders } from "../src/modules/shared/security-headers";
 import { sweepArchive } from "../src/modules/archive/server";
-import { createBackup } from "../src/modules/backup/server";
 
 const worker = {
   // v82: időzített archiválás (a bizonylatoktól függetlenül; hibája csak naplóba kerül).
-  scheduled(controller: ScheduledController, _env: Cloudflare.Env, ctx: ExecutionContext) {
-    // v96: hétfő hajnalban heti biztonsági mentés; a többi időzítés az archiválás.
-    if (controller.cron === "0 2 * * 1") {
-      ctx.waitUntil(createBackup("system").catch((e) => console.error("backup", String(e).slice(0, 300))));
-      return;
-    }
+  scheduled(_controller: ScheduledController, _env: Cloudflare.Env, ctx: ExecutionContext) {
     ctx.waitUntil(sweepArchive("system", 40).then((r) => { if (r.failed.length) console.error("archive sweep", JSON.stringify(r.failed).slice(0, 500)); }).catch((e) => console.error("archive sweep", String(e).slice(0, 300))));
   },
   fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
