@@ -11,13 +11,16 @@ export type Session = {userId:string;name:string;role:Role;canBootstrap:boolean}
 export const isAdmin = (role:Role) => role === "owner" || role === "admin";
 export const isMember = (role:Role) => ["owner","admin","dispatcher","kitchen","warehouse"].includes(role);
 /** Ritkán használt, beállítás jellegű nézetek: a főmenü helyett a Beállítások oldalról nyílnak. */
-export const settingsTabs = ["company","avizes","safety","fulfillment","portal","stocktake","labels","access","audit","accounting"] as const;
+export const settingsTabs = ["fulfillment","portal","stocktake","labels","access","audit"] as const;
+/** v95: Könyvelés – a bizonylatokhoz és zárásokhoz tartozó nézetek egy helyen (a főmenü helyett innen nyílnak). */
+export const bookkeepingTabs = ["billing","archive","safety","company","avizes","accounting","cash","procurement"] as const;
+export const isBookkeepingTab = (tab:string) => (bookkeepingTabs as readonly string[]).includes(tab);
 export const isSettingsTab = (tab:string) => (settingsTabs as readonly string[]).includes(tab);
 export function tabsFor(role:Role): string[] {
-  if (isAdmin(role)) return ["overview","orders","recurring","kitchen","packing","delivery","catalog","customers","menu","fulfillment","portal","recipes","inventory","stocktake","labels","procurement","cash","billing","archive","company","avizes","safety","audit","access","settings","accounting"];
-  if (role === "dispatcher") return ["overview","orders","recurring","packing","delivery","catalog","customers","menu","fulfillment","portal","cash","billing","archive","company","avizes","settings"];
+  if (isAdmin(role)) return ["overview","orders","recurring","kitchen","packing","delivery","catalog","customers","menu","fulfillment","portal","recipes","inventory","stocktake","labels","procurement","cash","billing","archive","company","avizes","safety","audit","access","settings","accounting","bookkeeping"];
+  if (role === "dispatcher") return ["overview","orders","recurring","packing","delivery","catalog","customers","menu","fulfillment","portal","cash","billing","archive","company","avizes","settings","bookkeeping"];
   // v41: a konyha látja mindazt, ami az Áttekintésben van, plusz a raktárt és a beszerzést.
-  if (isKitchenStaff(role)) return ["overview","orders","kitchen","packing","delivery","recipes","inventory","stocktake","procurement","avizes","safety","settings"];
+  if (isKitchenStaff(role)) return ["overview","orders","kitchen","packing","delivery","recipes","inventory","stocktake","procurement","avizes","safety","settings","bookkeeping"];
   return [];
 }
 export function canWrite(role:Role,path:string,body:unknown): boolean {

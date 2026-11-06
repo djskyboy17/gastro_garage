@@ -39,7 +39,7 @@ test("Dispatcher gets sales data but no stock; owner keeps complete data",()=>{
 test("No separate warehouse role: kitchen does stock and purchasing; warehouse can no longer be assigned",()=>{
   assert.ok(!(assignableRoles as readonly string[]).includes("warehouse"));
   for(const role of ["kitchen","warehouse"] as Role[]){
-    assert.deepEqual(tabsFor(role),["overview","orders","kitchen","packing","delivery","recipes","inventory","stocktake","procurement","avizes","safety","settings"]);
+    assert.deepEqual(tabsFor(role),["overview","orders","kitchen","packing","delivery","recipes","inventory","stocktake","procurement","avizes","safety","settings","bookkeeping"]);
     assert.equal(canWrite(role,"/api/operations/receive",{}),true);assert.equal(canWrite(role,"/api/purchasing/create",{}),true);
     assert.equal(canWrite(role,"/api/stocktake/save",{}),true);assert.equal(canWrite(role,"/api/stocktake/post",{}),false);
     assert.equal(canWrite(role,"/api/orders/state",{field:"production"}),true);assert.equal(canWrite(role,"/api/orders/state",{field:"payment"}),false);
@@ -52,9 +52,9 @@ test("Beállítások: a ritkán használt nézetek a Beállítások alá kerüln
     assert.ok(tabs.includes("settings"), role);
     assert.ok(!tabs.includes("roadmap"), role);
   }
-  assert.deepEqual(settingsTabs.filter((t) => tabsFor("kitchen").includes(t)), ["avizes", "safety", "stocktake"]);
-  assert.deepEqual(settingsTabs.filter((t) => tabsFor("dispatcher").includes(t)), ["company", "avizes", "fulfillment", "portal"]);
-  assert.deepEqual(settingsTabs.filter((t) => tabsFor("owner").includes(t)), ["company", "avizes", "safety", "fulfillment", "portal", "stocktake", "labels", "access", "audit", "accounting"]);
+  assert.deepEqual(settingsTabs.filter((t) => tabsFor("kitchen").includes(t)), ["stocktake"]);
+  assert.deepEqual(settingsTabs.filter((t) => tabsFor("dispatcher").includes(t)), ["fulfillment", "portal"]);
+  assert.deepEqual(settingsTabs.filter((t) => tabsFor("owner").includes(t)), ["fulfillment", "portal", "stocktake", "labels", "access", "audit"]);
   // Címkeadatokat csak tulajdonos és admin ment (v32).
   for (const role of ["owner", "admin"] as const) assert.equal(canWrite(role, "/api/labels/settings", {}), true);
   for (const role of ["dispatcher", "kitchen", "warehouse", "courier"] as const) assert.equal(canWrite(role, "/api/labels/settings", {}), false);

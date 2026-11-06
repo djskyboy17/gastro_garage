@@ -22,6 +22,7 @@ import {
 } from "react";
 import {
   LayoutDashboard,
+  BookOpen,
   ClipboardList,
   Repeat2,
   ChefHat,
@@ -81,7 +82,7 @@ import { emptyRecurring } from "@/src/modules/recurring/domain";
 import SafetyWorkspace from "./safety-workspace";
 import { emptySafety } from "@/src/modules/safety/domain";
 import AccessWorkspace from "./access-workspace";
-import { tabsFor, isMember, isAdmin, canWrite, isSettingsTab, type Session } from "@/src/modules/access/domain";
+import { tabsFor, isMember, isAdmin, canWrite, isSettingsTab, isBookkeepingTab, type Session } from "@/src/modules/access/domain";
 import DeliveryWorkspace from "./delivery-workspace";
 import { emptyDelivery } from "@/src/modules/delivery/domain";
 import { emptyPurchasing } from "@/src/modules/purchasing/domain";
@@ -141,6 +142,7 @@ const nav = [
   ["safety", CheckCircle2],
   ["audit", History],
   ["access", Users],
+  ["bookkeeping", BookOpen],
   ["settings", Settings],
   ["accounting", FileText],
 ] as const;
@@ -608,7 +610,7 @@ export default function KitchenApp() {
             <small>{t("brand")}</small>
           </a>
           <p className="nav-label">{t("workspace")}</p>
-          <WorkspaceNavigation lang={lang} onNavigate={navigate} entries={nav.filter(([key]) => tabsFor(session.role).includes(key) && !isSettingsTab(key)).map(([key, Icon]) => ({ id: key, Icon, label: t(key), active: tab === key || (key === "settings" && isSettingsTab(tab)), count: key === "orders" ? active.length : undefined }))} />
+          <WorkspaceNavigation lang={lang} onNavigate={navigate} entries={nav.filter(([key]) => tabsFor(session.role).includes(key) && !isSettingsTab(key) && !isBookkeepingTab(key)).map(([key, Icon]) => ({ id: key, Icon, label: t(key), active: tab === key || (key === "settings" && isSettingsTab(tab)) || (key === "bookkeeping" && isBookkeepingTab(tab)), count: key === "orders" ? active.length : undefined }))} />
           <div className="sidebar-bottom">
             <div className="seedling">
               <Leaf size={24} />
@@ -686,6 +688,8 @@ export default function KitchenApp() {
                           ? "deliveryTitle"
                           : tab === "settings"
                             ? "settingsTitle"
+                            : tab === "bookkeeping"
+                              ? "bookkeeping"
                             : tab === "accounting"
                               ? "simpleAccountingTitle"
                             : tab,
@@ -719,6 +723,8 @@ export default function KitchenApp() {
                               ? "customerHint"
                               : tab === "settings"
                                 ? "settingsHint"
+                                : tab === "bookkeeping"
+                                  ? "bookkeepingHint"
                                 : "settingsNote",
                   )}
                 </p>
@@ -738,6 +744,11 @@ export default function KitchenApp() {
                   <Button secondary onClick={() => navigate("settings")}>
                     <ArrowLeft size={17} />
                     {t("backToSettings")}
+                  </Button>
+                ) : isBookkeepingTab(tab) ? (
+                  <Button secondary onClick={() => navigate("bookkeeping")}>
+                    <ArrowLeft size={17} />
+                    {t("backToBookkeeping")}
                   </Button>
                 ) : ["overview", "orders"].includes(tab) && can("orders") ? (
                   <Button
@@ -1346,6 +1357,22 @@ export default function KitchenApp() {
                       />
                     )}
                   />
+                )}
+                {tab === "bookkeeping" && (
+                  <div className="settings-grid">
+                    {nav
+                      .filter(([key]) => isBookkeepingTab(key) && tabsFor(session.role).includes(key))
+                      .map(([key, Icon]) => (
+                        <button type="button" className="panel settings-card" key={key} onClick={() => navigate(key)}>
+                          <Icon size={22} />
+                          <span>
+                            <strong>{t(key === "accounting" ? "bookkeepingCloses" : key)}</strong>
+                            <small>{(messages[lang] as Record<string, string>)["bookkeepingAbout_" + key] ?? ""}</small>
+                          </span>
+                          <ChevronRight size={18} className="settings-card-arrow" />
+                        </button>
+                      ))}
+                  </div>
                 )}
                 {tab === "settings" && (
                   <>
