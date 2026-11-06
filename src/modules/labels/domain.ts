@@ -22,6 +22,8 @@ export const emptyLabelSettings: LabelSettings = {
   printDetails: false,
 };
 export const SHELF_LIFE_MAX = 60;
+/** v103: ha egy ételnél nincs külön megadva, a kész étel a gyártás után 2 napig fogyasztható. */
+export const DEFAULT_SHELF_LIFE_DAYS = 2;
 
 export function parseLabelSettings(content: string | null | undefined): LabelSettings {
   try {
@@ -143,7 +145,6 @@ export function consumerLabel(input: {
   const missing: MissingLabelData[] = [];
   if (!info) missing.push("recipe");
   else if (!info.nutritionPer100g) missing.push("nutrition");
-  if (!label) missing.push("shelfLife");
   if (!storage.ro) missing.push("storage");
   if (!settings.producerName || !settings.producerAddress) missing.push("producer");
   return {
@@ -160,7 +161,7 @@ export function consumerLabel(input: {
     nutritionPer100g: info?.nutritionPer100g ?? null,
     frozen: anyFrozen(ingredients),
     productionDate: input.date,
-    useBy: input.batch?.useBy ?? (label ? addDays(input.date, label.shelfLifeDays) : null),
+    useBy: input.batch?.useBy ?? addDays(input.date, label?.shelfLifeDays ?? DEFAULT_SHELF_LIFE_DAYS),
     storage,
     lot: input.batch?.code ?? lotCode(input.date, item.productId),
     producer: { name: settings.producerName, address: settings.producerAddress, extra: settings.producerExtra },

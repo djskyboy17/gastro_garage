@@ -108,6 +108,7 @@ export default function LabelsWorkspace({ lang }: { lang: Language }) {
                     step={1}
                     aria-label={t("labelShelfLifeDays") + " – " + p[lang]}
                     value={p.shelfLifeDays ?? ""}
+                    placeholder="2"
                     disabled={busy}
                     onChange={(e) => {
                       const v = e.target.value === "" ? null : Math.max(0, Math.min(SHELF_LIFE_MAX, Math.round(Number(e.target.value))));

@@ -51,8 +51,9 @@ test("Complete label: use-by from shelf life, one copy per portion, QR to the pu
 });
 test("Missing data is reported, never silently filled in", () => {
   const l = consumerLabel({ ...base, info: null, label: null, settings: { ...emptyLabelSettings, defaultStorageRo: "" } });
-  assert.deepEqual(l.missing, ["recipe", "shelfLife", "storage", "producer"]);
-  assert.equal(l.useBy, null);
+  // v103: fogyaszthatóság nélkül 2 nap az alapértelmezés, ezért az már nem hiányzó adat.
+  assert.deepEqual(l.missing, ["recipe", "storage", "producer"]);
+  assert.equal(l.useBy, "2026-11-05");
   // A rendeléskor mentett allergén recept nélkül is rajta marad.
   assert.deepEqual(l.allergens, ["celery"]);
   const noNutrition = consumerLabel({ ...base, info: { ...info, nutritionPer100g: null }, label: { shelfLifeDays: 0, storageRo: "x", storageHu: "" } });

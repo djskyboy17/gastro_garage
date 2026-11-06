@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { DEFAULT_SHELF_LIFE_DAYS } from "../labels/domain";
 import { allocate } from "../inventory/domain";
 import { loadOperations } from "../inventory/server";
 import { allocateDocumentNumber } from "../documents/server";
@@ -19,7 +20,7 @@ export async function saveReadyBatch(batch: ProductionBatch, actual: number, iss
   DB.prepare("SELECT hu,ro FROM products WHERE id=?").bind(batch.productId).first<{hu:string;ro:string}>(),
   DB.prepare("SELECT shelf_life_days AS days FROM product_labels WHERE product_id=?").bind(batch.productId).first<{days:number}>(),
  ]);
- const useBy=shelf?addDays(batch.day,shelf.days):null;
+ const useBy=addDays(batch.day,shelf?.days??DEFAULT_SHELF_LIFE_DAYS);
  const content:Snapshot={batch:{id:batch.id,code:batch.code,day:batch.day}, product:product!,portions:{actual,issuedBefore,consumed:Math.max(0,actual-issuedBefore)},recipe:{id:batch.recipeId!,version:recipeVersion},note,useBy,needs:lines.map(l=>({...l,planned:planned.get(l.ingredientId)??0}))};
  await DB.batch([
   DB.prepare("INSERT INTO audit(id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN EXISTS(SELECT 1 FROM production_batches WHERE id=? AND revision=? AND status='open') AND NOT EXISTS(SELECT 1 FROM production_day_closes WHERE day=? AND status='closed') THEN ? ELSE NULL END,'production_portions_saved',?,?,?)").bind(crypto.randomUUID(),batch.id,batch.revision,batch.day,actor,batch.id,JSON.stringify({actual,materialPosting:'daily'}),now),
