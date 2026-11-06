@@ -23,6 +23,15 @@ import { fiscalMessages } from "../fiscal/i18n";
 import { simpleMessages } from "./simple-i18n";
 export const messages: Record<"hu" | "ro", Record<string, string>> = {
   hu: {
+    compactHandoff: "Átadás a futárnak",
+    compactMonthly: "Céges rendelés · Havi gyűjtőszámlás",
+    documentTone_neutral: "Bizonylat ellenőrzése az elkészülés után",
+    documentTone_orange: "Nyugta-visszaigazolásra vár",
+    documentTone_yellow: "Elkészült · átadás előtt ellenőrizd az Avizt",
+    documentTone_blue: "Úton",
+    documentTone_green: "Kézbesítve",
+    documentPaymentDetails: "Pénzátvétel és fizetési előzmények",
+
     ...simpleMessages.hu,
     ...fiscalMessages.hu,
     ...operationMessages.hu,
@@ -259,6 +268,15 @@ export const messages: Record<"hu" | "ro", Record<string, string>> = {
     molluscs: "Puhatestűek",
   },
   ro: {
+    compactHandoff: "Predare către curier",
+    compactMonthly: "Comandă firmă · Facturare lunară",
+    documentTone_neutral: "Verificarea documentelor după preparare",
+    documentTone_orange: "Se așteaptă confirmarea bonului fiscal",
+    documentTone_yellow: "Preparat · verifică avizul înainte de predare",
+    documentTone_blue: "În livrare",
+    documentTone_green: "Livrat",
+    documentPaymentDetails: "Încasare și istoricul plăților",
+
     ...simpleMessages.ro,
     ...fiscalMessages.ro,
     ...operationMessages.ro,

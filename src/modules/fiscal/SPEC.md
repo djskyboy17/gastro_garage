@@ -52,3 +52,19 @@ Ellenőrzés: domain- és valós migrációs SQLite-tesztek, PowerShell 5.1 mock
 A havi ügyfél rendelésében nem készítünk új fiskális nyugtát és nem választunk készpénz/kártya módot. GET /api/fiscal/order jelzi a collectionDeferred szabályt. Előzmény nélkül a nyugtapanel rejtett; meglévő előzménynél a figyelmeztetések, egyeztetés és eredményimport megmarad, az új készítés/fizetésimód-választás rejtett.
 
 Az új előkészítés és nem üres tervezett mód mentése szerveroldalon is tiltott, atomikus profilvizsgálattal. A korábban előkészített élő nyugta job exportja havi módnál tiltott; a már nyomtatott vagy bizonytalan eredményt továbbra is rendezni kell és lehet. A havi számlára később érkező fizetést a számlázás kezeli, nem ez a nyugtafolyamat. Receipt/per_order készítés változatlan.
+
+## Rendelési ablak és színjelzés – 2026-11-06
+
+A fejléc a mentett vevőnév; cím/idő/telefon alatta. A folyamat szöveges lépéssorral látszik, az üres vevői megjegyzés rejtett. A pénzátvételi műveletek lenyitható előzményrészben maradnak; nyugta nem egyenlő pénzátvétellel.
+
+A narancs/sárga jelzés csak visszaigazolt, elkészült, még nem úton lévő rendelésnél jelenik meg. Élő issued nyugta vagy szerver által meghatározott havi halasztás ad sárgát; simulation/prepared nem. Uncertain esetén nincs sárga. Hiányzó adat vagy sikertelen kiszállítás semleges; úton kék, kézbesítve zöld. Ez megjelenítési állapot, nem új adatbázis-státusz, és nem kerüli meg az indulás szerveroldali ellenőrzéseit. Sárga esetén is ellenőrizni kell az Avizt.
+
+Az Aviz-panel rendelésazonosítóra szűrve a részletekben is elérhető; a már létező hitelesített kiállítás/nyomtatás végpontokat használja. Nincs új D1-trigger vagy automatikus elindulás. A céges státusz önmagában nem jelent automatikus fiskális mentességet: a meglévő számlázási profil szabálya marad érvényben. A helyi kasszahíd továbbra is fájlos; nincs közvetlen egykattintásos hardvernyomtatás.
+
+## Kompakt konyhai rendelési ablak – 2026-11-06
+
+A rendelési részletekben nincs duplikált státuszrács, tájékoztató státuszmondat, pénzátvételi harmonika, kiszállítási szerkesztő és számlázási panel. A hozzájuk tartozó backend és külön munkafelületek megmaradnak. A vevői megjegyzés csak nem üresen jelenik meg. A lépéssor szöveges jelzést is ad; hosszú rendelések továbbra is görgethetők, tételek nem veszhetnek el.
+
+Az Aviz rendelésre szűrt kompakt panelje a meglévő kiállítási végpontot használja. A gép helyi preferenciája csak a legutóbb sikeresen használt rendszámot tárolja; ha az kikerült az engedélyezett listából, az első konfigurált autó lesz kiválasztva. A meglévő aktív Aviz megnyitható; ugyanahhoz nem ajánl új kiállítást. Az átadás csak elkészült, még átadható rendelésnél, megfelelő szerepkörrel és ismert nyugta/havi számlázási állapot mellett engedélyezett; a szükséges Aviz hiánya tiltja. Szerveroldali ellenőrzések, revision és naplózás változatlanok.
+
+A havi vevőnél rövid számlázási jelzés van. Más esetben látható a tervezett fizetési mód és a meglévő nyugta-előkészítés/letöltés. A közvetlen hardvernyomtatás továbbra sem implementált: a gomb nem állítja magáról, hogy nyomtatott. Élő issued nyugta száma megjelenik, a bizonytalan eredmény egyeztetése és eredményimport elérhető marad.

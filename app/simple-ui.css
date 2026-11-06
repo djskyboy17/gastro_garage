@@ -100,3 +100,58 @@
 @media(max-width:600px){.order-entry-modal[open]{height:calc(100dvh - 12px);max-height:calc(100dvh - 12px);width:calc(100vw - 12px);border-radius:10px}.order-entry-payment{padding:0 0 9px}.order-payment-choices{gap:8px}.order-payment-choice{min-height:56px;font-size:16px;gap:7px}.order-entry-scroll{padding:12px}.order-entry-footer{padding:9px 12px max(10px,env(safe-area-inset-bottom))}.order-entry-footer .button{min-height:48px}.order-entry-line{grid-template-columns:minmax(0,1fr) 62px 34px;gap:6px}.order-daily-button{padding:12px;gap:8px}.order-daily-button>svg:first-child{display:none}.order-daily-button strong{font-size:17px}.order-footer-total{align-items:flex-start}.order-footer-total small{max-width:48%}}
 
 .order-billing-hint{font-size:13px;color:var(--muted);line-height:1.4;margin:0 0 10px}
+/* Order details: text labels accompany every color. */
+.order-detail-modal.tone-orange { background:#fff4e8; border-color:#dd8b39; }
+.order-detail-modal.tone-yellow { background:#fffbe5; border-color:#c4a52c; }
+.order-detail-modal.tone-blue { background:#eef6ff; border-color:#6096d0; }
+.order-detail-modal.tone-green { background:#effaf1; border-color:#62a473; }
+.order-detail-progress { display:flex; flex-wrap:wrap; gap:8px; list-style:none; padding:0; margin:12px 0; }
+.order-detail-progress li { flex:1 1 85px; padding:10px 6px; border-top:4px solid #d6d9d5; color:#59605b; font-size:13px; }
+.order-detail-progress li.is-reached { border-color:#387147; color:#244a2e; font-weight:600; }
+.order-detail-modal .detail-note { padding:12px; border:1px solid #c5c9bf; border-radius:10px; background:#ffffffb8; overflow-wrap:anywhere; }
+.order-detail-modal .detail-note p { margin:6px 0 0; }
+.order-detail-modal .modal-header h2 { overflow-wrap:anywhere; }
+.order-detail-modal .notes-list li { flex-wrap:wrap; }
+.order-detail-modal { width:min(780px,96vw); }
+.order-detail-modal .modal-header { padding:14px 18px; background:transparent; }
+.order-detail-modal .modal-content { padding:0 18px 16px; }
+.order-detail-modal .detail-top { margin:0 0 4px; }
+.order-detail-modal .detail-address,.order-detail-modal .detail-date { display:inline; margin:0; font-size:13px; }
+.order-detail-modal .detail-date::before { content:' | '; }
+.order-detail-modal .detail-items { margin-top:12px; padding:10px 12px; background:#ffffff9c; border-radius:12px; }
+.order-detail-modal .detail-items>div { padding:7px 0; }
+.order-detail-modal .detail-total { padding:10px 0; margin:0; }
+.order-detail-modal .order-next-step { background:transparent; padding:0; border:0; margin:0; }
+.order-detail-modal .order-detail-progress { flex-wrap:nowrap; gap:5px; margin:8px 0; }
+.order-detail-modal .order-detail-progress li { flex:1; min-width:0; padding:6px 2px; font-size:12px; }
+.order-detail-modal .order-detail-progress li.is-reached::before { content:'✓ '; }
+.order-detail-modal .detail-note { background:#ffe5a3; border-color:#dfbd5d; margin:8px 0; padding:8px 10px; }
+.order-detail-modal .detail-note p { display:inline; margin-left:6px; }
+.order-detail-modal .pay-panel { margin:8px 0; padding:8px 10px; }
+.compact-fiscal-main,.compact-order-documents { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+.compact-fiscal-main p { margin:0; }
+.compact-order-documents { padding:10px; background:#ffffff88; border-radius:10px; }
+.compact-order-documents label { display:flex; align-items:center; gap:6px; }
+.compact-order-documents select { width:auto; max-width:200px; min-height:44px; }
+.compact-order-documents .button { min-height:48px; flex:1 1 auto; justify-content:center; }
+.compact-order-documents .compact-dispatch { background:#25603b; }
+.compact-aviz-number { color:#23522f; font-weight:600; }
+.compact-billing { margin:8px 0; }
+.order-detail-modal .fulfill-summary { margin:4px 0; font-size:12px; }
+@media(min-width:700px) { .order-detail-modal .detail-items small { font-size:12px; } }
+
+/* v93: nagyobb, jobban olvasható rendelésrészlet (ezzel dolgoznak, amíg nyitva van) */
+.order-detail-modal{width:min(980px,97vw);font-size:16px}
+.order-detail-modal .modal-header{padding:18px 24px}.order-detail-modal .modal-header h2{font-size:28px}
+.order-detail-modal .modal-content{padding:0 24px 22px}
+.order-detail-modal .eyebrow{font-size:15px}
+.order-detail-modal .detail-address,.order-detail-modal .detail-date{font-size:17px;color:#3f4a40}
+.order-detail-modal .detail-items{padding:14px 18px}
+.order-detail-modal .detail-items strong{font-size:19px}
+.order-detail-modal .detail-items small{font-size:16px;line-height:1.45}
+.order-detail-modal .detail-items>div{padding:10px 0;gap:14px}
+.order-detail-modal .detail-total{font-size:19px}.order-detail-modal .detail-total strong{font-size:30px}
+.order-detail-progress li{font-size:15px;padding:12px 8px}
+.order-detail-modal .order-next-step,.order-detail-modal .order-next-step .button{font-size:17px}
+.order-detail-modal .order-next-step .button{min-height:56px}
+@media(max-width:600px){.order-detail-modal .modal-header h2{font-size:23px}.order-detail-modal .detail-total strong{font-size:26px}}

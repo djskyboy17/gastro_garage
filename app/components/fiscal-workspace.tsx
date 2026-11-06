@@ -13,16 +13,16 @@ async function call<T>(url: string, body?: unknown, signal?: AbortSignal): Promi
   return data as T;
 }
 
-export function OrderFiscalPanel({ lang, orderId, admin, onSaved }: { lang: Language; orderId: string; admin: boolean; onSaved: () => void }) {
+export function OrderFiscalPanel({ lang, orderId, admin, onSaved, onEvidence, compact = false }:  { lang: Language; orderId: string; admin: boolean; compact?: boolean; onSaved: () => void; onEvidence?: (orderId: string, evidence: { deferred: boolean; issued: boolean; uncertain: boolean }) => void }) {
   const t = (key: string) => messages[lang][key] ?? key;
   const [view, setView] = useState<FiscalOrderView | null>(null), [method, setMethod] = useState("");
   const [error, setError] = useState(""), [busy, setBusy] = useState(false), [report, setReport] = useState<{ jobId: string; status: string; receiptNumber: string; deviceSerial: string; totalBani: number } | null>(null);
   const [refresh, setRefresh] = useState(0), requestId = useRef<string | null>(null);
   useEffect(() => {
     const controller = new AbortController();
-    void call<FiscalOrderView>("order?id=" + encodeURIComponent(orderId), undefined, controller.signal).then((data) => { if (!controller.signal.aborted) { setView(data); setMethod(data.expectedPaymentMethod); } }).catch((e: Error) => { if (!controller.signal.aborted) setError(e.message); });
+    void call<FiscalOrderView>("order?id=" + encodeURIComponent(orderId), undefined, controller.signal).then((data) => { if (!controller.signal.aborted) { setView(data); setMethod(data.expectedPaymentMethod); onEvidence?.(orderId, { deferred: data.collectionDeferred, issued: data.receipts.some(r => r.mode === "live" && r.state === "issued"), uncertain: data.receipts.some(r => r.state === "uncertain") }); } }).catch((e: Error) => { if (!controller.signal.aborted) setError(e.message); });
     return () => controller.abort();
-  }, [orderId, refresh]);
+  }, [orderId, refresh, onEvidence]);
   async function post(path: string, data: unknown) {
     setBusy(true); setError("");
     try { await call(path, data); setRefresh((n) => n + 1); onSaved(); return true; }
@@ -51,10 +51,17 @@ export function OrderFiscalPanel({ lang, orderId, admin, onSaved }: { lang: Lang
         {admin && ["prepared", "uncertain"].includes(receipt.state) && <ReceiptResolution key={receipt.id + ":" + receipt.revision} receipt={receipt} lang={lang} busy={busy} submit={(body) => post("resolve", body)} />}
       </article>);
   const locked = view?.receipts.some((receipt) => receipt.mode === "live" && receipt.state !== "not_issued");
-  if (view?.collectionDeferred && view.receipts.length === 0) return null;
-  return <section className="pay-panel fiscal-panel">
+  if (view?.collectionDeferred && view.receipts.length === 0) return compact ? <p className="compact-billing"><strong>{t("compactMonthly")}</strong></p> : null;
+  const prepared = view?.receipts.find(r => r.mode === "live" && r.state === "prepared" && r.day === today() && Date.parse(r.expiresAt) > Date.now());
+  const issued = view?.receipts.find(r => r.mode === "live" && r.state === "issued");
+  return <section className={"pay-panel fiscal-panel" + (compact ? " compact-fiscal" : "")}>
+    {compact && view && !view.collectionDeferred && <div className="compact-fiscal-main">
+      <p>{t("expectedPaymentMethod")}: <strong>{t(view.expectedPaymentMethod ? "payMethod_" + view.expectedPaymentMethod : "fiscalUnknownMethod")}</strong></p>
+      {issued ? <strong>✓ {t("fiscal_state_issued")} · #{issued.receiptNumber}</strong> : prepared ? <a className="button" href={"/api/fiscal/job?id=" + prepared.id} download>{t("fiscalDownload")}</a> : <button className="button" disabled={busy || locked || !view.expectedPaymentMethod} onClick={() => void prepare()}>{t(view.settings.mode === "simulation" ? "fiscalPrepareTest" : "fiscalPrepare")}</button>}
+    </div>}
+
     {actionable.some((receipt) => receipt.state === "uncertain") && <p role="alert" className="portal-alert">{t("fiscal_state_uncertain")}</p>}
-    <WorkspaceDetails title={t("simpleReceipt")} hint={view ? (attentionReceipt ? t("fiscal_state_" + attentionReceipt.state) : view.settings.mode === "simulation" ? t("simpleReceiptTest") : view.receipts.length ? t("fiscal_state_" + view.receipts[0].state) : t("simpleReceiptNone")) : t("loading")} attention={needsAttention || !!error || !!report}>
+    <WorkspaceDetails title={t("simpleReceipt")} hint={view ? (attentionReceipt ? t("fiscal_state_" + attentionReceipt.state) : view.settings.mode === "simulation" ? t("simpleReceiptTest") : view.receipts.length ? t("fiscal_state_" + view.receipts[0].state) : t("simpleReceiptNone")) : t("loading")} attention={(compact ? actionable.some(r => r.state === "uncertain") : needsAttention) || !!error || !!report}>
     {error && <p role="alert" className="portal-alert">{t(error)} <button className="text-button" onClick={() => { setError(""); setRefresh((n) => n + 1); }}>{t("refresh")}</button></p>}
     {!view ? <p>{t("loading")}</p> : <>
       {view.collectionDeferred ? <p>{t("PAYMENT_MONTHLY_INVOICE")}</p> : <>
@@ -63,7 +70,7 @@ export function OrderFiscalPanel({ lang, orderId, admin, onSaved }: { lang: Lang
       </select></label>{method !== view.expectedPaymentMethod && <button className="button secondary" disabled={busy || locked} onClick={() => void post("method", { orderId, revision: view.revision, method })}>{t("fiscalSaveMethod")}</button>}</div>
       <p>{t("fiscalMethodHint")}</p>
       <p><strong>{t(view.settings.mode === "simulation" ? "fiscalSimulation" : "fiscalLive")}</strong> {view.settings.deviceSerial}</p>
-      <button className="button" disabled={busy || locked || !view.expectedPaymentMethod || method !== view.expectedPaymentMethod} onClick={() => void prepare()}>{t(view.settings.mode === "simulation" ? "fiscalPrepareTest" : "fiscalPrepare")}</button>
+      {!compact && <button className="button" disabled={busy || locked || !view.expectedPaymentMethod || method !== view.expectedPaymentMethod} onClick={() => void prepare()}>{t(view.settings.mode === "simulation" ? "fiscalPrepareTest" : "fiscalPrepare")}</button>}
       </>}
 
       {actionable.map(receiptCard)}

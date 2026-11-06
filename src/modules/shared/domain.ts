@@ -283,3 +283,12 @@ export function overviewCards(dayOrders: Order[]): OverviewCard[] {
     card("delivery", deliveries.filter((o) => o.delivery === "delivered").length, deliveries.length, deliveries.filter((o) => o.delivery === "transit").length),
   ];
 }
+
+/** Display only; never authorizes dispatch or records a payment. */
+export function orderDocumentTone(o: Pick<Order, "status" | "production" | "delivery">, e: { deferred: boolean; issued: boolean; uncertain: boolean } | null): "neutral" | "orange" | "yellow" | "blue" | "green" {
+  if (o.status !== "confirmed") return "neutral";
+  if (o.delivery === "delivered") return "green";
+  if (o.delivery === "transit") return "blue";
+  if (o.delivery === "failed" || o.production !== "ready" || !e) return "neutral";
+  return !e.uncertain && (e.deferred || e.issued) ? "yellow" : "orange";
+}

@@ -1,4 +1,6 @@
 "use client";
+import DeliveryNotesPanel from "./delivery-notes-panel";
+import { orderDocumentTone } from "@/src/modules/shared/domain";
 import { dateFormatter, numberFormatter } from "@/src/modules/shared/format";
 import PackingWorkspace from "./packing-workspace";
 import OrderEntryForm from "./order-entry-form";
@@ -61,12 +63,12 @@ import PurchasingWorkspace from "./purchasing-workspace";
 import ProductionWorkspace, { ProductionWarning } from "./production-workspace";
 import DayCloseWorkspace from "./day-close-workspace";
 import AvizSettingsWorkspace from "./aviz-settings-workspace";
-import CashWorkspace, { OrderPaymentPanel } from "./cash-workspace";
+import CashWorkspace from "./cash-workspace";
 import { OrderFiscalPanel } from "./fiscal-workspace";
 import AccountingWorkspace from "./accounting-workspace";
 import WorkspaceNavigation from "./workspace-navigation";
 import WorkspaceDetails from "./workspace-details";
-import BillingWorkspace, { OrderInvoicePanel } from "./billing-workspace";
+import BillingWorkspace from "./billing-workspace";
 import ArchiveWorkspace from "./archive-workspace";
 import { VersionInfo } from "./version-info";
 import FulfillmentWorkspace from "./fulfillment-workspace";
@@ -80,7 +82,7 @@ import SafetyWorkspace from "./safety-workspace";
 import { emptySafety } from "@/src/modules/safety/domain";
 import AccessWorkspace from "./access-workspace";
 import { tabsFor, isMember, isAdmin, canWrite, isSettingsTab, type Session } from "@/src/modules/access/domain";
-import DeliveryWorkspace, { OrderDeliveryEditor } from "./delivery-workspace";
+import DeliveryWorkspace from "./delivery-workspace";
 import { emptyDelivery } from "@/src/modules/delivery/domain";
 import { emptyPurchasing } from "@/src/modules/purchasing/domain";
 import { emptyOperations } from "@/src/modules/inventory/domain";
@@ -232,10 +234,8 @@ export default function KitchenApp() {
   const [toast, setToast] = useState("");
   const [modal, setModal] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const [collectionPolicy, setCollectionPolicy] = useState<{ orderId: string; deferred: boolean | null } | null>(null);
-  const onCollectionLoaded = useCallback((orderId: string, deferred: boolean) => {
-    setCollectionPolicy((current) => current?.orderId === orderId ? { orderId, deferred } : current);
-  }, []);
+  const [receiptEvidence, setReceiptEvidence] = useState<{ orderId: string; deferred: boolean; issued: boolean; uncertain: boolean } | null>(null);
+  const onReceiptEvidence = useCallback((orderId: string, evidence: { deferred: boolean; issued: boolean; uncertain: boolean }) => setReceiptEvidence({ orderId, ...evidence }), []);
   const [mobile, setMobile] = useState(false);
   const [orderId, setOrderId] = useState("");
   const [deliveryNote, setDeliveryNote] = useState("");
@@ -342,9 +342,9 @@ export default function KitchenApp() {
     }
   }
   function detail(o: Order) {
+    setReceiptEvidence(null);
     setDeliveryNote("");
     setSelected(o.id);
-    setCollectionPolicy({ orderId: o.id, deferred: null });
     open("detail");
   }
   async function change(o: Order, field: string, value: string) {
@@ -1463,7 +1463,7 @@ export default function KitchenApp() {
         )}
         {modal && (
           <Modal
-            title={t(
+            title={modal === "detail" && selectedOrder ? selectedOrder.customerName : t(
               modal === "order"
                 ? "newOrder"
                 : modal === "product"
@@ -1474,7 +1474,7 @@ export default function KitchenApp() {
             )}
             close={() => !busy && setModal(null)}
             closeLabel={t("close")}
-            className={modal === "order" ? "order-entry-modal" : undefined}
+            className={modal === "order" ? "order-entry-modal" : modal === "detail" && selectedOrder ? "order-detail-modal tone-" + orderDocumentTone(selectedOrder, receiptEvidence?.orderId === selectedOrder.id ? receiptEvidence : null) : undefined}
           >
             {error && (
               <div role="alert" className="error-banner">
@@ -1487,12 +1487,10 @@ export default function KitchenApp() {
                   <span className="eyebrow">
                     #{orderCode(selectedOrder.id)}
                   </span>
-                  <Badge state={selectedOrder.status} />
+                  {/* v93: a „Visszaigazolva” nem kell, az állapotsáv mutatja; csak az eltérő állapot (pl. lemondva) látszik. */}
+                  {selectedOrder.status !== "confirmed" && <Badge state={selectedOrder.status} />}
                 </div>
                 {data.recurring.occurrences.some(o=>o.orderId===selectedOrder.id) && <p className="detail-note">{t("recurringSource")} · {data.recurring.templates.find(template=>template.id===data.recurring.occurrences.find(o=>o.orderId===selectedOrder.id)?.templateId)?.name}</p>}
-                <h3 className="detail-customer">
-                  {selectedOrder.customerName}
-                </h3>
                 <p className="detail-address">{selectedOrder.address}</p>
                 <p className="detail-date">
                   {selectedOrder.date} · {selectedOrder.time}
@@ -1506,9 +1504,6 @@ export default function KitchenApp() {
                         <span>
                           <strong>{t("dailyMenu")}</strong>
                           <small>{line.items.map((i) => title(i)).join(" · ")}</small>
-                          <small>
-                            {[...new Set(line.items.flatMap((i) => i.allergens.split(",").filter(Boolean)))].map(t).join(" · ")}
-                          </small>
                         </span>
                         <span>×{line.quantity}</span>
                         <strong>{money(line.total)}</strong>
@@ -1517,13 +1512,6 @@ export default function KitchenApp() {
                       <div key={line.item.id}>
                         <span>
                           <strong>{title(line.item)}</strong>
-                          <small>
-                            {line.item.allergens
-                              .split(",")
-                              .filter(Boolean)
-                              .map(t)
-                              .join(" · ")}
-                          </small>
                         </span>
                         <span>×{line.item.quantity}</span>
                         <strong>{money(line.item.quantity * line.item.price)}</strong>
@@ -1537,18 +1525,15 @@ export default function KitchenApp() {
                   <strong>{money(total(selectedOrder))}</strong>
                 </div>
                 <section className="order-next-step" aria-label={t("simpleNextStep")}>
-                <div className="state-grid">
+                <ol className="order-detail-progress" aria-label={t("simpleNextStep")}>
                   {[
-                    ["production", selectedOrder.production],
-                    ["delivery", selectedOrder.delivery],
-                    ["payment", selectedOrder.payment],
-                  ].filter(([label]) => label !== "payment" || !["owner", "admin", "dispatcher"].includes(session.role) || (collectionPolicy?.orderId === selectedOrder.id && collectionPolicy.deferred === false)).map(([label, state]) => (
-                    <div key={label}>
-                      <small>{t(label==="delivery"&&selectedOrder.fulfillmentMode==="pickup"?"fulfillPickupStatus":label)}</small>
-                      <Badge state={state} label={label==="delivery"&&selectedOrder.fulfillmentMode==="pickup"&&state==="delivered"?"fulfillPickedUp":undefined} />
-                    </div>
-                  ))}
-                </div>
+                    ["stageAccepted", selectedOrder.status === "confirmed"],
+                    ["stageCooking", selectedOrder.production === "cooking" || selectedOrder.production === "ready"],
+                    ["progressReady", selectedOrder.production === "ready"],
+                    ...(selectedOrder.fulfillmentMode === "pickup" ? [] : [["stageTransit", selectedOrder.delivery === "transit" || selectedOrder.delivery === "delivered"]]),
+                    ["stageCompleted", selectedOrder.delivery === "delivered"],
+                  ].map(([label, reached]) => <li key={String(label)} className={reached ? "is-reached" : ""}>{t(String(label))}</li>)}
+                </ol>
                 {selectedOrder.status === "confirmed" && (
                   <div className="detail-actions">
                     {selectedOrder.fulfillmentMode==='pickup'&&can('orders/state',{field:'delivery'})&&selectedOrder.production==='ready'&&selectedOrder.delivery==='pending'&&<Button onClick={()=>void change(selectedOrder,'delivery','delivered')}>{t('fulfillCollected')}</Button>}
@@ -1572,19 +1557,6 @@ export default function KitchenApp() {
                         {t("markReady")}
                       </Button>
                     )}
-                    {selectedOrder.fulfillmentMode!=="pickup" && can("orders/state",{field:"delivery"}) && selectedOrder.production === "ready" &&
-                      ["pending", "failed"].includes(
-                        selectedOrder.delivery,
-                      ) && (
-                        <Button
-                          onClick={() =>
-                            void change(selectedOrder, "delivery", "transit")
-                          }
-                        >
-                          <Truck size={16} />
-                          {t("dispatch")}
-                        </Button>
-                      )}
                     {can("orders/state",{field:"delivery"}) && selectedOrder.delivery === "transit" && (
                       <>
                         <Button
@@ -1624,17 +1596,13 @@ export default function KitchenApp() {
                 )}
                 </section>
                 {selectedOrder.note && (
-                  <p className="detail-note">{selectedOrder.note}</p>
+                  <aside className="detail-note"><strong>{t("note")}</strong><p>{selectedOrder.note}</p></aside>
                 )}
-                {selectedOrder.status === "confirmed" && <WorkspaceDetails title={t("simpleDeliveryOptions")} hint={t("simpleDeliveryHint")} attention={selectedOrder.delivery === "transit" || selectedOrder.delivery === "failed"}>
-                {selectedOrder.fulfillmentMode!=="pickup" && selectedOrder.status === "confirmed" && <OrderDeliveryEditor key={"delivery-"+selectedOrder.id+":"+selectedOrder.revision} data={data} lang={lang} busy={busy} mutate={mutate} order={selectedOrder} canSwitch={can("delivery/to-pickup")}/>}
-                {can("orders/state",{field:"delivery"}) && selectedOrder.status === "confirmed" && selectedOrder.delivery !== "delivered" && <div className="detail-delivery-note"><Field label={t("deliveryNote")}><textarea maxLength={500} value={deliveryNote} onChange={e=>setDeliveryNote(e.target.value)}/></Field><small>{t("recordedResult")}</small></div>}
-                </WorkspaceDetails>}
                 {selectedOrder.status==="requested" && can("orders/state",{field:"status"}) && <OrderRequestReview key={"review-"+selectedOrder.id+":"+selectedOrder.revision} order={selectedOrder} lang={lang} busy={busy} mutate={mutate}/>}
                 {selectedOrder.reviewNote && <p className="portal-review-note">{selectedOrder.reviewNote}</p>}
-                {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <OrderPaymentPanel key={"pay-"+selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} expectedMethod={selectedOrder.expectedPaymentMethod} canEdit onCollectionLoaded={onCollectionLoaded} onSaved={() => void load()} />}
-                {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <OrderFiscalPanel key={"fiscal-"+selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} admin={isAdmin(session.role)} onSaved={() => void load()} />}
-                {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <OrderInvoicePanel key={"inv-"+selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} onSaved={() => void load()} />}
+                {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && <OrderFiscalPanel compact key={"fiscal-"+selectedOrder.id+":"+selectedOrder.revision} lang={lang} orderId={selectedOrder.id} admin={isAdmin(session.role)} onEvidence={onReceiptEvidence} onSaved={() => void load()} />}
+                {(isAdmin(session.role) || session.role === "dispatcher") && selectedOrder.status === "confirmed" && selectedOrder.fulfillmentMode !== "pickup" && <DeliveryNotesPanel key={selectedOrder.id} lang={lang} date={selectedOrder.date} orderId={selectedOrder.id} dispatchReady={selectedOrder.production === "ready" && ["pending", "failed"].includes(selectedOrder.delivery) && can("orders/state",{field:"delivery"}) && receiptEvidence?.orderId === selectedOrder.id && !receiptEvidence.uncertain && (receiptEvidence.deferred || receiptEvidence.issued)} onDispatch={() => change(selectedOrder, "delivery", "transit")} dispatchBusy={busy} />}
+
 
               </>
             ) : modal === "order" ? (

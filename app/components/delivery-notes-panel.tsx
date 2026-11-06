@@ -19,7 +19,7 @@ type NotesDay = {
  * Avizok a Csomagolás fülön (v75): rendelésenként „Aviz” gomb – az első megnyomás kiállítja és megnyitja nyomtatásra,
  * az ismételt ugyanazt nyitja meg. A nap összes avizja egyben is nyomtatható. Sztornó: iroda; beállítás: admin.
  */
-export default function DeliveryNotesPanel({ lang, date }: { lang: Language; date: string }) {
+export default function DeliveryNotesPanel({ lang, date, orderId, dispatchReady, onDispatch, dispatchBusy }: { lang: Language; date: string; orderId?: string; dispatchReady?: boolean; onDispatch?: () => Promise<unknown>; dispatchBusy?: boolean }) {
   const t = (k: string) => (messages[lang] as Record<string, string>)[k] ?? k;
   const [data, setData] = useState<NotesDay | null>(null);
   const [error, setError] = useState("");
@@ -42,6 +42,7 @@ export default function DeliveryNotesPanel({ lang, date }: { lang: Language; dat
       );
   }, [date]);
   useEffect(() => {
+    try { setVehicle(localStorage.getItem("gastro-last-aviz-vehicle") ?? ""); } catch { /* Storage may be disabled. */ }
     load();
   }, [load]);
 
@@ -65,13 +66,29 @@ export default function DeliveryNotesPanel({ lang, date }: { lang: Language; dat
     // Az ablakot a kattintásban nyitjuk meg (különben a böngésző letiltja), és a kiállítás után töltjük be.
     const win = window.open("", "_blank");
     const cars = data?.vehicles ?? [];
-    const v = await post("issue", { orderId, ...(cars.length ? { vehicle: vehicle || cars[0] } : {}) });
+    const selectedVehicle = cars.includes(vehicle) ? vehicle : cars[0];
+    const v = await post("issue", { orderId, ...(cars.length ? { vehicle: selectedVehicle } : {}) });
+    if (v?.id && selectedVehicle) { try { localStorage.setItem("gastro-last-aviz-vehicle", selectedVehicle); } catch { /* Optional preference. */ } }
     if (v?.id && win) win.location.href = "/api/delivery-notes/print?id=" + v.id;
     else win?.close();
   }
 
-  const rows = data?.orders.filter((o) => o.required || o.notes.length) ?? [];
+  const rows = data?.orders.filter((o) => (!orderId || o.id === orderId) && (o.required || o.notes.length)) ?? [];
   const anyIssued = rows.some((o) => o.notes.some((n) => n.kind === "issue" && n.status === "issued"));
+  if (orderId) {
+    const order = data?.orders.find(o => o.id === orderId);
+    const active = order?.notes.find(n => n.kind === "issue" && n.status === "issued");
+    return <section className="compact-order-documents">
+      {error && <p role="alert" className="portal-alert">{t(error)}</p>}
+      {!data ? <p>{t("loading")}</p> : !order ? <p role="alert">{t("loadError")}</p> : <>
+        {active ? <a className="compact-aviz-number" href={"/api/delivery-notes/print?id=" + active.id} target="_blank" rel="noreferrer">✓ Aviz: {active.number} · {t("notesOpen")}</a> : order.required && <>
+          {!!data.vehicles?.length && <label>{t("avizVehicle")} <select aria-label={t("avizVehicle")} value={data.vehicles.includes(vehicle) ? vehicle : data.vehicles[0]} disabled={busy} onChange={e => setVehicle(e.target.value)}>{data.vehicles.map(v => <option key={v}>{v}</option>)}</select></label>}
+          <button className="button" disabled={busy || !order.issuable} onClick={() => void issue(order.id)}><FileText size={18}/>{t("notesIssue")}</button>
+        </>}
+        {onDispatch && <button className="button compact-dispatch" disabled={!dispatchReady || busy || dispatchBusy || (order.required && !active)} onClick={() => void onDispatch()}>{t("compactHandoff")}</button>}
+      </>}
+    </section>;
+  }
   return (
     <section className="panel notes-panel packing-no-print">
       <div className="panel-heading">
@@ -81,9 +98,9 @@ export default function DeliveryNotesPanel({ lang, date }: { lang: Language; dat
           </h2>
           <p>{t("notesIntro")}</p>
         </div>
-        <a className={"button secondary" + (anyIssued ? "" : " is-disabled")} aria-disabled={!anyIssued} href={anyIssued ? "/api/delivery-notes/print?date=" + date : undefined} target="_blank" rel="noreferrer">
+        {!orderId && <a className={"button secondary" + (anyIssued ? "" : " is-disabled")} aria-disabled={!anyIssued} href={anyIssued ? "/api/delivery-notes/print?date=" + date : undefined} target="_blank" rel="noreferrer">
           <Printer size={16} /> {t("notesPrintDay")}
-        </a>
+        </a>}
       </div>
       {error && (
         <p role="alert" className="portal-alert">
