@@ -9,8 +9,10 @@ const daily = new Set(["overview", "orders", "kitchen", "packing", "delivery", "
 export default function WorkspaceNavigation({ entries, lang, onNavigate }: { entries: Entry[]; lang: Language; onNavigate: (id: string) => void }) {
   const t = (key: string) => messages[lang][key] ?? key;
   const primary = entries.filter((entry) => daily.has(entry.id));
-  const secondary = entries.filter((entry) => !daily.has(entry.id) && entry.id !== "settings");
-  const settings = entries.filter((entry) => entry.id === "settings");
+  // v101: a Könyvelés közvetlenül a Beállítások fölött áll, nem a „További funkciók” között.
+  const bottom = ["bookkeeping", "settings"];
+  const secondary = entries.filter((entry) => !daily.has(entry.id) && !bottom.includes(entry.id));
+  const settings = bottom.flatMap((id) => entries.filter((entry) => entry.id === id));
   const item = ({ id, label, Icon, active, count }: Entry) => <button key={id} className={active ? "active" : ""} aria-current={active ? "page" : undefined} onClick={() => onNavigate(id)}>
     <Icon size={19} /><span>{messages[lang]["simpleNav_" + id] ?? label}</span>{!!count && <span className="nav-count">{count}</span>}
   </button>;
