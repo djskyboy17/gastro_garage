@@ -114,6 +114,8 @@ export type BcContent = {
   lines: BcLine[];
   totalValue: number;
   reason?: string;
+  /** v92: aki a napot lezárta – gestionar és primitor egy személyben, elektronikusan aláírva. */
+  signer?: { name: string; at: string };
   dailyBatches?: { batchId: string; code: string; product: { hu: string; ro: string }; actual: number; totalValue: number; consumed: number }[];
 };
 

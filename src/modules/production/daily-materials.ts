@@ -29,7 +29,7 @@ export async function saveReadyBatch(batch: ProductionBatch, actual: number, iss
 }
 
 /** Builds one combined BC and every stock/BP change; the caller commits these with the day close. */
-export async function dailyMaterialStatements(day: string, actor: string, now: string, handover: boolean) {
+export async function dailyMaterialStatements(day: string, actor: string, now: string, handover: boolean, signerName = "") {
  const DB=env.DB!;
  const rows=(await DB.prepare("SELECT batch_id AS batchId,day,content,consumption_id AS consumptionId,revision FROM production_materials WHERE day=? AND consumption_id IS NULL ORDER BY batch_id").bind(day).all<Material>()).results;
  const statements:D1PreparedStatement[]=[];
@@ -60,7 +60,7 @@ export async function dailyMaterialStatements(day: string, actor: string, now: s
   }
  }
  const first=JSON.parse(rows[0].content) as Snapshot;
- const content:BcContent={batch:{id:rows[0].batchId,code:'ZI-'+day,day},product:{hu:'Napi anyagfelhasználás',ro:'Consum zilnic – toate preparatele'},portions:{actual:details.reduce((s,b)=>s+b.actual,0),issuedBefore:rows.reduce((sum,r)=>sum+(JSON.parse(r.content) as Snapshot).portions.issuedBefore,0),consumed:details.reduce((s,b)=>s+b.consumed,0)},recipe:first.recipe,note:'Centralizator zilnic. Rețetele și cantitățile sunt fixate la înregistrarea producției.',lines:[...combined.values()],totalValue:details.reduce((s,b)=>s+b.totalValue,0),dailyBatches:details};
+ const content:BcContent={batch:{id:rows[0].batchId,code:'ZI-'+day,day},product:{hu:'Napi anyagfelhasználás',ro:'Consum zilnic – toate preparatele'},portions:{actual:details.reduce((s,b)=>s+b.actual,0),issuedBefore:rows.reduce((sum,r)=>sum+(JSON.parse(r.content) as Snapshot).portions.issuedBefore,0),consumed:details.reduce((s,b)=>s+b.consumed,0)},recipe:first.recipe,note:'Centralizator zilnic. Rețetele și cantitățile sunt fixate la înregistrarea producției.',...(signerName?{signer:{name:signerName,at:now}}:{}),lines:[...combined.values()],totalValue:details.reduce((s,b)=>s+b.totalValue,0),dailyBatches:details};
  if(new TextEncoder().encode(JSON.stringify(content)).length>90000)throw new ProductionError('DAILY_MATERIALS_TOO_LARGE');
  const bc=allocateDocumentNumber('consumption',day,now);
  statements.unshift(...bc.statements,DB.prepare(`INSERT INTO consumption_documents(id,batch_id,year,number,kind,status,issue_date,content,created_by,created_at) VALUES(?,?,?,${bc.numberSql},'consumption','issued',?,?,?,?)`).bind(consumptionId,rows[0].batchId,bc.year,...bc.numberBinds,day,JSON.stringify(content),actor,now));
@@ -72,11 +72,11 @@ export async function dailyMaterialStatements(day: string, actor: string, now: s
 }
 
 /** Reopening preserves the ready portions but reverses only the new daily posting, never legacy batch BCs. */
-export async function reverseDailyMaterials(day:string,reason:string,actor:string,now:string){
+export async function reverseDailyMaterials(day:string,reason:string,actor:string,now:string,signerName=''){
  const DB=env.DB!,statements:D1PreparedStatement[]=[];
  const docs=(await DB.prepare("SELECT DISTINCT c.id,c.batch_id AS batchId,c.content FROM production_materials m JOIN consumption_documents c ON c.id=m.consumption_id WHERE m.day=? AND c.status='issued'").bind(day).all<{id:string;batchId:string;content:string}>()).results;
  for(const doc of docs){
-  const original=JSON.parse(doc.content) as BcContent,content=reversalBc(original,reason),issueDate=today(),bc=allocateDocumentNumber('consumption',issueDate,now),id=crypto.randomUUID();
+  const original=JSON.parse(doc.content) as BcContent,content={...reversalBc(original,reason),...(signerName?{signer:{name:signerName,at:now}}:{})},issueDate=today(),bc=allocateDocumentNumber('consumption',issueDate,now),id=crypto.randomUUID();
   statements.push(...bc.statements,DB.prepare(`INSERT INTO consumption_documents(id,batch_id,year,number,kind,status,reversal_of,issue_date,content,created_by,created_at) VALUES(?,?,?,${bc.numberSql},'reversal','issued',?,?,?,?,?)`).bind(id,doc.batchId,bc.year,...bc.numberBinds,doc.id,issueDate,JSON.stringify(content),actor,now),DB.prepare("UPDATE consumption_documents SET status='reversed',reversed_by=? WHERE id=? AND status='issued'").bind(id,doc.id));
   const moves=(await DB.prepare("SELECT s.lot_id AS lotId,s.batch_id AS batchId,s.quantity FROM stock_moves s JOIN production_materials m ON m.batch_id=s.batch_id WHERE m.consumption_id=? AND s.kind IN ('production','production_reversal')").bind(doc.id).all<{lotId:string;batchId:string;quantity:number}>()).results;
   const net=new Map<string,{lotId:string;batchId:string;quantity:number}>();for(const move of moves){const key=move.batchId+'|'+move.lotId;const old=net.get(key);if(old)old.quantity+=move.quantity;else net.set(key,{...move});}

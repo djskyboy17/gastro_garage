@@ -149,7 +149,7 @@ export async function accountingReport(kind: "week" | "month", value: string) {
     if (document.type === "delivery_note") sections.push(noteSection(JSON.parse(document.content) as DeliveryNoteContent, title, document.issueDate, options.reversalOf));
     else {
       let html: string;
-      if (document.type === "consumption") html = renderBcHtml(JSON.parse(document.content) as BcContent, title, options);
+      if (document.type === "consumption") html = renderBcHtml(JSON.parse(document.content) as BcContent, title, { ...options, company: company.split(" · ")[0] });
       else if (document.type === "nir") html = renderNirHtml(JSON.parse(document.content) as NirContent, title, { ...options, company });
       else if (document.type === "handover") html = renderHandoverHtml(JSON.parse(document.content) as HandoverContent, title, options);
       else html = renderWriteOffHtml(JSON.parse(document.content) as WriteOffContent, title, options);

@@ -88,11 +88,12 @@ test("Example 4: BC reversal negates every quantity and value, per lot", () => {
   assert.equal(r.lines[0]!.lots[0]!.lotId, "early");
   assert.equal(r.totalValue, -320000);
   assert.equal(r.reason, "hibás adagszám");
-  const html = renderBcHtml(content, "BC-2026-0001");
+  const html = renderBcHtml({ ...content, signer: { name: "Kiss Éva", at: "2026-11-04T18:00:00Z" } }, "BC-2026-0001", { company: "GASTRO GARAGE S.R.L." });
   assert.match(html, /BON DE CONSUM/);
   assert.match(html, /BC-2026-0001/);
   assert.match(html, /L261104-ABCD/);
-  assert.match(html, /din care 5 consumate anterior/);
+  // v92: a minta szerinti fej és a lezáró neve gestionarként és primitorként, elektronikus aláírással
+  assert.ok(html.includes("GASTRO GARAGE S.R.L.") && html.includes("Cantitate<br>eliberată") && (html.match(/Kiss Éva/g) ?? []).length === 2 && html.includes("Semnat electronic"));
   assert.match(html, /3\.200,00|3200,00/);
   assert.match(renderBcHtml(r, "BC-2026-0002", { reversalOf: "BC-2026-0001" }), /STORNO la BC-2026-0001 – motiv: hibás adagszám/);
   assert.doesNotMatch(renderBcHtml({ ...content, product: { ro: "<script>x</script>", hu: "" } }, "N"), /<script>x/);

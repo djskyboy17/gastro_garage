@@ -126,3 +126,9 @@ A stock_issues szerinti korábbi kiadást már az adagszám mentésekor levonjuk
 A bon de predare az új halasztott tételnél a napi anyagkiadáskor készül végleges anyagértékkel. A könyvelési profil tétellezárási triggerének kivétele kizárólag a production_materials-ban már rögzített, még nem könyvelt tételre vonatkozik. Lezárt napra új tétel vagy mennyiség/recept/állapot módosítása adatbázisszinten is tiltott.
 
 Elfogadás: rendelés nélkül 7 és 11 adag, adagonként 10 g közös alapanyag. Mentés után a 100 g nyersanyag változatlan és aviz kiállítható; napi zárás hiánnyal teljesen megáll. 100 g pótlás után egyetlen BC 180 g / 1800 bani, 20 g marad. Dupla/egyidejű zárásból csak az egyik sikerül. Újranyitás 200 g-ra állít vissza, újrazárás ismét 20 g-ra. A napi BC az admin napi zárási nézetéből, mobil HU/RO felületen is megnyitható.
+
+## Bon de consum nyomtatási képe – v92 (2026-11-06, a tulajdonos mintája szerint)
+- Fej: „BON DE CONSUM”; Unitatea (cégnév a Cégadatokból), Gestiunea predatoare: Bucătărie; Nr. doc., Data, Nr. comandă / Cod produs (tételkód).
+- Táblázat: Nr. crt., Denumirea materialelor, U.M., Cantitate necesară, Cantitate eliberată, Preț unitar (RON), Valoare (RON), 0–6 oszlopszámozással; Total.
+- Alul: Gestionar / Semnătura / Primitor / Semnătura. Raktáros nincs: a napot lezáró személy neve kerül mindkét helyre, „Semnat electronic” jelöléssel és időponttal (lezáráskor a BC-be rögzítve; sztornónál a sztornózóé). Régi BC-n üres marad.
+- Ami a mintán nincs (adagszám, recept, tételek lejárata), a nyomtatásról kikerült; az adatbázisban megmarad.

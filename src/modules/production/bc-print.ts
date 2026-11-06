@@ -14,32 +14,41 @@ function unitView(unit: string, quantity: number) {
 const qty = (v: number) => v.toLocaleString("ro-RO", { maximumFractionDigits: 3 });
 const roDate = (iso: string) => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.slice(8, 10) + "." + iso.slice(5, 7) + "." + iso.slice(0, 4) : iso);
 
-export function renderBcHtml(c: BcContent, numberText: string, options: { reversalOf?: string; issueDate?: string } = {}) {
+/**
+ * Bon de consum (v92, a könyvelő mintája szerint): Unitatea, Gestiunea predatoare, Nr. doc., Data, Nr. comandă / Cod produs;
+ * tételek: Nr. crt., Denumire, U.M., Cantitate necesară, Cantitate eliberată, Preț unitar, Valoare; Total; Gestionar / Primitor
+ * aláírással. Gestionar és primitor ugyanaz a személy (aki a napot lezárta), elektronikus aláírással.
+ */
+export function renderBcHtml(c: BcContent, numberText: string, options: { reversalOf?: string; issueDate?: string; company?: string } = {}) {
   const rows = c.lines
     .map((l, i) => {
       const plan = unitView(l.unit, l.planned),
         used = unitView(l.unit, l.quantity);
-      const lots = l.lots.map((x) => `${esc(x.batch)} (${esc(roDate(x.expires))}): ${qty(unitView(l.unit, x.quantity).quantity)}`).join("<br>");
-      return `<tr><td>${i + 1}</td><td>${esc(l.name)}</td><td>${used.unit}</td><td class="n">${qty(plan.quantity)}</td><td class="n">${qty(used.quantity)}</td><td class="n">${lei(l.value)}</td><td><small>${lots}</small></td></tr>`;
+      const unitPrice = used.quantity ? l.value / used.quantity : 0;
+      return `<tr><td class="c">${i + 1}</td><td>${esc(l.name)}</td><td class="c">${used.unit}</td><td class="n">${qty(plan.quantity)}</td><td class="n">${qty(used.quantity)}</td><td class="n">${lei(Math.round(unitPrice))}</td><td class="n">${lei(l.value)}</td></tr>`;
     })
     .join("");
   const reversal = options.reversalOf ? `<p class="storno">STORNO la ${esc(options.reversalOf)}${c.reason ? " – motiv: " + esc(c.reason) : ""}</p>` : "";
+  const date = roDate(options.issueDate ?? c.batch.day).replace(/\./g, "/");
+  const signed = c.signer?.name ? `<b>${esc(c.signer.name)}</b>` : "";
+  const mark = c.signer?.name ? `Semnat electronic<br><small>${esc(new Intl.DateTimeFormat("ro-RO", { timeZone: "Europe/Bucharest", dateStyle: "short", timeStyle: "short" }).format(new Date(c.signer.at)))}</small>` : "";
   return `<!doctype html><html lang="ro"><head><meta charset="utf-8"><title>${esc(numberText)}</title><style>
 body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;margin:24px}
-h1{font-size:18px;margin:0 0 4px}header{display:flex;justify-content:space-between;gap:16px;margin-bottom:14px}
-.meta p{margin:2px 0}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #444;padding:4px 5px;vertical-align:top}
-th{background:#eee;font-size:11px}td small{color:#555;font-size:10px}.n{text-align:right;white-space:nowrap}
-tfoot td{font-weight:bold}.storno{color:#a00;font-weight:bold}.sigs{display:flex;gap:24px;margin-top:28px;flex-wrap:wrap}
-.sig{min-width:180px;border-top:1px solid #444;padding-top:4px}.sig small{display:block;color:#555}
+h1{font-size:17px;text-align:center;margin:0 0 14px}.head{display:flex;justify-content:space-between;gap:24px;margin-bottom:10px}
+.head p{margin:3px 0}.head span{display:inline-block;min-width:150px}
+table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:3px 5px;vertical-align:top}
+th{font-size:11px;font-weight:bold}.idx td{text-align:center;font-size:10px;padding:1px}.n{text-align:right;white-space:nowrap}.c{text-align:center}
+.total td{border:0;text-align:right;font-weight:bold;padding-top:6px}.storno{color:#a00;font-weight:bold}
+.sign{margin-top:18px}.sign th{text-align:left}.sign td{height:42px}
 @media print{body{margin:10mm}}
 </style></head><body>
-<header><div><h1>BON DE CONSUM</h1><p><b>Nr. ${esc(numberText)}</b> din ${esc(roDate(options.issueDate ?? c.batch.day))}</p>${reversal}</div>
-<div class="meta"><p>Produs: <b>${esc(c.product.ro)}</b></p><p>Lot producție: <b>${esc(c.batch.code)}</b> · data producției ${esc(roDate(c.batch.day))}</p>
-<p>Porții realizate: ${c.portions.actual}${c.portions.issuedBefore ? ` (din care ${c.portions.issuedBefore} consumate anterior pe comandă)` : ""} · porții consumate: ${c.portions.consumed}</p>
-${c.dailyBatches ? `<p>Producție: ${c.dailyBatches.map(b=>esc(b.product.ro)+" × "+b.actual+" ("+esc(b.code)+")").join("; ")}</p>` : `<p>Rețetă: versiunea ${c.recipe.version}</p>`}${c.note ? `<p>Observații: ${esc(c.note)}</p>` : ""}</div></header>
-<table><thead><tr><th>Nr.</th><th>Materie primă</th><th>U.M.</th><th>Cant. rețetă</th><th>Cant. consumată</th><th>Valoare (lei)</th><th>Lot (expiră): cantitate</th></tr></thead>
-<tbody>${rows}</tbody><tfoot><tr><td colspan="5">Total</td><td class="n">${lei(c.totalValue)}</td><td></td></tr></tfoot></table>
-<div class="sigs"><div class="sig"><span>&nbsp;</span><small>Predat (gestionar)</small></div><div class="sig"><span>&nbsp;</span><small>Primit (bucătărie)</small></div></div>
+<h1>BON DE CONSUM</h1>${reversal}
+<div class="head"><div><p><span>Unitatea:</span><b>${esc(options.company ?? "")}</b></p><p><span>Gestiunea predatoare:</span>Bucătărie</p></div>
+<div><p><span>Nr. doc.:</span><b>${esc(numberText)}</b></p><p><span>Data:</span>${esc(date)}</p><p><span>Nr. comandă / Cod produs:</span>${esc(c.batch.code)}</p></div></div>
+<table><thead><tr><th>Nr.<br>crt.</th><th>Denumirea materialelor</th><th>U.M.</th><th>Cantitate<br>necesară</th><th>Cantitate<br>eliberată</th><th>Preț unitar (RON)</th><th>Valoare (RON)</th></tr>
+<tr class="idx"><td>0</td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td></tr></thead>
+<tbody>${rows}</tbody><tfoot><tr class="total"><td colspan="7">Total: ${lei(c.totalValue)}</td></tr></tfoot></table>
+<table class="sign"><tr><th>Gestionar</th><th>Semnătura</th><th>Primitor</th><th>Semnătura</th></tr><tr><td>${signed}</td><td>${mark}</td><td>${signed}</td><td>${mark}</td></tr></table>
 </body></html>`;
 }
 

@@ -158,7 +158,7 @@ async function candidates(limit: number): Promise<Candidate[]> {
     for (const r of rows) {
       const text = await documentNumberText("consumption", r.year, r.number);
       const original = r.reversalOf ? await DB.prepare("SELECT year,number FROM consumption_documents WHERE id=?").bind(r.reversalOf).first<{ year: number; number: number }>() : null;
-      const page = renderBcHtml(JSON.parse(r.content) as BcContent, text, { issueDate: r.issueDate, ...(original ? { reversalOf: await documentNumberText("consumption", original.year, original.number) } : {}) });
+      const page = renderBcHtml(JSON.parse(r.content) as BcContent, text, { issueDate: r.issueDate, company: (await loadCompanyProfile()).name, ...(original ? { reversalOf: await documentNumberText("consumption", original.year, original.number) } : {}) });
       out.push({ type: "BON_CONSUM", sourceTable: "consumption_documents", sourceId: r.id, version: 1, number: text, partner: OWN_PARTNER, partnerName: "", issueDate: r.issueDate, mime: HTML, bytes: html(page) });
     }
   }

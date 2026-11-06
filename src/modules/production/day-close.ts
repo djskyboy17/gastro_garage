@@ -229,7 +229,7 @@ export async function handleDayClose(path: string, body: unknown, session: Sessi
     if (view.pendingDay) throw new ProductionError("DAY_EARLIER_OPEN", 409);
     const plan = planDayClose(d.date, view.products, view.lots, d.inputs as DayInput[]);
     if (plan.errors.length) throw new ProductionError(plan.errors[0]!.code);
-    const materials = await dailyMaterialStatements(d.date, actor, now, view.handoverEnabled);
+    const materials = await dailyMaterialStatements(d.date, actor, now, view.handoverEnabled, session.name);
     const lots = new Map(view.lots.map((l) => [l.batchId, l]));
     const statements: D1PreparedStatement[] = [
       DB.prepare(
@@ -307,7 +307,7 @@ export async function handleDayClose(path: string, body: unknown, session: Sessi
       }
     }
     statements.push(
-      ...await reverseDailyMaterials(d.date,d.reason,actor,now),
+      ...await reverseDailyMaterials(d.date,d.reason,actor,now,session.name),
       DB.prepare("DELETE FROM finished_moves WHERE day=?").bind(d.date),
       DB.prepare("UPDATE production_day_closes SET status='open',revision=revision+1,write_off_id=NULL,closed_by=NULL,closed_at=NULL WHERE day=? AND status='closed' AND revision=?").bind(d.date, d.revision),
     );

@@ -7,7 +7,7 @@ import { validDay } from "../menu/domain";
 import { lotCode } from "../labels/domain";
 import { explodeRecipe, latestRecipe } from "../inventory/domain";
 import { loadOperations } from "../inventory/server";
-import { allocateDocumentNumber } from "../documents/server";
+import { allocateDocumentNumber, loadCompanyProfile } from "../documents/server";
 import { DOCUMENT_TYPES, formatDocumentNumber } from "../documents/domain";
 import { committeeNames } from "../invoices/domain";
 import {
@@ -170,7 +170,7 @@ export async function handleProduction(path: string, body: unknown, session: Ses
     if (!row) throw new ProductionError("NOT_FOUND", 404);
     const numberText = await bcNumbers();
     const original = row.reversalOf ? await DB.prepare("SELECT year,number FROM consumption_documents WHERE id=?").bind(row.reversalOf).first<{ year: number; number: number }>() : null;
-    const html = renderBcHtml(JSON.parse(row.content) as BcContent, numberText(row.year, row.number), { issueDate: row.issueDate, ...(original ? { reversalOf: numberText(original.year, original.number) } : {}) });
+    const html = renderBcHtml(JSON.parse(row.content) as BcContent, numberText(row.year, row.number), { issueDate: row.issueDate, company: (await loadCompanyProfile()).name, ...(original ? { reversalOf: numberText(original.year, original.number) } : {}) });
     return new Response(html, {
       headers: { "Content-Type": "text/html; charset=utf-8", "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'", "Cache-Control": "private, no-store" },
     });
