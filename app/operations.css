@@ -467,3 +467,10 @@
 /* v71: futó változat a Beállítások alján */
 .version-info{margin-top:18px;font-size:13px;color:#8a947f}
 .version-info strong{color:#4d5c45}
+
+/* v104: receptek összecsukható sorokban */
+.recipe-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}.recipe-toolbar input{flex:1 1 220px;padding:9px 11px;border:1px solid #cfd8c3;border-radius:9px;font:inherit}.recipe-toolbar .button.selected{background:#1f3b2f;color:#fff}
+.recipe-list.recipe-folds{display:grid;grid-template-columns:1fr;gap:8px}
+.recipe-fold{padding:10px 14px}.recipe-fold>summary{cursor:pointer;list-style:none}.recipe-fold>summary::-webkit-details-marker{display:none}
+.recipe-fold:not([open])>summary{margin:0}.recipe-fold[open]{padding-bottom:14px}
+.recipe-fold .recipe-ingredients{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:0 18px;margin-top:10px}

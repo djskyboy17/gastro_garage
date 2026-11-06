@@ -107,6 +107,8 @@ export default function OperationsWorkspace({
       : number(n) + " " + t(unit);
   const ingredient = (id: string) => ops.ingredients.find((i) => i.id === id);
   const [section, setSection] = useState("lots");
+  const [recipeQuery, setRecipeQuery] = useState("");
+  const [recipeFilter, setRecipeFilter] = useState<"all" | "daily" | "alacarte" | "missing">("all");
   // v99: keresés a raktárban (alapanyag magyar/román neve, beszállító, tételszám, bizonylat); ékezetek nélkül is talál.
   const [query, setQuery] = useState("");
   // v100: több tétel kijelölése és selejtezése egy proces-verballal.
@@ -547,12 +549,27 @@ export default function OperationsWorkspace({
               </div>
             )}
           </section>
-          <div className="recipe-list">
-            {data.products.map((p) => {
+          {/* v104: receptek áttekinthetően – kereső, szűrő, ételenként egy összecsukható sor. */}
+          <div className="recipe-toolbar">
+            <input type="search" placeholder={t("recipeSearch")} value={recipeQuery} onChange={(e) => setRecipeQuery(e.target.value)} />
+            {(["all", "daily", "alacarte", "missing"] as const).map((k) => (
+              <button key={k} type="button" className={"button secondary" + (recipeFilter === k ? " selected" : "")} aria-pressed={recipeFilter === k} onClick={() => setRecipeFilter(k)}>
+                {t("recipeFilter_" + k)}
+              </button>
+            ))}
+          </div>
+          <div className="recipe-list recipe-folds">
+            {data.products.filter((p) => {
+              const r = latestRecipe(p.id, ops.recipes);
+              if (recipeFilter === "daily" && p.section !== "daily") return false;
+              if (recipeFilter === "alacarte" && p.section === "daily") return false;
+              if (recipeFilter === "missing" && r) return false;
+              return !recipeQuery.trim() || norm(p.hu + " " + p.ro).includes(norm(recipeQuery.trim()));
+            }).map((p) => {
               const r = latestRecipe(p.id, ops.recipes);
               return (
-                <article className="panel recipe-panel" key={p.id}>
-                  <div className="recipe-title">
+                <details className="panel recipe-panel recipe-fold" key={p.id}>
+                  <summary className="recipe-title">
                     <span className="food-icon">
                       <ChefHat size={22} />
                     </span>
@@ -570,19 +587,27 @@ export default function OperationsWorkspace({
                             ops.recipes.filter((v) => v.productId === p.id)
                               .length +
                             " " +
-                            t("versions")
+                            t("versions") +
+                            " · " +
+                            r.lines.length +
+                            " " +
+                            t("recipeIngredientCount") +
+                            " · " +
+                            money(Math.round(recipeCost(r, ops.ingredients, ops.preparationVersions) / Math.max(1, r.yield))) +
+                            " / " +
+                            t("recipePortion")
                           : t("missingRecipe")}
                       </small>
                     </div>
                     <button
                       className="button secondary"
                       disabled={!ops.ingredients.length || busy}
-                      onClick={() => open("recipe", p.id)}
+                      onClick={(e) => { e.preventDefault(); open("recipe", p.id); }}
                     >
                       <Plus size={14} />
                       {t(r ? "newVersion" : "newRecipe")}
                     </button>
-                  </div>
+                  </summary>
                   {r ? (
                     <>
                       <div className="recipe-ingredients">
@@ -636,7 +661,7 @@ export default function OperationsWorkspace({
                   ) : (
                     <p className="quiet-empty">{t("noRecipes")}</p>
                   )}
-                </article>
+                </details>
               );
             })}
           </div>
