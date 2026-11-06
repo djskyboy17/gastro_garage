@@ -54,6 +54,24 @@ th{font-size:11px;font-weight:bold}.idx td{text-align:center;font-size:10px;padd
 
 /** Selejt napi proces-verbalja (v74) – román nyomtatási kép a pillanatképből. */
 export function renderWriteOffHtml(c: import("./finished.ts").WriteOffContent, numberText: string, options: { reversalOf?: string; issueDate?: string } = {}) {
+  if (c.kind === "materials") {
+    // v100: alapanyagok scoatere din gestiune – Unitatea, comisia, tételenként lot, lejárat, mennyiség, egységár, érték, motiv.
+    const mrows = c.lines
+      .map((l, i) => {
+        const u = unitView(l.unit ?? "g", l.quantity);
+        return `<tr><td>${i + 1}</td><td>${esc(l.ro)}</td><td>${esc(l.code)}</td><td>${esc(roDate(l.batchDay))}</td><td>${u.unit}</td><td class="n">${qty(u.quantity)}</td><td class="n">${lei(u.quantity ? Math.round(l.value / u.quantity) : 0)}</td><td class="n">${lei(l.value)}</td><td>${esc(l.reason)}</td></tr>`;
+      })
+      .join("");
+    const mrev = options.reversalOf ? `<p class="storno">STORNO la ${esc(options.reversalOf)}${c.reason ? " – motiv: " + esc(c.reason) : ""}</p>` : "";
+    const members = (c.committee.length ? c.committee : ["", "", ""]).map((n) => `<div class="sig"><span>${esc(n) || "&nbsp;"}</span><small>Membru comisie · semnătura</small></div>`).join("");
+    const gest = c.signer?.name ? `<div class="sig"><span><b>${esc(c.signer.name)}</b></span><small>Gestionar · semnat electronic ${esc(new Intl.DateTimeFormat("ro-RO", { timeZone: "Europe/Bucharest", dateStyle: "short", timeStyle: "short" }).format(new Date(c.signer.at)))}</small></div>` : `<div class="sig"><span>&nbsp;</span><small>Gestionar</small></div>`;
+    return page(numberText, `<header><div><h1>PROCES-VERBAL DE CONSTATARE ȘI SCOATERE DIN GESTIUNE</h1><p><b>Nr. ${esc(numberText)}</b> din ${esc(roDate(options.issueDate ?? c.day))}</p>${mrev}</div>
+<div class="meta"><p>Unitatea: <b>${esc(c.company ?? "")}</b></p><p>Gestiunea: Bucătărie (materii prime)</p></div></header>
+<p>Comisia, întrunită astăzi, a constatat că bunurile de mai jos sunt expirate / degradate și nu mai pot fi utilizate, și propune scoaterea lor din gestiune și distrugerea.</p>
+<table><thead><tr><th>Nr.</th><th>Denumire</th><th>Lot</th><th>Expiră</th><th>U.M.</th><th>Cantitate</th><th>Preț unitar (lei)</th><th>Valoare (lei)</th><th>Motiv</th></tr></thead>
+<tbody>${mrows}</tbody><tfoot><tr><td colspan="7">Total</td><td class="n">${lei(c.totalValue)}</td><td></td></tr></tfoot></table>
+<p>Comisia:</p><div class="sigs">${members}</div><div class="sigs">${gest}</div>`);
+  }
   const rows = c.lines
     .map((l, i) => `<tr><td>${i + 1}</td><td>${esc(l.ro)}</td><td>${esc(l.code)}<small> (${esc(roDate(l.batchDay))})</small></td><td>porții</td><td class="n">${l.quantity}</td><td>${esc(l.reason)}</td><td class="n">${lei(l.value)}</td></tr>`)
     .join("");

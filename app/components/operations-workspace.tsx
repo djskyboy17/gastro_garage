@@ -109,6 +109,22 @@ export default function OperationsWorkspace({
   const [section, setSection] = useState("lots");
   // v99: keresés a raktárban (alapanyag magyar/román neve, beszállító, tételszám, bizonylat); ékezetek nélkül is talál.
   const [query, setQuery] = useState("");
+  // v100: több tétel kijelölése és selejtezése egy proces-verballal.
+  const [woSel, setWoSel] = useState<Record<string, string>>({});
+  const [woReason, setWoReason] = useState("Expirat");
+  const [woNote, setWoNote] = useState("");
+  async function writeOff() {
+    const id = crypto.randomUUID();
+    const lines = Object.entries(woSel).map(([lotId, q]) => ({ lotId, quantity: Math.round(Number(q.replace(",", "."))) }));
+    if (lines.some((l) => !Number.isFinite(l.quantity) || l.quantity <= 0)) return;
+    const win = window.open("", "_blank");
+    const ok = await onSave("operations/write-off", { id, reason: woReason + (woNote.trim() ? " – " + woNote.trim() : ""), lines });
+    if (ok) {
+      setWoSel({});
+      setWoNote("");
+      if (win) win.location.href = "/api/production/doc?id=" + id;
+    } else win?.close();
+  }
   const norm = (v: string) => v.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   const hit = (...parts: (string | undefined | null)[]) => !query.trim() || norm(parts.filter(Boolean).join(" ")).includes(norm(query.trim()));
   const [modal, setModal] = useState<string | null>(null);
@@ -682,11 +698,42 @@ export default function OperationsWorkspace({
             <input type="search" value={query} maxLength={60} onChange={(e) => setQuery(e.target.value)} />
           </label>
           <section className="panel">
+            {section === "lots" && Object.keys(woSel).length > 0 && (
+              <div className="writeoff-panel">
+                <strong>{t("writeOffTitle")}</strong>
+                {Object.entries(woSel).map(([lotId, q]) => {
+                  const l = ops.lots.find((x) => x.id === lotId);
+                  const i = l ? ingredient(l.ingredientId) : undefined;
+                  return (
+                    <label key={lotId} className="writeoff-line">
+                      <span>{i ? name(i) : "—"} · {l?.batch}</span>
+                      <input inputMode="decimal" value={q} disabled={busy} onChange={(e) => setWoSel({ ...woSel, [lotId]: e.target.value })} />
+                      <small>{i?.unit ?? "g"} / {l ? fmt(l.remaining, i?.unit ?? "g") : ""}</small>
+                    </label>
+                  );
+                })}
+                <label className="writeoff-line">
+                  <span>{t("writeOffReason")}</span>
+                  <select value={woReason} disabled={busy} onChange={(e) => setWoReason(e.target.value)}>
+                    {["Expirat", "Degradat", "Deteriorat", "Altele"].map((r) => (
+                      <option key={r}>{r}</option>
+                    ))}
+                  </select>
+                  <input value={woNote} maxLength={200} placeholder={t("writeOffNote")} disabled={busy} onChange={(e) => setWoNote(e.target.value)} />
+                </label>
+                <div className="production-actions">
+                  <button type="button" className="button" disabled={busy} onClick={() => void writeOff()}>{t("writeOffSubmit")}</button>
+                  <button type="button" className="button secondary" disabled={busy} onClick={() => setWoSel({})}>{t("cancel")}</button>
+                </div>
+                <small>{t("writeOffHint")}</small>
+              </div>
+            )}
             {section === "lots" && (
               <div className="table-wrap">
                 <table>
                   <thead>
                     <tr>
+                      <th />
                       <th>{t("ingredients")}</th>
                       <th>{t("batch")}</th>
                       <th>{t("received")}</th>
@@ -704,6 +751,9 @@ export default function OperationsWorkspace({
                         const i = ingredient(l.ingredientId);
                         return (
                           <tr key={l.id}>
+                            <td>
+                              <input type="checkbox" aria-label={t("writeOffSelect")} disabled={busy || l.remaining <= 0} checked={woSel[l.id] !== undefined} onChange={(e) => { const next = { ...woSel }; if (e.target.checked) next[l.id] = String(l.remaining); else delete next[l.id]; setWoSel(next); }} />
+                            </td>
                             <td>
                               <strong>{i ? name(i) : "—"}</strong>
                               <small>{l.supplier}</small>

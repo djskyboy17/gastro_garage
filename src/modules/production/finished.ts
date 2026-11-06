@@ -154,9 +154,13 @@ export function labelAllocation(
 export type WriteOffContent = {
   day: string;
   committee: string[];
-  lines: { productId: string; ro: string; hu: string; code: string; batchDay: string; quantity: number; reason: string; value: number }[];
+  lines: { productId: string; ro: string; hu: string; code: string; batchDay: string; quantity: number; reason: string; value: number; unit?: string }[];
   totalValue: number;
   reason?: string;
+  /** v100: alapanyag-selejt a raktárból (a sorok raktári tételek, mennyiség alapegységben). */
+  kind?: "materials";
+  company?: string;
+  signer?: { name: string; at: string };
 };
 /** Bon de predare tartalma (a kész étel átadása a készletbe). */
 export type HandoverContent = {

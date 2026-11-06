@@ -1,5 +1,7 @@
 import { env } from "cloudflare:workers";
-import { eq, desc, gte } from "drizzle-orm";
+import { eq, desc, gte, inArray } from "drizzle-orm";
+import { allocateDocumentNumber, loadCompanyProfile } from "../documents/server";
+import type { WriteOffContent } from "../production/finished";
 import { z } from "zod";
 import { getDb } from "@/db";
 import {
@@ -25,6 +27,7 @@ import {
   latestRecipe,
   latestPreparation,
   emptyOperations,
+  costFor,
   type OperationsData,
 } from "./domain";
 import {
@@ -203,6 +206,7 @@ export async function handleOperations(
   path: string,
   body: unknown,
   actor: string,
+  actorName = "",
 ): Promise<Response | null> {
   if (!path.startsWith("/api/operations/")) return null;
   const db = getDb(),
@@ -571,6 +575,52 @@ export async function handleOperations(
         .values(log("stock_received", d.id, ingredient.hu + " · " + d.batch)),
     ]);
     return json({ ok: true, id: d.id }, 201);
+  }
+  // v100: több raktári tétel selejtezése egy lépésben, PV-vel (PVC sorozat, production_documents write_off, kind: materials).
+  if (path === "/api/operations/write-off") {
+    const d = z.object({ id: z.string().uuid(), reason: text(300), lines: z.array(z.object({ lotId: text(), quantity: qty })).min(1).max(100) }).parse(body);
+    const DB = env.DB!;
+    if (await DB.prepare("SELECT id FROM production_documents WHERE id=?").bind(d.id).first()) return json({ ok: true, id: d.id });
+    const lotRows = await db.select().from(stockLots).where(inArray(stockLots.id, d.lines.map((l) => l.lotId)));
+    const ingRows = await db.select().from(ingredients).where(inArray(ingredients.id, lotRows.map((l) => l.ingredientId)));
+    const lines = d.lines.map((l) => {
+      const lot = lotRows.find((x) => x.id === l.lotId);
+      if (!lot) throw new OperationError("INVALID_ITEM");
+      if (lot.remaining < l.quantity) throw new OperationError("INSUFFICIENT_STOCK");
+      const ing = ingRows.find((x) => x.id === lot.ingredientId);
+      return { productId: lot.ingredientId, ro: ing?.ro ?? "", hu: ing?.hu ?? "", code: lot.batch, batchDay: lot.expires, quantity: l.quantity, unit: ing?.unit ?? "g", reason: d.reason, value: costFor(l.quantity, lot.totalCost, lot.quantity) };
+    });
+    const settings = await DB.prepare("SELECT write_off_committee AS c FROM production_settings WHERE id=1").first<{ c: string }>();
+    const issueDate = today();
+    const content: WriteOffContent = {
+      day: issueDate,
+      kind: "materials",
+      company: (await loadCompanyProfile()).name,
+      committee: (settings?.c ?? "").split(/[\n,;]+/).map((x) => x.trim()).filter(Boolean),
+      lines,
+      totalValue: lines.reduce((s, l) => s + l.value, 0),
+      ...(actorName ? { signer: { name: actorName, at: now } } : {}),
+    };
+    const doc = allocateDocumentNumber("write_off", issueDate, now);
+    const statements: D1PreparedStatement[] = [...doc.statements];
+    for (const l of d.lines) {
+      // Ha közben elfogyott a tétel, a napló szereplője NULL lesz, és az egész köteg visszagörgetődik.
+      statements.push(
+        DB.prepare("INSERT INTO audit (id,actor,action,entity,detail,created_at) VALUES (?,CASE WHEN (SELECT remaining FROM stock_lots WHERE id=?)>=? THEN ? ELSE NULL END,'stock_write_off',?,?,?)").bind(crypto.randomUUID(), l.lotId, l.quantity, actor, l.lotId, JSON.stringify({ quantity: l.quantity, reason: d.reason, pv: d.id }), now),
+        DB.prepare("UPDATE stock_lots SET remaining=remaining-? WHERE id=?").bind(l.quantity, l.lotId),
+        DB.prepare("INSERT INTO stock_moves (id,lot_id,issue_id,quantity,kind,note,created_at) VALUES (?,?,NULL,?,'waste',?,?)").bind(crypto.randomUUID(), l.lotId, -l.quantity, "PV: " + d.reason, now),
+      );
+    }
+    statements.push(
+      DB.prepare(`INSERT INTO production_documents (id,doc_type,year,number,kind,status,reversal_of,reversed_by,issue_date,day,batch_id,content,created_by,created_at) VALUES (?,'write_off',?,${doc.numberSql},'issue','issued',NULL,NULL,?,?,NULL,?,?,?)`).bind(d.id, doc.year, ...doc.numberBinds, issueDate, issueDate, JSON.stringify(content), actor, now),
+    );
+    try {
+      await DB.batch(statements);
+    } catch (e) {
+      if (/NOT NULL/i.test(String(e))) throw new OperationError("INSUFFICIENT_STOCK");
+      throw e;
+    }
+    return json({ ok: true, id: d.id });
   }
   if (path === "/api/operations/waste") {
     const d = z

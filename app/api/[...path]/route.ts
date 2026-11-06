@@ -247,7 +247,7 @@ async function handle(req: Request, write: boolean) {
     if (deliveryResponse) return deliveryResponse;
     const purchaseResponse = await handlePurchasing(path, body, actor);
     if (purchaseResponse) return purchaseResponse;
-    const operationResponse = await handleOperations(path, body, actor);
+    const operationResponse = await handleOperations(path, body, actor, session.name);
     if (operationResponse) return operationResponse;
     const log = (action: string, entity: string, detail: string) => ({
       id: crypto.randomUUID(),

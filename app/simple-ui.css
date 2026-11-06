@@ -157,3 +157,8 @@
 @media(max-width:600px){.order-detail-modal .modal-header h2{font-size:23px}.order-detail-modal .detail-total strong{font-size:26px}}
 
 .inventory-search{max-width:420px;margin:12px 0}.inventory-search input{font-size:16px}
+
+/* v100: selejtezés több tétellel */
+.writeoff-panel{display:grid;gap:8px;margin:0 0 12px;padding:12px 14px;border:1px solid #e0b25c;background:#fff8ec;border-radius:12px}
+.writeoff-line{display:grid;grid-template-columns:minmax(0,1fr) 120px auto;gap:8px;align-items:center}.writeoff-line input,.writeoff-line select{padding:7px 9px;border:1px solid #cfd8c3;border-radius:8px;font:inherit}
+@media(max-width:600px){.writeoff-line{grid-template-columns:1fr 100px}}
